@@ -1,0 +1,322 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
+from app.database import get_db
+from app.models.user import User
+from app.models.test import TypingTest, TestMode, TestStatus, KeystrokeEvent
+from app.models.passage import Passage
+from app.models.analytics import UserAnalytics
+from app.schemas.test import (
+    StartTestRequest,
+    StartTestResponse,
+    SubmitTestRequest,
+    TestResultResponse,
+    TestHistoryItem,
+    KeystrokeReplay,
+)
+from app.api.deps import get_current_user
+from app.services.error_engine import error_engine, SSCErrorEngine
+from app.services.typing_engine import typing_engine, TypingEngine
+from app.services.qualification_predictor import qualification_predictor
+from app.services.ai_coach import ai_coach
+from app.services.analytics import analytics_service
+from app.services.passage_service import passage_service
+from typing import List, Optional
+from uuid import UUID, uuid4
+from datetime import datetime
+
+router = APIRouter()
+
+
+@router.post("/start", response_model=StartTestResponse)
+async def start_test(
+    data: StartTestRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    passage = None
+    if data.passage_id:
+        passage = await passage_service.get_passage(db, data.passage_id)
+        if not passage:
+            raise HTTPException(status_code=404, detail="Passage not found")
+    else:
+        passage = await passage_service.get_random_passage(db)
+        if not passage:
+            raise HTTPException(status_code=404, detail="No passage available")
+
+    test = TypingTest(
+        id=uuid4(),
+        user_id=current_user.id,
+        passage_id=passage.id,
+        mode=data.mode,
+        status=TestStatus.IN_PROGRESS,
+        duration_seconds=data.duration_seconds,
+        original_content=passage.content,
+        started_at=datetime.utcnow(),
+    )
+    db.add(test)
+    await db.flush()
+
+    typing_engine.create_session(str(test.id), passage.content, data.duration_seconds)
+
+    return StartTestResponse(
+        test_id=test.id,
+        passage={
+            "id": str(passage.id),
+            "title": passage.title,
+            "content": passage.content,
+            "language": passage.language.value,
+            "word_count": passage.word_count,
+            "exact_key_depressions": passage.exact_key_depressions,
+        },
+        mode=data.mode,
+        duration_seconds=data.duration_seconds,
+        started_at=test.started_at,
+    )
+
+
+@router.post("/{test_id}/submit", response_model=TestResultResponse)
+async def submit_test(
+    test_id: UUID,
+    data: SubmitTestRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(TypingTest).where(TypingTest.id == test_id, TypingTest.user_id == current_user.id))
+    test = result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    if test.status == TestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Test already submitted")
+
+    test.typed_content = data.typed_content
+    test.time_taken_seconds = data.time_taken_seconds
+    test.status = TestStatus.COMPLETED
+    test.completed_at = datetime.utcnow()
+
+    error_report = error_engine.evaluate(
+        original=test.original_content or "",
+        typed=data.typed_content,
+        duration_seconds=data.time_taken_seconds,
+        mode=test.mode.value,
+    )
+
+    test.gross_wpm = error_report.gross_wpm
+    test.net_wpm = error_report.net_wpm
+    test.accuracy = error_report.accuracy
+    test.error_percentage = error_report.error_percentage
+    test.key_depression_count = error_report.key_depression_count
+    test.correct_key_depressions = error_report.correct_key_depressions
+    test.incorrect_key_depressions = error_report.incorrect_key_depressions
+    test.omission_errors = error_report.omission_errors
+    test.addition_errors = error_report.addition_errors
+    test.wrong_word_errors = error_report.wrong_word_errors
+    test.substitution_errors = error_report.substitution_errors
+    test.formatting_errors = error_report.formatting_errors
+    test.space_errors = error_report.space_errors
+    test.total_errors = error_report.total_errors
+    test.total_words_typed = error_report.total_words_typed
+    test.total_correct_words = error_report.total_correct_words
+
+    metrics = typing_engine.compute_metrics(str(test_id), data.typed_content, test.original_content or "", data.time_taken_seconds)
+
+    test.backspace_count = metrics.backspace_count
+    test.pause_count = metrics.pause_count
+    test.total_pause_duration_seconds = metrics.total_pause_duration
+    test.avg_pause_duration = metrics.avg_pause_duration
+    test.longest_pause_duration = metrics.longest_pause_duration
+    test.time_utilization_percentage = metrics.time_utilization_percentage
+    test.consistency_score = metrics.consistency_score
+    test.typing_rhythm_score = metrics.typing_rhythm_score
+    test.weak_words = metrics.weak_words
+    test.error_zones = metrics.error_zones
+
+    test.is_qualified = error_engine.is_qualified_chsl(error_report.net_wpm, error_report.accuracy)
+    if test.mode == TestMode.SSC_CGL_DEST:
+        test.is_qualified = error_engine.is_qualified_cgl_dest(error_report.net_wpm, error_report.accuracy)
+
+    xp = self._calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
+    test.xp_earned = xp
+    current_user.xp += xp
+    current_user.total_tests_taken += 1
+    current_user.total_time_spent_seconds += int(data.time_taken_seconds)
+
+    if current_user.best_wpm is None or error_report.net_wpm > current_user.best_wpm:
+        current_user.best_wpm = error_report.net_wpm
+    if current_user.best_accuracy is None or error_report.accuracy > current_user.best_accuracy:
+        current_user.best_accuracy = error_report.accuracy
+
+    await passage_service.increment_usage(db, test.passage_id)
+    await analytics_service.update_user_analytics(db, current_user.id, test)
+
+    recent_tests_result = await db.execute(
+        select(TypingTest)
+        .where(TypingTest.user_id == current_user.id, TypingTest.status == TestStatus.COMPLETED)
+        .order_by(desc(TypingTest.completed_at))
+        .limit(20)
+    )
+    recent_tests = recent_tests_result.scalars().all()
+    recent_tests_data = [
+        {"net_wpm": t.net_wpm, "accuracy": t.accuracy, "consistency_score": t.consistency_score}
+        for t in recent_tests
+    ]
+
+    prediction = qualification_predictor.predict_chsl_qualification(recent_tests_data)
+    test.qualification_probability = prediction["probability"]
+
+    coach_feedback = ai_coach.generate_feedback(
+        test_data={
+            "accuracy": test.accuracy,
+            "net_wpm": test.net_wpm,
+            "backspace_count": test.backspace_count,
+            "pause_count": test.pause_count,
+            "total_pause_duration_seconds": test.total_pause_duration_seconds,
+            "time_taken_seconds": test.time_taken_seconds,
+            "weak_words": test.weak_words,
+            "consistency_score": test.consistency_score,
+            "space_errors": test.space_errors,
+            "typed_content": test.typed_content,
+            "original_content": test.original_content,
+        },
+        recent_tests=recent_tests_data,
+    )
+
+    for event_data in data.keystroke_events:
+        ke = KeystrokeEvent(
+            id=uuid4(),
+            test_id=test.id,
+            key=event_data.get("key", ""),
+            timestamp_ms=event_data.get("timestamp_ms", 0),
+            duration_ms=event_data.get("duration_ms", 0),
+            is_error=event_data.get("is_error", False),
+            is_backspace=event_data.get("is_backspace", False),
+            cursor_position=event_data.get("cursor_position"),
+            expected_char=event_data.get("expected_char"),
+        )
+        db.add(ke)
+
+    await db.flush()
+
+    return TestResultResponse(
+        test_id=test.id,
+        mode=test.mode,
+        gross_wpm=test.gross_wpm or 0,
+        net_wpm=test.net_wpm or 0,
+        accuracy=test.accuracy or 0,
+        error_percentage=test.error_percentage or 0,
+        key_depression_count=test.key_depression_count or 0,
+        total_errors=test.total_errors or 0,
+        omission_errors=test.omission_errors or 0,
+        addition_errors=test.addition_errors or 0,
+        wrong_word_errors=test.wrong_word_errors or 0,
+        substitution_errors=test.substitution_errors or 0,
+        formatting_errors=test.formatting_errors or 0,
+        space_errors=test.space_errors or 0,
+        time_taken_seconds=test.time_taken_seconds or 0,
+        time_utilization_percentage=test.time_utilization_percentage or 0,
+        backspace_count=test.backspace_count or 0,
+        pause_count=test.pause_count or 0,
+        total_pause_duration_seconds=test.total_pause_duration_seconds or 0,
+        typing_rhythm_score=test.typing_rhythm_score,
+        consistency_score=test.consistency_score,
+        is_qualified=test.is_qualified,
+        qualification_probability=test.qualification_probability,
+        xp_earned=xp,
+        weak_words=test.weak_words,
+        error_zones=test.error_zones,
+        feedback=coach_feedback.detailed_feedback,
+    )
+
+    def _calculate_xp(self, wpm: float, accuracy: float, mode: TestMode) -> int:
+        base_xp = 10
+        wpm_bonus = max(0, int((wpm - 20) * 2))
+        accuracy_bonus = max(0, int((accuracy - 80) * 0.5))
+        mode_multiplier = 1.5 if mode in (TestMode.MOCK, TestMode.TCS_ION_REPLICA) else 1.0
+        return int((base_xp + wpm_bonus + accuracy_bonus) * mode_multiplier)
+
+
+@router.get("/history", response_model=List[TestHistoryItem])
+async def get_test_history(
+    limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(TypingTest)
+        .where(TypingTest.user_id == current_user.id, TypingTest.status == TestStatus.COMPLETED)
+        .order_by(desc(TypingTest.completed_at))
+        .offset(offset)
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
+@router.get("/{test_id}/replay", response_model=KeystrokeReplay)
+async def get_test_replay(
+    test_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(TypingTest).where(TypingTest.id == test_id, TypingTest.user_id == current_user.id)
+    )
+    test = result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    events_result = await db.execute(
+        select(KeystrokeEvent).where(KeystrokeEvent.test_id == test_id).order_by(KeystrokeEvent.timestamp_ms)
+    )
+    events = events_result.scalars().all()
+
+    return KeystrokeReplay(
+        events=[{"key": e.key, "timestamp_ms": e.timestamp_ms, "duration_ms": e.duration_ms, "is_error": e.is_error, "is_backspace": e.is_backspace} for e in events],
+        original_content=test.original_content or "",
+        typed_content=test.typed_content or "",
+        total_duration_ms=int((test.time_taken_seconds or 0) * 1000),
+    )
+
+
+@router.get("/{test_id}", response_model=TestResultResponse)
+async def get_test_result(
+    test_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(TypingTest).where(TypingTest.id == test_id, TypingTest.user_id == current_user.id)
+    )
+    test = result.scalar_one_or_none()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    return TestResultResponse(
+        test_id=test.id,
+        mode=test.mode,
+        gross_wpm=test.gross_wpm or 0,
+        net_wpm=test.net_wpm or 0,
+        accuracy=test.accuracy or 0,
+        error_percentage=test.error_percentage or 0,
+        key_depression_count=test.key_depression_count or 0,
+        total_errors=test.total_errors or 0,
+        omission_errors=test.omission_errors or 0,
+        addition_errors=test.addition_errors or 0,
+        wrong_word_errors=test.wrong_word_errors or 0,
+        substitution_errors=test.substitution_errors or 0,
+        formatting_errors=test.formatting_errors or 0,
+        space_errors=test.space_errors or 0,
+        time_taken_seconds=test.time_taken_seconds or 0,
+        time_utilization_percentage=test.time_utilization_percentage or 0,
+        backspace_count=test.backspace_count or 0,
+        pause_count=test.pause_count or 0,
+        total_pause_duration_seconds=test.total_pause_duration_seconds or 0,
+        typing_rhythm_score=test.typing_rhythm_score,
+        consistency_score=test.consistency_score,
+        is_qualified=test.is_qualified,
+        qualification_probability=test.qualification_probability,
+        xp_earned=test.xp_earned,
+        weak_words=test.weak_words,
+        error_zones=test.error_zones,
+    )

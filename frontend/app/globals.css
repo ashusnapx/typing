@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --paper: #fdfbf7;
+    --pencil: #2d2d2d;
+    --muted: #e5e0d8;
+    --accent: #ff4d4d;
+    --blue-pen: #2d5da1;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #fdfbf7;
+    background-image: radial-gradient(#e5e0d8 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: #2d2d2d;
+    font-family: "Patrick Hand", cursive;
+  }
+}
+
+@layer components {
+  .wobbly {
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .wobbly-md {
+    border-radius: 60px 20px 80px 20px / 20px 60px 20px 80px;
+  }
+
+  .wobbly-sm {
+    border-radius: 30px 10px 40px 10px / 10px 30px 10px 40px;
+  }
+
+  .wobbly-lg {
+    border-radius: 120px 30px 150px 30px / 30px 120px 30px 150px;
+  }
+
+  .btn-hand {
+    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-white text-pencil font-hand text-lg shadow-hard transition-all duration-100;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .btn-hand:hover {
+    @apply bg-accent text-white shadow-hard-hover;
+    transform: translate(2px, 2px);
+  }
+
+  .btn-hand:active {
+    @apply shadow-none;
+    transform: translate(4px, 4px);
+  }
+
+  .btn-hand-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-muted text-pencil font-hand text-lg shadow-hard transition-all duration-100;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .btn-hand-secondary:hover {
+    @apply bg-blue-pen text-white shadow-hard-hover;
+    transform: translate(2px, 2px);
+  }
+
+  .btn-hand-secondary:active {
+    @apply shadow-none;
+    transform: translate(4px, 4px);
+  }
+
+  .btn-hand-sm {
+    @apply inline-flex items-center justify-center px-4 py-2 border-[3px] border-pencil bg-white text-pencil font-hand text-base shadow-hard-sm transition-all duration-100;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .btn-hand-sm:hover {
+    @apply bg-accent text-white shadow-hard-hover;
+    transform: translate(2px, 2px);
+  }
+
+  .btn-hand-sm:active {
+    @apply shadow-none;
+    transform: translate(4px, 4px);
+  }
+
+  .card-hand {
+    @apply bg-white border-2 border-pencil shadow-hard-sm;
+    border-radius: 60px 20px 80px 20px / 20px 60px 20px 80px;
+  }
+
+  .card-hand-lg {
+    @apply bg-white border-2 border-pencil shadow-hard;
+    border-radius: 60px 20px 80px 20px / 20px 60px 20px 80px;
+  }
+
+  .card-postit {
+    @apply bg-postit border-2 border-pencil shadow-hard-sm;
+    border-radius: 40px 15px 50px 15px / 15px 40px 15px 50px;
+  }
+
+  .input-hand {
+    @apply w-full px-4 py-3 bg-white border-2 border-pencil font-hand text-lg text-pencil placeholder:text-pencil/40 transition-all duration-100;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+
+  .input-hand:focus {
+    @apply border-blue-pen outline-none ring-2 ring-blue-pen/20;
+  }
+
+  .ssc-passage-text {
+    @apply font-mono text-sm leading-relaxed text-pencil;
+  }
+
+  .ssc-typing-area {
+    @apply w-full min-h-[200px] font-mono text-base leading-relaxed text-pencil bg-white border-2 border-pencil focus:border-blue-pen focus:outline-none resize-none p-4;
+    border-radius: 30px 10px 40px 10px / 10px 30px 10px 40px;
+  }
+
+  .ssc-timer {
+    @apply font-mono text-3xl font-bold text-accent;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold text-pencil font-marker;
+  }
+
+  .stat-label {
+    @apply text-base text-pencil/60 font-hand;
+  }
+
+  .tape {
+    @apply absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/10 rotate-[-3deg];
+  }
+
+  .tack {
+    @apply absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 bg-accent rounded-full border-2 border-pencil shadow-hard-sm;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  src: url('https://fonts.gstatic.com/s/notosansdevanagari/v26/TuGOUUQ1pDcF20TlFzSJRa7sU0.woff2') format('woff2');
+  font-display: swap;
+}

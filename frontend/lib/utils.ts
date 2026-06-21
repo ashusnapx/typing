@@ -45,6 +45,14 @@ export function getLevelFromXP(xp: number): number {
   return Math.floor(xp / 100) + 1;
 }
 
+export function normalizeCase(text: string): string {
+  if (!text || text.length < 5) return text;
+  const upperCount = (text.match(/\b[A-Z][a-z]/g) || []).length;
+  const wordCount = (text.match(/\b\w+/g) || []).length;
+  if (wordCount < 3 || upperCount < wordCount * 0.4) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
+
 export const wobblyStyle = {
   borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
 };

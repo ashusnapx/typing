@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,7 +47,55 @@ class PassageService:
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
+    def _format_content(self, content: str, language: Optional[str] = None) -> str:
+        if not content:
+            return content
+        if language == "hindi":
+            return content.strip()
+
+        text = content.strip()
+        text = re.sub(r'  +', ' ', text)
+
+        words = text.split()
+        title_case_words = sum(1 for w in words if w and w[0].isupper() and len(w) > 1)
+        total_words = len(words)
+
+        if total_words >= 5 and title_case_words > total_words * 0.8:
+            sentence_lowered = []
+            for i, w in enumerate(words):
+                if i == 0:
+                    sentence_lowered.append(w[0].upper() + w[1:].lower() if len(w) > 1 else w.upper())
+                else:
+                    sentence_lowered.append(w.lower())
+            text = ' '.join(sentence_lowered)
+
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        formatted = []
+        for s in sentences:
+            s = s.strip()
+            if s and not s[-1] in '.!?':
+                s += '.'
+            formatted.append(s)
+        text = ' '.join(formatted)
+
+        return text
+
     async def create_passage(self, db: AsyncSession, data: dict) -> Passage:
+        for field in ("content", "content_hindi", "title"):
+            if data.get(field):
+                cleaned = re.sub(r'<[^>]*>', '', str(data[field]))
+                cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', cleaned)
+                cleaned = cleaned.replace("javascript:", "").replace("data:", "").replace("vbscript:", "")
+                data[field] = cleaned[:10000]
+
+        if data.get("content"):
+            data["content"] = self._format_content(data["content"], data.get("language"))
+        if data.get("content_hindi"):
+            data["content_hindi"] = self._format_content(data["content_hindi"], "hindi")
+
         passage = Passage(**data)
         db.add(passage)
         await db.flush()

@@ -6,23 +6,22 @@ import { api } from '@/lib/api';
 import { supabase, getRandomPassage } from '@/lib/supabase';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
-import { formatTime, calculateWPM, calculateAccuracy } from '@/lib/utils';
+import { useTypingEngine } from '@/hooks/use-typing-engine';
+import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
+import { saveTestResult } from '@/lib/test-storage';
 import { TestMode } from '@/types';
 import { LoadingLogo } from '@/components/ui/loading-logo';
+import { TypingDisplay } from './typing-display';
 import {
   Timer,
-  Keyboard,
   Target,
   CheckCircle2,
   XCircle,
-  ArrowLeft,
   RotateCcw,
   BarChart3,
-  SkipBack,
 } from 'lucide-react';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
-const wobblyMd = { borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px' };
 
 interface TypingExamProps {
   mode: TestMode;
@@ -34,17 +33,24 @@ interface TypingExamProps {
 
 export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english', isTCSReplica = false }: TypingExamProps) {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, isLoading: authLoading, loadUser } = useAuthStore();
   const store = useTypingStore();
+  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [passage, setPassage] = useState<any>(null);
   const [countdown, setCountdown] = useState(3);
   const [phase, setPhase] = useState<'loading' | 'countdown' | 'typing' | 'submitting' | 'result'>('loading');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { initTest(); }, []);
+  useEffect(() => {
+    const waitAndInit = async () => {
+      if (authLoading) return;
+      initTest();
+    };
+    waitAndInit();
+  }, [authLoading]);
 
   useEffect(() => {
     if (store.isComplete && !showResult) submitTest();
@@ -55,16 +61,24 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       const category = mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined;
       const passageData = await getRandomPassage(category, undefined, lang);
       setPassage(passageData);
+      const fallbackContent = passageData?.content || 'Sample passage for typing practice.';
 
       if (user && passageData) {
-        try {
-          const test = await api.startTest(mode, passageData.id, durationSeconds);
-          store.startTest(test.test_id, mode, passageData.content, durationSeconds);
-        } catch {
-          store.startTest('local', mode, passageData?.content || '', durationSeconds);
+        let started = false;
+        for (let attempt = 0; attempt < 2 && !started; attempt++) {
+          try {
+            const test = await api.startTest(mode, passageData.id, durationSeconds);
+            store.startTest(test.test_id, mode, passageData.content, durationSeconds);
+            started = true;
+          } catch {
+            if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+          }
+        }
+        if (!started) {
+          store.startTest('local', mode, fallbackContent, durationSeconds);
         }
       } else {
-        store.startTest('local', mode, passageData?.content || '', durationSeconds);
+        store.startTest('local', mode, fallbackContent, durationSeconds);
       }
 
       setLoading(false);
@@ -89,10 +103,6 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
 
   const startTyping = () => {
     setPhase('typing');
-    const timerInterval = setInterval(() => {
-      store.tick();
-    }, 1000);
-    setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
   const submitTest = async () => {
@@ -104,19 +114,76 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         store.testId || 'local', store.typedContent, store.keystrokeEvents, store.elapsedSeconds
       );
       setResult(resultData);
-    } catch {
-      setResult({
-        net_wpm: store.wpm,
-        accuracy: store.accuracy,
-        gross_wpm: calculateWPM(store.typedContent.length, store.elapsedSeconds),
-        key_depression_count: store.typedContent.length,
-        total_errors: store.errors,
-        backspace_count: store.backspaces,
-        is_qualified: store.wpm >= (wpmTarget || 35) && store.accuracy >= 95,
+      saveTestResult({
+        wpm: resultData.net_wpm || 0,
+        accuracy: resultData.accuracy || 0,
+        mode,
+        qualified: !!resultData.is_qualified,
+        duration: durationSeconds,
+        gross_wpm: resultData.gross_wpm,
+        total_errors: resultData.total_errors,
+        key_depression_count: resultData.key_depression_count,
+        backspace_count: resultData.backspace_count,
       });
+      loadUser();
+      setPhase('result');
+      return;
+    } catch {
+      // Fall back to direct-submit if two-step flow failed
     }
+
+    if (store.testId === 'local' && passage && user) {
+      try {
+        const resultData = await api.directSubmit(
+          mode, passage.id, durationSeconds, store.typedContent, store.keystrokeEvents, store.elapsedSeconds
+        );
+        setResult(resultData);
+        saveTestResult({
+          wpm: resultData.net_wpm || 0,
+          accuracy: resultData.accuracy || 0,
+          mode,
+          qualified: !!resultData.is_qualified,
+          duration: durationSeconds,
+          gross_wpm: resultData.gross_wpm,
+          total_errors: resultData.total_errors,
+          key_depression_count: resultData.key_depression_count,
+          backspace_count: resultData.backspace_count,
+        });
+        loadUser();
+        setPhase('result');
+        return;
+      } catch {
+        // Fall through to client-side result
+      }
+    }
+
+    const clientResult = {
+      net_wpm: store.wpm,
+      accuracy: store.accuracy,
+      gross_wpm: calculateWPM(store.typedContent.length, store.elapsedSeconds),
+      key_depression_count: store.typedContent.length,
+      total_errors: store.errors,
+      backspace_count: store.backspaces,
+      is_qualified: store.wpm >= (wpmTarget || 35) && store.accuracy >= 95,
+    };
+    setResult(clientResult);
+    saveTestResult({
+      wpm: store.wpm,
+      accuracy: store.accuracy,
+      mode,
+      qualified: store.wpm >= (wpmTarget || 35) && store.accuracy >= 95,
+      duration: durationSeconds,
+      gross_wpm: clientResult.gross_wpm,
+      total_errors: store.errors,
+      key_depression_count: store.typedContent.length,
+      backspace_count: store.backspaces,
+    });
     setPhase('result');
   };
+
+  if (isTCSReplica) {
+    return <TCSReplicaUI passage={passage} mode={mode} durationSeconds={durationSeconds} />;
+  }
 
   if (phase === 'loading') {
     return <LoadingLogo />;
@@ -137,97 +204,77 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     return <ResultScreen result={result} mode={mode} wpmTarget={wpmTarget} router={router} />;
   }
 
-  if (isTCSReplica) {
-    return <TCSReplicaUI passage={passage} mode={mode} durationSeconds={durationSeconds} textareaRef={textareaRef} />;
-  }
+  const correctChars = typedContent.split('').filter((c, i) => c === originalContent[i]).length;
+  const totalChars = typedContent.length;
+  const currentWpm = elapsedSeconds > 0 ? calculateWPM(totalChars, elapsedSeconds) : 0;
+  const currentAccuracy = totalChars > 0 ? calculateAccuracy(correctChars, totalChars) : 100;
+  const errors = totalChars - correctChars;
+  const remainingTime = Math.max(0, durationSeconds - elapsedSeconds);
 
   return (
-    <div className="min-h-screen bg-paper">
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Header / Timer Bar */}
-        <div className="card-hand-lg p-4 mb-4 flex items-center justify-between -rotate-[0.3deg]">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-muted" style={wobbly}>
-              <Keyboard className="w-5 h-5" strokeWidth={3} />
-            </div>
-            <div>
-              <span className="text-lg font-bold text-pencil font-marker">
-                {mode.replace('_', ' ').toUpperCase()}
+    <div className="min-h-screen bg-paper" onClick={() => containerRef.current?.focus()} ref={containerRef}>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Stats Header - Monkeytype style */}
+        <div className="flex items-center justify-between mb-6 text-pencil/60 font-hand text-base">
+          <div className="flex items-center space-x-6">
+            <span className="font-bold text-pencil font-marker text-lg">{getModeDisplayName(mode)}</span>
+            {wpmTarget && (
+              <span className="flex items-center space-x-1">
+                <Target className="w-4 h-4" strokeWidth={3} />
+                <span>{wpmTarget} WPM</span>
               </span>
-              {wpmTarget && (
-                <span className="ml-3 text-base text-pencil/50 font-hand">
-                  Target: <strong>{wpmTarget} WPM</strong>
-                </span>
-              )}
-            </div>
+            )}
           </div>
           <div className="flex items-center space-x-6">
-            <div className="text-center">
-              <div className="text-sm text-pencil/50 font-hand">WPM</div>
-              <div className="text-2xl font-bold text-pencil font-marker">{store.wpm}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm text-pencil/50 font-hand">Accuracy</div>
-              <div className="text-2xl font-bold text-pencil font-marker">{store.accuracy}%</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center space-x-1 text-sm text-pencil/50 font-hand">
-                <Timer className="w-4 h-4" strokeWidth={3} />
-                <span>Time</span>
-              </div>
-              <div className="ssc-timer">
-                {formatTime(Math.max(0, durationSeconds - store.elapsedSeconds))}
-              </div>
-            </div>
-            <button onClick={submitTest} className="btn-hand-sm">
-              Submit Test
+            <span className={currentWpm >= (wpmTarget || 0) ? 'text-green-600' : ''}>
+              <strong className="text-xl font-marker">{currentWpm}</strong>
+              <span className="ml-1 text-sm">wpm</span>
+            </span>
+            <span className={currentAccuracy >= 95 ? 'text-green-600' : currentAccuracy >= 80 ? 'text-yellow-600' : 'text-red-500'}>
+              <strong className="text-xl font-marker">{currentAccuracy}%</strong>
+              <span className="ml-1 text-sm">acc</span>
+            </span>
+            <span className="flex items-center space-x-1 font-mono text-lg">
+              <Timer className="w-4 h-4" strokeWidth={3} />
+              <span className={remainingTime <= 30 ? 'text-red-500 font-bold' : ''}>
+                {formatTime(remainingTime)}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* Monkeytype-style Word Display */}
+        <TypingDisplay
+          originalContent={originalContent}
+          typedContent={typedContent}
+          isActive={phase === 'typing'}
+        />
+
+        {/* Progress footer - Monkeytype style */}
+        <div className="mt-4 flex items-center justify-between text-sm font-hand text-pencil/40">
+          <div className="flex items-center space-x-4">
+            <span>{errors > 0 ? `${errors} errors` : 'no errors'}</span>
+            <span>{typedContent.length} / {originalContent.length} chars</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => store.completeTest()}
+              className="px-4 py-2 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil rounded-lg transition-colors"
+            >
+              Submit
             </button>
           </div>
-        </div>
-
-        {/* Passage Display */}
-        <div className="card-hand-lg p-6 mb-4 -rotate-[0.2deg]">
-          <div className="tape" />
-          <div className="text-sm text-pencil/50 font-hand mb-2 uppercase tracking-wider">Passage</div>
-          <div className={`font-mono text-sm leading-relaxed text-pencil ${lang === 'hindi' ? 'font-hindi' : ''}`}>
-            {passage?.content || 'Loading...'}
-          </div>
-        </div>
-
-        {/* Typing Area */}
-        <div className="card-hand-lg p-4 rotate-[0.2deg]">
-          <div className="text-sm text-pencil/50 font-hand mb-2 uppercase tracking-wider">Type here</div>
-          <textarea
-            ref={textareaRef}
-            value={store.typedContent}
-            onChange={(e) => {
-              const content = e.target.value;
-              store.updateTypedContent(content);
-              const elapsed = Math.max(1, (Date.now() - (store.startTime || Date.now())) / 1000);
-              const wpm = calculateWPM(content.length, elapsed);
-              const original = passage?.content || '';
-              const correct = content.split('').filter((ch, i) => ch === original[i]).length;
-              const acc = calculateAccuracy(correct, content.length);
-              const errors = content.length - correct;
-              const backspaces = content.length < store.typedContent.length
-                ? store.backspaces + 1
-                : store.backspaces;
-              store.updateMetrics(wpm, acc, errors, backspaces);
-            }}
-            className="ssc-typing-area"
-            placeholder="Start typing here..."
-            autoFocus
-          />
         </div>
       </div>
     </div>
   );
 }
 
-function TCSReplicaUI({ passage, mode, durationSeconds, textareaRef }: {
-  passage: any; mode: string; durationSeconds: number; textareaRef: React.RefObject<HTMLTextAreaElement>;
+function TCSReplicaUI({ passage, mode, durationSeconds }: {
+  passage: any; mode: string; durationSeconds: number;
 }) {
   const store = useTypingStore();
+  const { typedContent } = useTypingEngine();
   return (
     <div className="min-h-screen bg-paper">
       <div className="bg-pencil text-paper px-6 py-3 flex items-center justify-between border-b-2 border-pencil">
@@ -239,7 +286,7 @@ function TCSReplicaUI({ passage, mode, durationSeconds, textareaRef }: {
         <div className="flex items-center space-x-6">
           <div className="text-center">
             <div className="text-xs text-paper/60 font-hand">Time Remaining</div>
-            <div className="ssc-timer text-red-400">
+            <div className="font-mono text-2xl font-bold text-red-400">
               {formatTime(Math.max(0, durationSeconds - store.elapsedSeconds))}
             </div>
           </div>
@@ -254,7 +301,7 @@ function TCSReplicaUI({ passage, mode, durationSeconds, textareaRef }: {
           <div className="flex items-center space-x-6 font-hand">
             <span className="text-pencil/60">WPM: <strong className="text-pencil">{store.wpm}</strong></span>
             <span className="text-pencil/60">Accuracy: <strong className="text-pencil">{store.accuracy}%</strong></span>
-            <span className="text-pencil/60">Chars: <strong className="text-pencil">{store.typedContent.length}</strong></span>
+            <span className="text-pencil/60">Chars: <strong className="text-pencil">{typedContent.length}</strong></span>
           </div>
         </div>
 
@@ -272,8 +319,7 @@ function TCSReplicaUI({ passage, mode, durationSeconds, textareaRef }: {
               Typing Area
             </div>
             <textarea
-              ref={textareaRef}
-              value={store.typedContent}
+              value={typedContent}
               onChange={(e) => store.updateTypedContent(e.target.value)}
               className="w-full h-[400px] font-mono text-sm leading-relaxed p-4 resize-none focus:outline-none border-0 bg-transparent"
               placeholder="Start typing here..."
@@ -284,8 +330,8 @@ function TCSReplicaUI({ passage, mode, durationSeconds, textareaRef }: {
 
         <div className="mt-4 card-hand p-3 flex justify-between items-center">
           <div className="font-hand text-base text-pencil/50">
-            {store.typedContent.length > 0
-              ? `Typing... ${store.typedContent.length} characters`
+            {typedContent.length > 0
+              ? `Typing... ${typedContent.length} characters`
               : 'Click in the Typing Area to begin'}
           </div>
           <button onClick={() => store.completeTest()} className="btn-hand-sm bg-accent text-white hover:bg-accent">
@@ -316,7 +362,7 @@ function ResultScreen({ result, mode, wpmTarget, router }: { result: any; mode: 
             {qualified ? 'Qualified!' : 'Not Qualified'}
           </h2>
           <p className="mt-1 text-lg text-pencil/60 font-hand">
-            {mode.replace('_', ' ').toUpperCase()} &mdash; {result.time_taken_seconds?.toFixed(0) || '0'}s
+            {getModeDisplayName(mode)} &mdash; {result.time_taken_seconds?.toFixed(0) || '0'}s
           </p>
         </div>
 
@@ -358,7 +404,8 @@ function ResultScreen({ result, mode, wpmTarget, router }: { result: any; mode: 
         </div>
 
         {result.feedback && (
-          <div className="mb-6 p-4 bg-postit border-2 border-pencil shadow-hard-sm" style={wobbly}>
+          <div className="mb-6 p-4 bg-postit border-2 border-pencil shadow-hard-sm"
+               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
             <p className="text-base text-pencil font-hand">{result.feedback}</p>
           </div>
         )}

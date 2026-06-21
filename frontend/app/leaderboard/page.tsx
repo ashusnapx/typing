@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Navbar } from '@/components/layout/navbar';
 import { api } from '@/lib/api';
 import { Trophy, Medal, Gauge, Target, FileText, Zap } from 'lucide-react';
 
@@ -17,7 +16,6 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center space-x-4 mb-8 -rotate-1">
           <Trophy className="w-8 h-8 text-accent" strokeWidth={3} />

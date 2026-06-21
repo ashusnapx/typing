@@ -4,6 +4,7 @@ node_modules/
 __pycache__/
 .env
 .env.local
+.env.*.local
 *.egg-info/
 dist/
 build/
@@ -12,3 +13,10 @@ venv/
 *.log
 .pytest_cache/
 .mypy_cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+docker-compose.override.yml

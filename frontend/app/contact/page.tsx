@@ -1,11 +1,9 @@
-import { Navbar } from '@/components/layout/navbar';
 import { APP, WOBBLY_RADII } from '@/lib/config';
 import { Mail, MessageCircle, HelpCircle } from 'lucide-react';
 
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-3xl mx-auto px-6 py-12">
         <h1 className="text-4xl font-bold text-pencil font-marker -rotate-1 mb-8">Contact Us</h1>
         <div className="grid sm:grid-cols-3 gap-6">

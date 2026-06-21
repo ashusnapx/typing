@@ -1,8 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.responses import Response
 import time
+import secrets
 from typing import Callable
+from app.config import settings
+
+security = HTTPBasic(auto_error=False)
 
 http_requests_total = Counter(
     "http_requests_total",
@@ -20,6 +25,20 @@ active_users = Gauge("active_users", "Currently active users")
 active_tests = Gauge("active_tests", "Currently active typing tests")
 total_errors = Counter("total_errors", "Total typing errors tracked")
 tests_completed = Counter("tests_completed", "Total tests completed")
+
+
+def verify_metrics_access(credentials: HTTPBasicCredentials = Depends(security)):
+    if settings.DEBUG:
+        return True
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    expected_user = "metrics"
+    expected_pass = settings.JWT_SECRET[:16] if settings.JWT_SECRET else "monitoring"
+    if not secrets.compare_digest(credentials.username, expected_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not secrets.compare_digest(credentials.password, expected_pass):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return True
 
 
 def setup_monitoring(app: FastAPI):
@@ -43,7 +62,7 @@ def setup_monitoring(app: FastAPI):
         return response
 
     @app.get("/metrics")
-    async def metrics():
+    async def metrics(_: bool = Depends(verify_metrics_access)):
         return Response(content=generate_latest(), media_type="text/plain")
 
     @app.on_event("startup")
@@ -58,7 +77,7 @@ def setup_monitoring(app: FastAPI):
         if app.extra.get("otel_enabled", True):
             resource = Resource.create({"service.name": app.title})
             provider = TracerProvider(resource=resource)
-            exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
+            exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=False)
             processor = BatchSpanProcessor(exporter)
             provider.add_span_processor(processor)
             trace.set_tracer_provider(provider)

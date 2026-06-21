@@ -1,0 +1,12 @@
+[allowlist]
+paths = [
+  "node_modules",
+  ".next",
+  "__pycache__",
+  "*.pyc",
+  "vendor",
+  "*.sum",
+  "go.mod",
+  "package-lock.json",
+  "requirements.txt",
+]

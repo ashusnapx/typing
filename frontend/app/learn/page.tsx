@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Navbar } from '@/components/layout/navbar';
+import { useRouter } from 'next/navigation';
 import LEVELS from '@/lib/typing-curriculum';
 import { APP, WOBBLY_RADII } from '@/lib/config';
 import {
@@ -30,12 +30,12 @@ const LEVEL_ICONS: Record<string, any> = {
 };
 
 export default function LearnPage() {
+  const router = useRouter();
   const [activeLevel, setActiveLevel] = useState<number | null>(null);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center space-x-4 mb-8 -rotate-1">
@@ -157,7 +157,10 @@ export default function LearnPage() {
                                   {lesson.sampleText}
                                 </p>
                               </div>
-                              <button className="btn-hand w-full text-center">
+                              <button
+                                onClick={() => router.push(`/exam/lesson/${lesson.id}`)}
+                                className="btn-hand w-full text-center"
+                              >
                                 <Play className="w-4 h-4 mr-2" strokeWidth={3} fill="currentColor" />
                                 Start Lesson
                               </button>

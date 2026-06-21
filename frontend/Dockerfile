@@ -7,6 +7,9 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 FROM base AS builder
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,11 +28,14 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+RUN mkdir -p /app/.next/cache /app/.next/server /app/.next/trace && \
+    chown -R nextjs:nodejs /app/.next
+
 USER nextjs
-
-EXPOSE 3000
-
+ENV HOME=/home/nextjs
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
+
+EXPOSE 3000
 
 CMD ["node", "server.js"]

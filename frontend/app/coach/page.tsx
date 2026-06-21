@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Navbar } from '@/components/layout/navbar';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -57,7 +56,6 @@ export default function AICoachPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center space-x-4 mb-8 rotate-1">
           <Brain className="w-8 h-8 text-blue-pen" strokeWidth={3} />

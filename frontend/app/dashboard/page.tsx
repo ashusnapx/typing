@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
-import { Navbar } from '@/components/layout/navbar';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
+import { getRecentTestResults } from '@/lib/test-storage';
 import Link from 'next/link';
 import {
   FileText,
@@ -35,8 +35,15 @@ export default function DashboardPage() {
     if (!isLoading && !isAuthenticated) { router.push('/auth/login'); return; }
     if (isAuthenticated) {
       api.getAnalyticsOverview().then(setAnalytics).catch(() => {});
-      api.getRecentScores().then(setRecentTests).catch(() => {});
       api.getPredictions().then(setPredictions).catch(() => {});
+      api.getRecentScores().then((apiTests) => {
+        const localTests = getRecentTestResults();
+        const combined = [...(apiTests || []), ...localTests]
+          .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        setRecentTests(combined);
+      }).catch(() => {
+        setRecentTests(getRecentTestResults());
+      });
     }
   }, [isAuthenticated, isLoading]);
 
@@ -46,7 +53,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="mb-8 -rotate-1">
           <h1 className="text-3xl font-bold text-pencil font-marker">

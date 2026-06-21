@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
-import { Navbar } from '@/components/layout/navbar';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
 import Link from 'next/link';
@@ -52,7 +51,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center space-x-4 mb-8">
           <Link href="/dashboard" className="w-10 h-10 flex items-center justify-center border-2 border-pencil hover:bg-muted transition-colors"

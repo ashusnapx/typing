@@ -82,25 +82,25 @@ INSERT INTO passages (id, title, content, content_hindi, language, category, dif
 (
   'a0000000-0000-0000-0000-000000000010',
   'Common English Words',
-  'the and for are but not you all can had her was one two three four five six seven eight nine ten time year people way day man thing water world place work part case',
+  'The world is full of wonderful places and people. Time is one of the most valuable things one can have. Water is essential for life on this planet. Work hard every day and you can achieve all your goals. Education is the key to a better future for every child and person. There are many ways to make the world a better place for everyone.',
   NULL,
-  'english', 'ssc_chsl', 'easy', 188, 31,
+  'english', 'ssc_chsl', 'easy', 320, 48,
   'Common Words', 'SSC Typing Mania', '2024'
 ),
 (
   'a0000000-0000-0000-0000-000000000011',
   'Government Terms',
-  'government public service officer department minister secretary committee authority administration policy scheme development welfare education health agriculture rural urban infrastructure finance budget revenue expenditure implementation',
+  'The government provides essential public services to all citizens through its various departments. The secretary of each ministry is responsible for the administration of government policies. The annual budget includes both revenue and expenditure for development and welfare schemes. The development of rural and urban infrastructure is a priority for the finance department. Education and health services are vital for the welfare of the people of the nation.',
   NULL,
-  'english', 'ssc_chsl', 'medium', 272, 23,
+  'english', 'ssc_chsl', 'medium', 392, 58,
   'Government Vocabulary', 'SSC Official', '2024'
 ),
 (
   'a0000000-0000-0000-0000-000000000012',
   'Economic Terms',
-  'economy growth development inflation budget deficit surplus revenue expenditure investment savings banking credit finance market trade industry commerce sector policy planning',
+  'The economy grows through continuous development and innovation across various sectors. The government manages inflation through careful budget planning and effective fiscal policy. A budget deficit occurs when government expenditure exceeds its revenue in a financial year. Savings and investments are crucial for maintaining a stable banking system. Trade and industry play a vital role in the growth of the commerce sector. Economic policy planning helps achieve sustainable development for the entire nation.',
   NULL,
-  'english', 'ssc_chsl', 'medium', 208, 21,
+  'english', 'ssc_chsl', 'medium', 388, 58,
   'Economic Vocabulary', 'SSC Official', '2024'
 ),
 
@@ -372,9 +372,9 @@ INSERT INTO passages (id, title, content, content_hindi, language, category, dif
 (
   'f0000000-0000-0000-0000-000000000001',
   'Practice Passage 1',
-  'the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog practice typing this sentence again and again to improve your speed and accuracy keep your fingers on the home row and type without looking at the keyboard',
+  'The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. Practice typing this sentence again and again to improve your speed and accuracy. Keep your fingers on the home row and type without looking at the keyboard.',
   NULL,
-  'english', 'general', 'easy', 354, 54,
+  'english', 'general', 'easy', 328, 50,
   'Practice', 'SSC Typing Mania', '2024'
 ),
 (

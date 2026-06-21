@@ -2,6 +2,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v
 
 class ApiClient {
   private token: string | null = null;
+  private refreshing: Promise<boolean> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -21,6 +22,36 @@ class ApiClient {
     return this.token;
   }
 
+  async refreshToken(): Promise<boolean> {
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = this._refresh();
+    const result = await this.refreshing;
+    this.refreshing = null;
+    return result;
+  }
+
+  private async _refresh(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
+        },
+        credentials: 'include',
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (data.token) {
+        this.setToken(data.token);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -37,7 +68,22 @@ class ApiClient {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include',
     });
+
+    if (response.status === 401 && this.token) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+        const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          headers,
+          credentials: 'include',
+        });
+        if (retryResponse.ok) return retryResponse.json();
+      }
+      this.setToken(null);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -99,6 +145,13 @@ class ApiClient {
     return this.request<any>(`/tests/${testId}/submit`, {
       method: 'POST',
       body: JSON.stringify({ typed_content, keystroke_events, time_taken_seconds }),
+    });
+  }
+
+  async directSubmit(mode: string, passage_id: string, duration_seconds: number, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
+    return this.request<any>('/tests/direct-submit', {
+      method: 'POST',
+      body: JSON.stringify({ mode, passage_id, duration_seconds, typed_content, keystroke_events, time_taken_seconds }),
     });
   }
 

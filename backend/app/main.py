@@ -1,25 +1,38 @@
+import time
+import logging
+import hashlib
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from app.config import settings
 from app.api.v1 import router as v1_router
 from app.core.monitoring import setup_monitoring
-import time
+from app.core.middleware import SecurityHeadersMiddleware, RateLimitMiddleware, RequestValidationMiddleware, CorrelationIDMiddleware, CSRFProtectMiddleware
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("security")
 
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if settings.DEBUG else None,
+    redoc_url="/api/redoc" if settings.DEBUG else None,
+    openapi_url="/api/openapi.json" if settings.DEBUG else None,
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(CSRFProtectMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID", "X-Request-ID"],
+    expose_headers=["X-Process-Time", "X-Correlation-ID"],
+    max_age=600,
 )
 
 if settings.OPENTELEMETRY_ENABLED:
@@ -37,10 +50,23 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code >= 400:
+        raw_ip = request.client.host if request.client else "unknown"
+        hashed_ip = hashlib.sha256(raw_ip.encode()).hexdigest()[:16] if raw_ip != "unknown" else "unknown"
+        logger.warning(
+            "status=%d method=%s path=%s ip_hash=%s",
+            response.status_code, request.method, request.url.path,
+            hashed_ip
+        )
+    return response
+
+
 @app.get("/")
 async def root():
     return {
         "message": "Maths Mania - SSC Typing Platform API",
         "version": "1.0.0",
-        "docs": "/api/docs",
     }

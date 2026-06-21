@@ -25,6 +25,15 @@ class SubmitTestRequest(BaseModel):
     time_taken_seconds: float
 
 
+class DirectSubmitRequest(BaseModel):
+    mode: TestMode
+    passage_id: UUID
+    duration_seconds: int
+    typed_content: str
+    keystroke_events: List[Dict]
+    time_taken_seconds: float
+
+
 class TestResultResponse(BaseModel):
     test_id: UUID
     mode: TestMode

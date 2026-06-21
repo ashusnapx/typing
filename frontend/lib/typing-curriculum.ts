@@ -35,6 +35,7 @@ export interface Lesson {
   targetWpm: number;
   minAccuracy: number;
   durationSec: number;
+  xpReward: number;
 }
 
 export interface Level {
@@ -66,6 +67,7 @@ const LEVELS: Level[] = [
         targetWpm: 0,
         minAccuracy: 0,
         durationSec: 120,
+        xpReward: 10,
       },
       {
         id: 'l0-posture',
@@ -77,6 +79,7 @@ const LEVELS: Level[] = [
         targetWpm: 0,
         minAccuracy: 60,
         durationSec: 180,
+        xpReward: 10,
       },
       {
         id: 'l0-keys',
@@ -89,6 +92,7 @@ const LEVELS: Level[] = [
         targetWpm: 0,
         minAccuracy: 70,
         durationSec: 300,
+        xpReward: 10,
       },
     ],
   },
@@ -112,6 +116,7 @@ const LEVELS: Level[] = [
         targetWpm: 5,
         minAccuracy: 80,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l1-home-words',
@@ -123,6 +128,7 @@ const LEVELS: Level[] = [
         targetWpm: 8,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l1-home-speed',
@@ -135,6 +141,7 @@ const LEVELS: Level[] = [
         targetWpm: 10,
         minAccuracy: 85,
         durationSec: 180,
+        xpReward: 15,
       },
     ],
   },
@@ -159,6 +166,7 @@ const LEVELS: Level[] = [
         targetWpm: 10,
         minAccuracy: 80,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l2-top-words',
@@ -171,6 +179,7 @@ const LEVELS: Level[] = [
         targetWpm: 12,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l2-top-speed',
@@ -183,6 +192,7 @@ const LEVELS: Level[] = [
         targetWpm: 15,
         minAccuracy: 80,
         durationSec: 180,
+        xpReward: 15,
       },
     ],
   },
@@ -207,6 +217,7 @@ const LEVELS: Level[] = [
         targetWpm: 10,
         minAccuracy: 75,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l3-bottom-words',
@@ -219,6 +230,7 @@ const LEVELS: Level[] = [
         targetWpm: 15,
         minAccuracy: 80,
         durationSec: 300,
+        xpReward: 15,
       },
       {
         id: 'l3-bottom-speed',
@@ -231,6 +243,7 @@ const LEVELS: Level[] = [
         targetWpm: 18,
         minAccuracy: 80,
         durationSec: 180,
+        xpReward: 15,
       },
     ],
   },
@@ -255,6 +268,7 @@ const LEVELS: Level[] = [
         targetWpm: 18,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
       {
         id: 'l4-common-2',
@@ -267,6 +281,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
       {
         id: 'l4-common-3',
@@ -279,6 +294,7 @@ const LEVELS: Level[] = [
         targetWpm: 22,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
     ],
   },
@@ -303,6 +319,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
       {
         id: 'l5-constitutional',
@@ -315,6 +332,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
       {
         id: 'l5-economics',
@@ -327,6 +345,7 @@ const LEVELS: Level[] = [
         targetWpm: 22,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 20,
       },
     ],
   },
@@ -351,6 +370,7 @@ const LEVELS: Level[] = [
         targetWpm: 18,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 25,
       },
       {
         id: 'l6-complex',
@@ -363,6 +383,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 25,
       },
       {
         id: 'l6-punctuation',
@@ -375,6 +396,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 25,
       },
     ],
   },
@@ -399,6 +421,7 @@ const LEVELS: Level[] = [
         targetWpm: 20,
         minAccuracy: 88,
         durationSec: 300,
+        xpReward: 30,
       },
       {
         id: 'l7-medium',
@@ -411,6 +434,7 @@ const LEVELS: Level[] = [
         targetWpm: 22,
         minAccuracy: 88,
         durationSec: 420,
+        xpReward: 30,
       },
       {
         id: 'l7-long',
@@ -423,6 +447,7 @@ const LEVELS: Level[] = [
         targetWpm: 22,
         minAccuracy: 88,
         durationSec: 600,
+        xpReward: 30,
       },
     ],
   },
@@ -447,6 +472,7 @@ const LEVELS: Level[] = [
         targetWpm: 25,
         minAccuracy: 85,
         durationSec: 300,
+        xpReward: 35,
       },
       {
         id: 'l8-speed-30',
@@ -459,6 +485,7 @@ const LEVELS: Level[] = [
         targetWpm: 30,
         minAccuracy: 85,
         durationSec: 360,
+        xpReward: 35,
       },
       {
         id: 'l8-speed-35',
@@ -471,6 +498,7 @@ const LEVELS: Level[] = [
         targetWpm: 35,
         minAccuracy: 88,
         durationSec: 360,
+        xpReward: 35,
       },
       {
         id: 'l8-speed-40',
@@ -483,6 +511,7 @@ const LEVELS: Level[] = [
         targetWpm: 40,
         minAccuracy: 88,
         durationSec: 420,
+        xpReward: 35,
       },
       {
         id: 'l8-speed-45',
@@ -495,6 +524,7 @@ const LEVELS: Level[] = [
         targetWpm: 45,
         minAccuracy: 88,
         durationSec: 420,
+        xpReward: 35,
       },
     ],
   },
@@ -519,6 +549,7 @@ const LEVELS: Level[] = [
         targetWpm: 25,
         minAccuracy: 95,
         durationSec: 300,
+        xpReward: 40,
       },
       {
         id: 'l9-accuracy-98',
@@ -531,6 +562,7 @@ const LEVELS: Level[] = [
         targetWpm: 28,
         minAccuracy: 98,
         durationSec: 360,
+        xpReward: 40,
       },
       {
         id: 'l9-zero-error',
@@ -543,6 +575,7 @@ const LEVELS: Level[] = [
         targetWpm: 25,
         minAccuracy: 100,
         durationSec: 180,
+        xpReward: 40,
       },
     ],
   },
@@ -567,6 +600,7 @@ const LEVELS: Level[] = [
         targetWpm: 35,
         minAccuracy: 95,
         durationSec: 600,
+        xpReward: 50,
       },
       {
         id: 'l10-mock-cgl',
@@ -579,6 +613,7 @@ const LEVELS: Level[] = [
         targetWpm: 30,
         minAccuracy: 95,
         durationSec: 900,
+        xpReward: 50,
       },
       {
         id: 'l10-mock-full',
@@ -591,6 +626,7 @@ const LEVELS: Level[] = [
         targetWpm: 35,
         minAccuracy: 95,
         durationSec: 600,
+        xpReward: 50,
       },
     ],
   },

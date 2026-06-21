@@ -2,9 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
-import { LoadingLogo } from '@/components/ui/loading-logo';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,15 +16,10 @@ const queryClient = new QueryClient({
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const loadUser = useAuthStore((s) => s.loadUser);
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    loadUser().finally(() => setInitialized(true));
+    loadUser();
   }, [loadUser]);
-
-  if (!initialized) {
-    return <LoadingLogo />;
-  }
 
   return <>{children}</>;
 }

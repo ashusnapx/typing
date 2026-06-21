@@ -72,7 +72,7 @@ async def list_users(
     return [
         {
             "id": str(u.id),
-            "email": u.email,
+            "email": u.email[:3] + "***@" + u.email.split("@")[1],
             "full_name": u.full_name,
             "role": u.role.value,
             "xp": u.xp,

@@ -1,10 +1,8 @@
-import { Navbar } from '@/components/layout/navbar';
 import { APP, WOBBLY_RADII } from '@/lib/config';
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
       <main className="max-w-3xl mx-auto px-6 py-12">
         <h1 className="text-4xl font-bold text-pencil font-marker -rotate-1 mb-8">Terms of Service</h1>
         <div className="bg-white border-2 border-pencil shadow-hard-sm p-8 space-y-6"

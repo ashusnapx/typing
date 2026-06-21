@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Navbar } from '@/components/layout/navbar';
 import { APP, HERO_STATS, EXAM_MODES, FEATURES, SSC_RULES, WOBBLY_RADII } from '@/lib/config';
 import {
   ArrowRight,
@@ -21,7 +20,6 @@ const SECTION_ICONS: Record<string, any> = {
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-paper">
-      <Navbar />
 
       <main className="max-w-5xl mx-auto px-6">
         {/* Hero */}
@@ -90,7 +88,7 @@ export default function HomePage() {
               <div>
                 <h2 className="text-2xl font-bold text-pencil font-marker">Typing Bilkul Zero se Seekhein</h2>
                 <p className="text-lg text-pencil/70 font-hand mt-1">
-                  Kabhi computer nahi chhoda? Koi baat nahi. 10 levels mein home row se lekar SSC exam tak.
+                  Kabhi computer nahi chhua? Koi baat nahi. 10 levels mein home row se lekar SSC exam tak.
                   Har lesson ke saath guide aur practice text.
                 </p>
                 <span className="inline-flex items-center mt-2 text-base font-hand text-pencil/50 group-hover:text-pencil transition-colors">

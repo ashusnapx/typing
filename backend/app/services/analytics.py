@@ -42,7 +42,11 @@ class AnalyticsService:
         analytics = result.scalar_one_or_none()
 
         if not analytics:
-            analytics = UserAnalytics(user_id=user_id)
+            analytics = UserAnalytics(
+                user_id=user_id,
+                total_tests=0,
+                total_time_seconds=0,
+            )
             db.add(analytics)
 
         analytics.total_tests += 1

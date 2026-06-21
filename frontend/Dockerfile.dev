@@ -1,0 +1,12 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV WATCHPACK_POLLING true
+
+EXPOSE 3000
+
+CMD ["sh", "-c", "if [ ! -d node_modules ]; then npm install; fi && npm run dev"]

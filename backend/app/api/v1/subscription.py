@@ -6,7 +6,7 @@ from app.models.user import User
 from app.models.subscription import Subscription, Payment
 from app.schemas.subscription import SubscriptionCreate, SubscriptionResponse, PaymentResponse
 from app.api.deps import get_current_user
-from uuid import uuid4
+from app.utils.uuid7 import uuid7
 from datetime import datetime, timedelta
 
 router = APIRouter()
@@ -36,7 +36,7 @@ async def create_subscription_order(
 
     amount = PLAN_PRICES[data.plan]
     return {
-        "order_id": str(uuid4()),
+        "order_id": str(uuid7()),
         "amount": amount,
         "currency": "INR",
         "plan": data.plan,
@@ -56,7 +56,7 @@ async def verify_payment(
     now = datetime.utcnow()
 
     subscription = Subscription(
-        id=uuid4(),
+        id=uuid7(),
         user_id=current_user.id,
         plan=plan,
         status="active",
@@ -67,7 +67,7 @@ async def verify_payment(
     db.add(subscription)
 
     payment = Payment(
-        id=uuid4(),
+        id=uuid7(),
         user_id=current_user.id,
         subscription_id=subscription.id,
         amount=PLAN_PRICES.get(plan, 299),
@@ -75,7 +75,7 @@ async def verify_payment(
         provider=data.get("provider", "razorpay"),
         provider_payment_id=provider_payment_id,
         status="completed",
-        gst_invoice_number=f"GST-{now.strftime('%Y%m')}-{uuid4().hex[:8].upper()}",
+        gst_invoice_number=f"GST-{now.strftime('%Y%m')}-{uuid7().hex[:8].upper()}",
         gst_amount=PLAN_PRICES.get(plan, 299) * 0.18,
     )
     db.add(payment)

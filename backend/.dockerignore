@@ -1,0 +1,11 @@
+venv
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.vscode
+.env
+*.egg-info
+dist
+build

@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Foreig
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import enum
-import uuid
+from app.utils.uuid7 import uuid7
 
 
 class SubscriptionPlan(str, enum.Enum):
@@ -27,7 +27,7 @@ class PaymentProvider(str, enum.Enum):
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True)
     plan = Column(String(50), nullable=False)
     status = Column(String(20), default=SubscriptionStatus.ACTIVE, nullable=False)
@@ -41,7 +41,7 @@ class Subscription(Base):
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id"), nullable=True)
     amount = Column(Float, nullable=False)

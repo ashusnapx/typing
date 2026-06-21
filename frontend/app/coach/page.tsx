@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { FullPageLoader } from '@/components/ui/loading-logo';
 import {
   Brain,
   Target,
@@ -51,11 +52,7 @@ export default function AICoachPage() {
   };
 
   if (isLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-paper">
-        <div className="w-8 h-8 border-[3px] border-pencil border-t-accent animate-spin" style={wobbly} />
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   return (

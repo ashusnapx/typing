@@ -4,8 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/auth-store';
-
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+import { LoadingLogo } from '@/components/ui/loading-logo';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,17 +24,7 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   if (!initialized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-paper">
-        <div className="flex flex-col items-center space-y-4">
-          <div
-            className="w-10 h-10 border-[3px] border-pencil border-t-accent animate-spin"
-            style={wobbly}
-          />
-          <p className="text-lg text-pencil/60 font-hand">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingLogo />;
   }
 
   return <>{children}</>;

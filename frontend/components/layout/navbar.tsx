@@ -22,13 +22,16 @@ export function Navbar() {
           >
             <Image
               src="/images/logo.jpg"
-              alt="Maths Mania"
+              alt="Typing Mania"
               width={40}
               height={40}
               className="w-10 h-10 border-2 border-pencil shadow-hard-sm"
               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
             />
-            <span className="text-2xl font-bold text-pencil font-marker">Maths Mania</span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-xl font-bold text-pencil font-marker -mb-1">Typing Mania</span>
+              <span className="text-xs text-pencil/50 font-hand tracking-wide">by Maths Mania</span>
+            </div>
           </Link>
 
           <div className="hidden md:flex items-center space-x-2">
@@ -52,6 +55,13 @@ export function Navbar() {
               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
             >
               Practice
+            </Link>
+            <Link
+              href="/learn"
+              className="px-3 py-1.5 text-base text-pencil font-hand hover:bg-muted transition-colors"
+              style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+            >
+              Learn
             </Link>
             <Link
               href="/leaderboard"

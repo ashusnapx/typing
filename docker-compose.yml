@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -8,18 +6,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/mathsmania
+      - DATABASE_URL=postgresql+asyncpg://postgres.awfqpmgshuicrfiwyvhy:No72rkkTtD3R9e3x@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_started
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,17 +23,17 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     environment:
+      - API_URL=http://backend:8000/api/v1
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
       - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
-      - /app/node_modules
 
   postgres:
     image: pgvector/pgvector:pg16

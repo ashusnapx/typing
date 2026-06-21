@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { Navbar } from '@/components/layout/navbar';
 import { api } from '@/lib/api';
+import { FullPageLoader } from '@/components/ui/loading-logo';
 import Link from 'next/link';
 import {
   FileText,
@@ -40,12 +41,7 @@ export default function DashboardPage() {
   }, [isAuthenticated, isLoading]);
 
   if (isLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-paper">
-        <div className="w-8 h-8 border-[3px] border-pencil border-t-accent animate-spin"
-             style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }} />
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   return (

@@ -22,10 +22,19 @@ from app.services.ai_coach import ai_coach
 from app.services.analytics import analytics_service
 from app.services.passage_service import passage_service
 from typing import List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
+from app.utils.uuid7 import uuid7
 from datetime import datetime
 
 router = APIRouter()
+
+
+def _calculate_xp(wpm: float, accuracy: float, mode: TestMode) -> int:
+    base_xp = 10
+    wpm_bonus = max(0, int((wpm - 20) * 2))
+    accuracy_bonus = max(0, int((accuracy - 80) * 0.5))
+    mode_multiplier = 1.5 if mode in (TestMode.MOCK, TestMode.TCS_ION_REPLICA) else 1.0
+    return int((base_xp + wpm_bonus + accuracy_bonus) * mode_multiplier)
 
 
 @router.post("/start", response_model=StartTestResponse)
@@ -45,7 +54,7 @@ async def start_test(
             raise HTTPException(status_code=404, detail="No passage available")
 
     test = TypingTest(
-        id=uuid4(),
+        id=uuid7(),
         user_id=current_user.id,
         passage_id=passage.id,
         mode=data.mode,
@@ -136,7 +145,7 @@ async def submit_test(
     if test.mode == TestMode.SSC_CGL_DEST:
         test.is_qualified = error_engine.is_qualified_cgl_dest(error_report.net_wpm, error_report.accuracy)
 
-    xp = self._calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
+    xp = _calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
     test.xp_earned = xp
     current_user.xp += xp
     current_user.total_tests_taken += 1
@@ -184,7 +193,7 @@ async def submit_test(
 
     for event_data in data.keystroke_events:
         ke = KeystrokeEvent(
-            id=uuid4(),
+            id=uuid7(),
             test_id=test.id,
             key=event_data.get("key", ""),
             timestamp_ms=event_data.get("timestamp_ms", 0),
@@ -227,13 +236,6 @@ async def submit_test(
         error_zones=test.error_zones,
         feedback=coach_feedback.detailed_feedback,
     )
-
-    def _calculate_xp(self, wpm: float, accuracy: float, mode: TestMode) -> int:
-        base_xp = 10
-        wpm_bonus = max(0, int((wpm - 20) * 2))
-        accuracy_bonus = max(0, int((accuracy - 80) * 0.5))
-        mode_multiplier = 1.5 if mode in (TestMode.MOCK, TestMode.TCS_ION_REPLICA) else 1.0
-        return int((base_xp + wpm_bonus + accuracy_bonus) * mode_multiplier)
 
 
 @router.get("/history", response_model=List[TestHistoryItem])

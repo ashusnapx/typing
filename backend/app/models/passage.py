@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
 import enum
-import uuid
+from app.utils.uuid7 import uuid7
 
 
 class PassageLanguage(str, enum.Enum):
@@ -29,14 +29,14 @@ class PassageDifficulty(str, enum.Enum):
 class Passage(Base):
     __tablename__ = "passages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     content_hindi = Column(Text, nullable=True)
 
-    language = Column(SAEnum(PassageLanguage), default=PassageLanguage.ENGLISH, nullable=False)
-    category = Column(SAEnum(PassageCategory), nullable=False)
-    difficulty = Column(SAEnum(PassageDifficulty), default=PassageDifficulty.MEDIUM, nullable=False)
+    language = Column(SAEnum(PassageLanguage, name='passage_language', values_callable=lambda x: [e.value for e in x]), default=PassageLanguage.ENGLISH, nullable=False)
+    category = Column(SAEnum(PassageCategory, name='passage_category', values_callable=lambda x: [e.value for e in x]), nullable=False)
+    difficulty = Column(SAEnum(PassageDifficulty, name='passage_difficulty', values_callable=lambda x: [e.value for e in x]), default=PassageDifficulty.MEDIUM, nullable=False)
 
     exact_key_depressions = Column(Integer, nullable=False)
     word_count = Column(Integer, nullable=False)

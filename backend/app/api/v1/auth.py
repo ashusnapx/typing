@@ -9,7 +9,7 @@ import jwt
 from datetime import datetime, timedelta
 from app.config import settings
 from sqlalchemy import select
-from uuid import uuid4
+from app.utils.uuid7 import uuid7
 
 router = APIRouter()
 
@@ -29,10 +29,13 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    password_hash = bcrypt.hash(data.password) if data.password else None
+
     user = User(
-        id=uuid4(),
+        id=uuid7(),
         email=data.email,
         full_name=data.full_name,
+        password_hash=password_hash,
         phone=data.phone,
         state=data.state,
         district=data.district,
@@ -51,6 +54,9 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
             "email": user.email,
             "full_name": user.full_name,
             "role": user.role.value,
+            "xp": user.xp,
+            "level": user.level,
+            "is_premium": user.is_premium,
         },
     }
 
@@ -62,6 +68,12 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    if user.password_hash:
+        if not bcrypt.verify(data.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    elif data.password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     token = create_access_token(str(user.id))
     return {
         "token": token,
@@ -70,6 +82,9 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
             "email": user.email,
             "full_name": user.full_name,
             "role": user.role.value,
+            "xp": user.xp,
+            "level": user.level,
+            "is_premium": user.is_premium,
         },
     }
 

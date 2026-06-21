@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { supabase, getRandomPassage } from '@/lib/supabase';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { formatTime, calculateWPM, calculateAccuracy } from '@/lib/utils';
 import { TestMode } from '@/types';
+import { LoadingLogo } from '@/components/ui/loading-logo';
 import {
   Timer,
   Keyboard,
@@ -50,14 +52,26 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
 
   const initTest = async () => {
     try {
-      const passageData = await api.getRandomPassage(
-        mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined
-      );
+      const category = mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined;
+      const passageData = await getRandomPassage(category, undefined, lang);
       setPassage(passageData);
+
+      if (user && passageData) {
+        try {
+          const test = await api.startTest(mode, passageData.id, durationSeconds);
+          store.startTest(test.test_id, mode, passageData.content, durationSeconds);
+        } catch {
+          store.startTest('local', mode, passageData?.content || '', durationSeconds);
+        }
+      } else {
+        store.startTest('local', mode, passageData?.content || '', durationSeconds);
+      }
+
       setLoading(false);
       startCountdown();
     } catch {
       setLoading(false);
+      store.startTest('local', mode, 'Sample passage for typing practice.', durationSeconds);
       startCountdown();
     }
   };
@@ -74,9 +88,10 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   };
 
   const startTyping = () => {
-    const content = passage?.content || 'Sample passage for typing practice.';
-    store.startTest('test-id', mode, content, durationSeconds);
     setPhase('typing');
+    const timerInterval = setInterval(() => {
+      store.tick();
+    }, 1000);
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
@@ -86,7 +101,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     setShowResult(true);
     try {
       const resultData = await api.submitTest(
-        store.testId || 'temp', store.typedContent, store.keystrokeEvents, store.elapsedSeconds
+        store.testId || 'local', store.typedContent, store.keystrokeEvents, store.elapsedSeconds
       );
       setResult(resultData);
     } catch {
@@ -104,12 +119,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   };
 
   if (phase === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-paper">
-        <div className="w-8 h-8 border-[3px] border-pencil border-t-accent animate-spin"
-             style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }} />
-      </div>
-    );
+    return <LoadingLogo />;
   }
 
   if (phase === 'countdown') {
@@ -190,7 +200,20 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
           <textarea
             ref={textareaRef}
             value={store.typedContent}
-            onChange={(e) => store.updateTypedContent(e.target.value)}
+            onChange={(e) => {
+              const content = e.target.value;
+              store.updateTypedContent(content);
+              const elapsed = Math.max(1, (Date.now() - (store.startTime || Date.now())) / 1000);
+              const wpm = calculateWPM(content.length, elapsed);
+              const original = passage?.content || '';
+              const correct = content.split('').filter((ch, i) => ch === original[i]).length;
+              const acc = calculateAccuracy(correct, content.length);
+              const errors = content.length - correct;
+              const backspaces = content.length < store.typedContent.length
+                ? store.backspaces + 1
+                : store.backspaces;
+              store.updateMetrics(wpm, acc, errors, backspaces);
+            }}
             className="ssc-typing-area"
             placeholder="Start typing here..."
             autoFocus

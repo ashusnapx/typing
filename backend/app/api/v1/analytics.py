@@ -14,6 +14,16 @@ from typing import List
 router = APIRouter()
 
 
+def _generate_recommendation(chsl: dict, cgl: dict) -> str:
+    if chsl["probability"] >= 90:
+        return "You are exam-ready for SSC CHSL! Maintain your current practice routine."
+    if chsl["probability"] >= 70:
+        return "Close to qualifying! Focus on your weak areas identified in the AI coach feedback."
+    if chsl["probability"] >= 50:
+        return "Moderate readiness. Increase practice frequency and focus on accuracy."
+    return "Need more practice. Focus on building speed and accuracy fundamentals."
+
+
 @router.get("/overview", response_model=dict)
 async def get_analytics_overview(
     current_user: User = Depends(get_current_user),
@@ -74,7 +84,7 @@ async def get_predictions(
         wpm_trend=wpm_trend,
         accuracy_trend=acc_trend,
         consistency_score=chsl_pred.get("avg_consistency", 50),
-        recommendation=self._generate_recommendation(chsl_pred, cgl_pred),
+        recommendation=_generate_recommendation(chsl_pred, cgl_pred),
     )
 
 
@@ -101,12 +111,3 @@ async def get_recent_scores(
         }
         for t in tests
     ]
-
-    def _generate_recommendation(self, chsl: dict, cgl: dict) -> str:
-        if chsl["probability"] >= 90:
-            return "You are exam-ready for SSC CHSL! Maintain your current practice routine."
-        if chsl["probability"] >= 70:
-            return "Close to qualifying! Focus on your weak areas identified in the AI coach feedback."
-        if chsl["probability"] >= 50:
-            return "Moderate readiness. Increase practice frequency and focus on accuracy."
-        return "Need more practice. Focus on building speed and accuracy fundamentals."

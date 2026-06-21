@@ -37,16 +37,6 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": settings.APP_NAME,
-        "version": "1.0.0",
-        "timestamp": time.time(),
-    }
-
-
 @app.get("/")
 async def root():
     return {

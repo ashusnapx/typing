@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Enum a
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import enum
-import uuid
+from app.utils.uuid7 import uuid7
 
 
 class TestMode(str, enum.Enum):
@@ -25,12 +25,12 @@ class TestStatus(str, enum.Enum):
 class TypingTest(Base):
     __tablename__ = "typing_tests"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     passage_id = Column(UUID(as_uuid=True), ForeignKey("passages.id"), nullable=True)
 
-    mode = Column(SAEnum(TestMode), nullable=False)
-    status = Column(SAEnum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False)
+    mode = Column(SAEnum(TestMode, name='test_mode', values_callable=lambda x: [e.value for e in x]), nullable=False)
+    status = Column(SAEnum(TestStatus, name='test_status', values_callable=lambda x: [e.value for e in x]), default=TestStatus.IN_PROGRESS, nullable=False)
 
     duration_seconds = Column(Integer, nullable=False)
     time_taken_seconds = Column(Float, nullable=True)
@@ -85,7 +85,7 @@ class TypingTest(Base):
 class KeystrokeEvent(Base):
     __tablename__ = "keystroke_events"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     test_id = Column(UUID(as_uuid=True), ForeignKey("typing_tests.id"), nullable=False, index=True)
     key = Column(String(10), nullable=False)
     timestamp_ms = Column(Integer, nullable=False)

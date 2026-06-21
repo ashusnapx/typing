@@ -1,7 +1,19 @@
 from fastapi import APIRouter
 from app.api.v1 import auth, users, passages, tests, analytics, leaderboard, admin, subscription, ai_coach
+from app.config import settings
+import time
 
 router = APIRouter()
+
+
+@router.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": settings.APP_NAME,
+        "version": "1.0.0",
+        "timestamp": time.time(),
+    }
 
 router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 router.include_router(users.router, prefix="/users", tags=["Users"])

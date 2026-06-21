@@ -2,13 +2,13 @@ from app.database import Base
 from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-import uuid
+from app.utils.uuid7 import uuid7
 
 
 class ErrorPattern(Base):
     __tablename__ = "error_patterns"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     pattern_type = Column(String(100), nullable=False)
     pattern_value = Column(String(255), nullable=False)
@@ -20,7 +20,7 @@ class ErrorPattern(Base):
 class TypingSession(Base):
     __tablename__ = "typing_sessions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     date = Column(DateTime, nullable=False)
     total_duration_seconds = Column(Integer, default=0, nullable=False)
@@ -35,7 +35,7 @@ class TypingSession(Base):
 class UserAnalytics(Base):
     __tablename__ = "user_analytics"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True)
     total_tests = Column(Integer, default=0, nullable=False)
     total_time_seconds = Column(Integer, default=0, nullable=False)

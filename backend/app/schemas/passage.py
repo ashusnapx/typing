@@ -46,6 +46,7 @@ class PassageResponse(BaseModel):
     word_count: int
     topic: Optional[str]
     is_verified: bool
+    is_exam_length: bool = False
     created_at: datetime
 
     class Config:

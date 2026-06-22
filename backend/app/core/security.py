@@ -199,25 +199,6 @@ def validate_password_strength(password: Optional[str]) -> Optional[str]:
         return f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters"
     if len(password) > settings.PASSWORD_MAX_LENGTH:
         return f"Password must be at most {settings.PASSWORD_MAX_LENGTH} characters"
-    if not re.search(r'[A-Z]', password):
-        return "Password must contain at least one uppercase letter"
-    if not re.search(r'[a-z]', password):
-        return "Password must contain at least one lowercase letter"
-    if not re.search(r'\d', password):
-        return "Password must contain at least one digit"
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-]', password):
-        return "Password must contain at least one special character"
-    if re.search(r'(.)\1{3,}', password):
-        return "Password must not contain 4 or more repeated characters in a row"
-    common_patterns = [
-        "password", "123456", "qwerty", "admin", "letmein",
-        "welcome", "monkey", "dragon", "master", "secret"
-    ]
-    if any(p in password.lower() for p in common_patterns):
-        return "Password contains a common pattern"
-    entropy = calculate_password_entropy(password)
-    if entropy < 80:
-        return "Password is not complex enough (minimum entropy 80 bits). Use more varied characters."
     return None
 
 

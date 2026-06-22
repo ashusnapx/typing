@@ -42,7 +42,7 @@ export default function RegisterPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 border-2 border-pencil bg-paper mb-4"
                style={wobbly}>
             <Image
-              src="/images/logo.jpg"
+              src="/images/logo.png"
               alt="Typing Mania"
               width={40}
               height={40}
@@ -93,9 +93,10 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-hand pr-12"
-                placeholder="Min 16 characters"
+                placeholder="6-16 characters"
                 required
-                minLength={16}
+                minLength={6}
+                maxLength={16}
               />
               <button
                 type="button"

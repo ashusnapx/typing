@@ -39,11 +39,29 @@ class PassageService:
         category: PassageCategory = PassageCategory.SSC_CHSL,
         difficulty: PassageDifficulty = PassageDifficulty.MEDIUM,
     ) -> Optional[Passage]:
+        is_ssc = category in (PassageCategory.SSC_CHSL, PassageCategory.SSC_CGL)
+
+        if is_ssc:
+            query = select(Passage).where(
+                Passage.is_active == True,
+                Passage.category == category,
+                Passage.is_exam_length == True,
+            )
+            if difficulty:
+                query = query.where(Passage.difficulty == difficulty)
+            query = query.order_by(func.random()).limit(1)
+            result = await db.execute(query)
+            passage = result.scalar_one_or_none()
+            if passage:
+                return passage
+
         query = select(Passage).where(
             Passage.is_active == True,
             Passage.category == category,
-            Passage.difficulty == difficulty,
-        ).order_by(func.random()).limit(1)
+        )
+        if difficulty:
+            query = query.where(Passage.difficulty == difficulty)
+        query = query.order_by(func.random()).limit(1)
         result = await db.execute(query)
         return result.scalar_one_or_none()
 

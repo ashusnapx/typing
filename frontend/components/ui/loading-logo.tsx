@@ -8,7 +8,7 @@ export function LoadingLogo() {
       <div className="flex flex-col items-center space-y-4">
         <div className="animate-pulse">
           <Image
-            src="/images/logo.jpg"
+            src="/images/logo.png"
             alt="Loading"
             width={64}
             height={64}
@@ -27,7 +27,7 @@ export function ButtonSpinner() {
     <span className="inline-flex items-center gap-2">
       <span className="inline-block animate-spin">
         <Image
-          src="/images/logo.jpg"
+          src="/images/logo.png"
           alt=""
           width={20}
           height={20}
@@ -46,7 +46,7 @@ export function FullPageLoader() {
       <div className="flex flex-col items-center space-y-4">
         <div className="animate-pulse">
           <Image
-            src="/images/logo.jpg"
+            src="/images/logo.png"
             alt="Loading"
             width={64}
             height={64}

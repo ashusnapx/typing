@@ -56,6 +56,7 @@ class Passage(Base):
 
     is_active = Column(Boolean, default=True, nullable=False)
     times_used = Column(Integer, default=0, nullable=False)
+    is_exam_length = Column(Boolean, default=False, nullable=False)
 
     embedding = Column(Vector(1024), nullable=True)
 

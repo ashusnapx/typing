@@ -11,6 +11,7 @@ import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils
 import { saveTestResult } from '@/lib/test-storage';
 import { invalidateDashboardCache } from '@/lib/dashboard-cache';
 import { TestMode } from '@/types';
+import { getExamSpecs, SSC_EXAM_SPECS, checkQualification, calculateNetWpm, calculateAccuracySsc } from '@/lib/exam-config';
 import { LoadingLogo } from '@/components/ui/loading-logo';
 import Image from 'next/image';
 import { SSCExamUI } from './ssc-exam-ui';
@@ -58,6 +59,10 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     if (phase === 'result') {
       if (document.fullscreenElement) document.exitFullscreen();
     }
+  }, [phase]);
+
+  useEffect(() => {
+    store.setNavHidden(phase === 'typing' || phase === 'submitting');
   }, [phase]);
 
   const initTest = async () => {
@@ -209,7 +214,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         <div style={{ textAlign: 'center' }}>
           <div className="inline-block animate-spin">
             <Image
-              src="/images/logo.jpg"
+              src="/images/logo.png"
               alt=""
               width={64}
               height={64}
@@ -312,9 +317,14 @@ function levenshteinRatio(a: string, b: string): number {
 
 function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedContent }:
   { result: any; mode: string; wpmTarget?: number; router: any; originalContent: string; typedContent: string }) {
+  const specs = getExamSpecs(mode);
+  const sscNetWpm = result.ssc_net_wpm || result.net_wpm || 0;
+  const sscAccuracy = result.ssc_accuracy || result.accuracy || 0;
+  const sscErrorPct = result.ssc_error_percentage || (100 - sscAccuracy);
+
   const qualified = result.is_qualified !== undefined
     ? result.is_qualified
-    : (result.net_wpm || 0) >= (wpmTarget || 35) && (result.accuracy || 0) >= 95;
+    : sscNetWpm >= (wpmTarget || (specs?.englishSpeedWpm || 35)) && sscAccuracy >= 95;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -336,6 +346,37 @@ function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedC
           <p style={{ marginTop: 4, fontSize: 16, color: '#888' }}>
             {getModeDisplayName(mode)} &mdash; {result.time_taken_seconds?.toFixed(0) || '0'}s
           </p>
+
+          {/* SSC Official Metrics */}
+          <div style={{ marginTop: 16, display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{sscNetWpm.toFixed(1)}</div>
+              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>SSC Net WPM</div>
+              {specs?.qualifyingNature === 'speed_wpm' && (
+                <div style={{ fontSize: 11, color: sscNetWpm >= specs.englishSpeedWpm ? '#4caf50' : '#e53935', marginTop: 2 }}>
+                  Target: {specs.englishSpeedWpm} WPM
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{sscAccuracy.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>Accuracy</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{result.key_depression_count || 0}</div>
+              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>Key Depressions</div>
+            </div>
+          </div>
+
+          {/* SSC Full/Half Mistakes */}
+          {(result.full_mistakes > 0 || result.half_mistakes > 0) && (
+            <div style={{ marginTop: 12, display: 'flex', gap: 16, justifyContent: 'center', fontSize: 13 }}>
+              <span>Full Mistakes: <strong style={{ color: '#e53935' }}>{result.full_mistakes}</strong></span>
+              <span>Half Mistakes: <strong style={{ color: '#e65100' }}>{result.half_mistakes}</strong></span>
+              <span>Error %: <strong style={{ color: sscErrorPct > 10 ? '#e53935' : '#4caf50' }}>{sscErrorPct.toFixed(1)}%</strong></span>
+            </div>
+          )}
+
           {!qualified && (
             <div style={{ marginTop: 8, fontSize: 13, color: '#888', display: 'flex', gap: 16, justifyContent: 'center' }}>
               {(result.net_wpm || 0) < (wpmTarget || 35) && (

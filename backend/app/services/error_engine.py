@@ -22,6 +22,14 @@ class ErrorReport:
     total_words_original: int
     total_words_typed: int
     total_correct_words: int
+
+    # SSC Full/Half mistake system
+    full_mistakes: int = 0
+    half_mistakes: int = 0
+    ssc_net_wpm: float = 0.0
+    ssc_accuracy: float = 0.0
+    ssc_error_percentage: float = 0.0
+
     error_details: List[Dict] = field(default_factory=list)
     word_level_errors: List[Dict] = field(default_factory=list)
     char_level_diffs: List[Dict] = field(default_factory=list)
@@ -66,6 +74,24 @@ class SSCErrorEngine:
         typed_words = typed_clean.split()
         total_correct_words = sum(1 for w in word_errors if w["is_correct"])
 
+        # SSC Full/Half mistake calculation
+        # Full Mistake (100% penalty): Omission, Substitution, Addition, Spelling errors
+        # Half Mistake (50% penalty): Capitalization, Punctuation, Spacing errors
+        full_mistakes, half_mistakes = self._calculate_full_half_mistakes(
+            original_clean, typed_clean, char_diffs, word_errors
+        )
+
+        minutes = duration_seconds / 60.0 if duration_seconds > 0 else 1.0
+        ssc_net_wpm = self._calculate_ssc_net_wpm(
+            key_depression_count, full_mistakes, half_mistakes, minutes
+        )
+
+        ssc_total_errors = full_mistakes + (half_mistakes / 2.0)
+        ssc_accuracy = self._calculate_ssc_accuracy(
+            key_depression_count, ssc_total_errors
+        )
+        ssc_error_pct = round(100.0 - ssc_accuracy, 2) if ssc_accuracy > 0 else 0.0
+
         return ErrorReport(
             gross_wpm=round(gross_wpm, 2),
             net_wpm=round(net_wpm, 2),
@@ -84,10 +110,87 @@ class SSCErrorEngine:
             total_words_original=len(original_words),
             total_words_typed=len(typed_words),
             total_correct_words=total_correct_words,
+            full_mistakes=full_mistakes,
+            half_mistakes=half_mistakes,
+            ssc_net_wpm=round(ssc_net_wpm, 2),
+            ssc_accuracy=round(ssc_accuracy, 2),
+            ssc_error_percentage=ssc_error_pct,
             error_details=char_diffs[:50],
             word_level_errors=word_errors,
             char_level_diffs=char_diffs,
         )
+
+    def _calculate_full_half_mistakes(
+        self,
+        original: str,
+        typed: str,
+        char_diffs: List[Dict],
+        word_errors: List[Dict],
+    ) -> Tuple[int, int]:
+        """
+        SSC Official Full/Half Mistake Calculation:
+
+        Full Mistakes (100% penalty):
+        - Word Omission: skipping a word entirely
+        - Word Substitution: replacing with completely different word
+        - Word Addition: typing extra word
+        - Spelling error with >2 char difference
+
+        Half Mistakes (50% penalty):
+        - Capitalization error (e.g., 'india' vs 'India')
+        - Punctuation error (missing/additional punctuation)
+        - Spacing error (extra/missing space within word)
+        - Minor typo (1-2 character difference)
+        """
+        full_mistakes = 0
+        half_mistakes = 0
+
+        for we in word_errors:
+            if we["is_correct"]:
+                continue
+
+            orig = we["original"]
+            typed_w = we["typed"]
+            err_type = we["error_type"]
+
+            # Full mistakes
+            if err_type == "omission":
+                full_mistakes += 1
+            elif err_type == "addition":
+                full_mistakes += 1
+            elif err_type == "wrong_word":
+                full_mistakes += 1
+            elif err_type == "typo":
+                # Check if it's a capitalization-only error -> half mistake
+                if orig.lower() == typed_w.lower():
+                    half_mistakes += 1
+                else:
+                    lev_dist = Levenshtein.distance(orig, typed_w)
+                    if lev_dist <= 2:
+                        # Minor typo (1-2 chars off)
+                        # Check if punctuation-only difference
+                        orig_clean = ''.join(c for c in orig if c.isalnum() or c.isspace())
+                        typed_clean_w = ''.join(c for c in typed_w if c.isalnum() or c.isspace())
+                        if orig_clean == typed_clean_w:
+                            half_mistakes += 1  # Punctuation error = half
+                        else:
+                            full_mistakes += 1  # Spelling error = full
+                    else:
+                        full_mistakes += 1
+
+        # Count spacing errors as half mistakes
+        for cd in char_diffs:
+            if cd["type"] == "space":
+                # Check if this space error is already counted in word errors
+                is_partial = True
+                for we in word_errors:
+                    if not we["is_correct"] and (we["error_type"] == "omission" or we["error_type"] == "addition"):
+                        is_partial = False
+                        break
+                if is_partial:
+                    half_mistakes += 1
+
+        return full_mistakes, half_mistakes
 
     def _character_level_diff(self, original: str, typed: str) -> List[Dict]:
         diffs: List[Dict] = []
@@ -167,6 +270,8 @@ class SSCErrorEngine:
             return "addition"
         if not typed:
             return "omission"
+        if original.lower() == typed.lower():
+            return "typo"  # Capitalization-only difference
         lev_dist = Levenshtein.distance(original, typed)
         if lev_dist <= 2:
             return "typo"
@@ -191,6 +296,23 @@ class SSCErrorEngine:
         if total <= 0:
             return 0.0
         return (correct / total) * 100.0
+
+    def _calculate_ssc_net_wpm(self, key_depressions: int, full_mistakes: int, half_mistakes: int, minutes: float) -> float:
+        """
+        SSC Official: Net WPM = ((Total Key Depressions ÷ 5) - Total Errors) ÷ Time in minutes
+        Total Errors = Full Mistakes + (Half Mistakes ÷ 2)
+        """
+        if minutes <= 0:
+            return 0.0
+        gross_words = key_depressions / 5.0
+        total_errors = full_mistakes + (half_mistakes / 2.0)
+        net_words = max(0, gross_words - total_errors)
+        return net_words / minutes
+
+    def _calculate_ssc_accuracy(self, key_depressions: int, total_errors: float) -> float:
+        if key_depressions <= 0:
+            return 0.0
+        return max(0, ((key_depressions - total_errors) / key_depressions) * 100.0)
 
     def is_qualified_chsl(self, wpm: float, accuracy: float, mode: str = "english") -> bool:
         if mode == "hindi":

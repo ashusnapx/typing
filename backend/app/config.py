@@ -21,13 +21,13 @@ class Settings(BaseSettings):
     CLERK_PUBLISHABLE_KEY: str = ""
     JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_MINUTES: int = 15
+    JWT_EXPIRY_MINUTES: int = 1440
     JWT_REFRESH_EXPIRY_DAYS: int = 7
     JWT_ISSUER: str = "mathsmania-backend"
-    PASSWORD_MIN_LENGTH: int = 16
-    PASSWORD_MAX_LENGTH: int = 128
+    PASSWORD_MIN_LENGTH: int = 6
+    PASSWORD_MAX_LENGTH: int = 16
     PASSWORD_HISTORY_COUNT: int = 5
-    PASSWORD_EXPIRY_DAYS: int = 90
+    PASSWORD_EXPIRY_DAYS: int = 365
     ACCOUNT_LOCKOUT_THRESHOLD: int = 5
     ACCOUNT_LOCKOUT_MINUTES: int = 30
     MAX_LOGIN_ATTEMPTS_PER_IP: int = 5
@@ -40,7 +40,15 @@ class Settings(BaseSettings):
 
     VOYAGE_API_KEY: str = ""
 
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://mathsmania.com"]
+    # Railway uses dynamic IP pools, so IP binding causes false logouts.
+    # Set to false in production / Railway environments.
+    ENABLE_TOKEN_IP_BINDING: bool = False
+
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://mathsmania.com",
+        "https://frontend-production-2b3a.up.railway.app",
+    ]
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

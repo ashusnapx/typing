@@ -64,7 +64,7 @@ function addRow(layout: string[][], row: number, fingerMap: Record<string, Finge
   });
 }
 
-const fingerMap: Record<string, FingerZone> = {
+export const fingerMap: Record<string, FingerZone> = {
   '`': 'rp', '~': 'rp', '1': 'rp', '!': 'rp', '2': 'rr', '@': 'rr',
   '3': 'rm', '#': 'rm', '4': 'ri', '$': 'ri', '5': 'ri', '%': 'ri',
   '6': 'li', '^': 'li', '7': 'li', '&': 'li', '8': 'lm', '*': 'lm',

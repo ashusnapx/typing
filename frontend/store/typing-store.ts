@@ -21,6 +21,9 @@ interface TypingState {
   errors: number;
   backspaces: number;
 
+  navHidden: boolean;
+  setNavHidden: (hidden: boolean) => void;
+
   startTest: (testId: string, mode: TestMode, content: string, duration: number) => void;
   addKeystroke: (event: KeystrokeEvent) => void;
   updateTypedContent: (content: string) => void;
@@ -46,6 +49,10 @@ export const useTypingStore = create<TypingState>((set, get) => ({
   accuracy: 100,
   errors: 0,
   backspaces: 0,
+
+  navHidden: false,
+
+  setNavHidden: (hidden) => set({ navHidden: hidden }),
 
   startTest: (testId, mode, content, duration) => {
     set({
@@ -113,6 +120,7 @@ export const useTypingStore = create<TypingState>((set, get) => ({
       accuracy: 100,
       errors: 0,
       backspaces: 0,
+      navHidden: false,
     });
   },
 }));

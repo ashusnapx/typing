@@ -156,6 +156,8 @@ async def submit_test(
         test.total_errors = error_report.total_errors
         test.total_words_typed = error_report.total_words_typed
         test.total_correct_words = error_report.total_correct_words
+        test.full_mistakes = error_report.full_mistakes
+        test.half_mistakes = error_report.half_mistakes
 
         metrics = typing_engine.compute_metrics(str(test_id), data.typed_content, test.original_content or "", data.time_taken_seconds)
 
@@ -259,6 +261,11 @@ async def submit_test(
             net_wpm=test.net_wpm or 0,
             accuracy=test.accuracy or 0,
             error_percentage=test.error_percentage or 0,
+            ssc_net_wpm=error_report.ssc_net_wpm,
+            ssc_accuracy=error_report.ssc_accuracy,
+            ssc_error_percentage=error_report.ssc_error_percentage,
+            full_mistakes=error_report.full_mistakes,
+            half_mistakes=error_report.half_mistakes,
             key_depression_count=test.key_depression_count or 0,
             total_errors=test.total_errors or 0,
             omission_errors=test.omission_errors or 0,
@@ -455,6 +462,11 @@ async def direct_submit(
         net_wpm=test.net_wpm or 0,
         accuracy=test.accuracy or 0,
         error_percentage=test.error_percentage or 0,
+        ssc_net_wpm=error_report.ssc_net_wpm,
+        ssc_accuracy=error_report.ssc_accuracy,
+        ssc_error_percentage=error_report.ssc_error_percentage,
+        full_mistakes=error_report.full_mistakes,
+        half_mistakes=error_report.half_mistakes,
         key_depression_count=test.key_depression_count or 0,
         total_errors=test.total_errors or 0,
         omission_errors=test.omission_errors or 0,
@@ -475,7 +487,6 @@ async def direct_submit(
         xp_earned=xp,
         weak_words=test.weak_words,
         error_zones=test.error_zones,
-        feedback=coach_feedback.detailed_feedback,
     )
 
 
@@ -543,6 +554,8 @@ async def get_test_result(
         accuracy=test.accuracy or 0,
         error_percentage=test.error_percentage or 0,
         key_depression_count=test.key_depression_count or 0,
+        full_mistakes=test.full_mistakes or 0,
+        half_mistakes=test.half_mistakes or 0,
         total_errors=test.total_errors or 0,
         omission_errors=test.omission_errors or 0,
         addition_errors=test.addition_errors or 0,

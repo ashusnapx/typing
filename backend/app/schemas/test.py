@@ -41,6 +41,13 @@ class TestResultResponse(BaseModel):
     net_wpm: float
     accuracy: float
     error_percentage: float
+
+    ssc_net_wpm: float = 0.0
+    ssc_accuracy: float = 0.0
+    ssc_error_percentage: float = 0.0
+    full_mistakes: int = 0
+    half_mistakes: int = 0
+
     key_depression_count: int
     total_errors: int
     omission_errors: int

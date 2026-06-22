@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
+import { usePathname } from 'next/navigation';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,9 +28,16 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ScrollToTop() {
+  const pathname = usePathname();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
+      <ScrollToTop />
       <AuthInitializer>
         {children}
       </AuthInitializer>

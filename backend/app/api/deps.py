@@ -42,7 +42,7 @@ async def verify_token(token: str, request: Optional[Request] = None) -> str:
         if issuer and issuer != settings.JWT_ISSUER:
             raise HTTPException(status_code=401, detail="Invalid token issuer")
 
-        if request:
+        if request and settings.ENABLE_TOKEN_IP_BINDING:
             client_ip = hash_ip(request.client.host if request.client else "unknown")
             token_ip = payload.get("ip", "")
             if token_ip and token_ip != client_ip:

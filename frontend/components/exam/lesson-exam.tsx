@@ -14,6 +14,7 @@ import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
 import KeyboardSVG from '@/components/learn/keyboard-svg';
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
+import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
 import {
   Timer, Target, CheckCircle2, XCircle, RotateCcw,
   BarChart3, Keyboard, GraduationCap, ArrowLeft, ArrowRight, MousePointer2,
@@ -46,6 +47,10 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   useEffect(() => {
     if (!authStore.isLoading && !authStore.isAuthenticated) { router.push('/auth/login'); }
   }, [authStore.isLoading, authStore.isAuthenticated]);
+
+  useEffect(() => {
+    store.setNavHidden(phase === 'typing' || phase === 'countdown');
+  }, [phase]);
 
   const isMouseLesson = lesson.targetWpm === 0 && lesson.keys.some(k => k.includes('click') || k.includes('scroll'));
   const sampleText = normalizeCase(lesson.sampleText)
@@ -220,6 +225,8 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             </div>
           )}
 
+          {!isMouseLesson && <div className="mb-6"><CapsLockNotice /></div>}
+
           {isHindi && <div className="mb-6"><HindiKeyboardGuide /></div>}
 
           <button onClick={startLesson} className="btn-hand w-full max-w-md mx-auto block text-center text-lg py-4">
@@ -370,6 +377,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
   return (
     <div className="min-h-screen bg-paper">
+      <CapsLockNotice showDuringLesson />
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => store.completeTest()} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
@@ -431,7 +439,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
 
           {showKeyboard && (
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-4">
               <KeyboardSVG expectedChar={nextChar} typedHistory={keysPreview} />
             </div>
           )}

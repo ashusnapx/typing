@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
-import { KEYBOARD_KEYS, FINGER_COLORS, getKeyByLabel } from './keyboard-layout';
+import { useMemo, useEffect, useState, useRef } from 'react';
+import { KEYBOARD_KEYS, getKeyByLabel } from './keyboard-layout';
 
 interface KeyboardSVGProps {
   expectedChar?: string | null;
@@ -37,6 +37,8 @@ function maxRowWidth() {
 
 export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegend = true }: KeyboardSVGProps) {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
+  const [wrongFlash, setWrongFlash] = useState<string | null>(null);
+  const prevLenRef = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,6 +59,20 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  useEffect(() => {
+    if (typedHistory.length > prevLenRef.current) {
+      const lastChar = typedHistory[typedHistory.length - 1];
+      if (expectedChar && lastChar !== expectedChar) {
+        const def = getKeyByLabel(expectedChar);
+        if (def) {
+          setWrongFlash(def.label);
+          setTimeout(() => setWrongFlash(null), 400);
+        }
+      }
+    }
+    prevLenRef.current = typedHistory.length;
+  }, [typedHistory, expectedChar]);
 
   const activeLabels = useMemo(() => {
     const set = new Set<string>();
@@ -79,7 +95,7 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
   return (
     <div className="w-full rounded-xl overflow-hidden border-2 border-pencil/20 shadow-hard-sm bg-paper/50">
       <div className="px-4 py-2 bg-pencil/5 border-b-2 border-pencil/10 flex items-center justify-between">
-        <span className="text-sm font-hand text-pencil/60">Keyboard — Finger tracking</span>
+        <span className="text-sm font-hand text-pencil/60">Keyboard</span>
         {expectedChar && (
           <span className="text-sm font-mono font-bold text-blue-pen">
             Next: <kbd className="px-2 py-0.5 bg-white border border-pencil/30 rounded text-pencil">{expectedChar === ' ' ? '␣' : expectedChar}</kbd>
@@ -92,6 +108,18 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
           className="w-full"
           style={{ minHeight: viewH, minWidth: viewW }}
         >
+          <defs>
+            <style>{`
+              @keyframes key-blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
+              @keyframes key-flash-red {
+                0% { fill: #ff4444; stroke: #cc0000; }
+                100% { fill: #ffd43b; stroke: #d4a017; }
+              }
+            `}</style>
+          </defs>
           {rows.map(row => {
             const keys = KEYBOARD_KEYS.filter(k => k.row === row);
             const staggerX = PAD_X + STAGGER[row];
@@ -103,31 +131,59 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
               const isHighlighted = activeLabels.has(key.label);
               const isNext = expectedChar && getKeyByLabel(expectedChar)?.label === key.label;
               const isHomeRow = ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'].includes(key.label);
-              const fingerColor = FINGER_COLORS[key.finger];
+              const isWrong = wrongFlash === key.label;
+
+              let fill = '#f8f4ef';
+              let stroke = '#ddd8d0';
+              let textFill = '#555';
+              let strokeW = 1.5;
+              let fontWeight = 400;
+              let animName = '';
+
+              if (isWrong) {
+                fill = '#ff4444';
+                stroke = '#cc0000';
+                textFill = '#fff';
+                strokeW = 2.5;
+                fontWeight = 700;
+                animName = 'key-flash-red 0.4s ease-out';
+              } else if (isNext) {
+                fill = '#ffd43b';
+                stroke = '#d4a017';
+                textFill = '#1a1a1a';
+                strokeW = 2;
+                fontWeight = 700;
+                animName = 'key-blink 1s ease-in-out infinite';
+              } else if (isPressed) {
+                fill = '#e0d8c8';
+                stroke = '#c0b8a8';
+                textFill = '#1a1a1a';
+                strokeW = 2;
+                fontWeight = 500;
+              } else if (isHomeRow) {
+                fill = '#f0ebe0';
+                stroke = '#d4d0c8';
+              }
+
               return (
                 <g key={`${key.row}-${key.col}`}>
                   <rect
-                    x={x}
-                    y={rowY}
-                    width={w}
-                    height={KEY_H}
-                    rx={RADIUS}
-                    ry={RADIUS}
-                    fill={isNext ? '#ffd43b' : isHighlighted ? fingerColor : isPressed ? '#e0d8c8' : isHomeRow ? '#f0ebe0' : '#f8f4ef'}
-                    stroke={isNext ? '#d4a017' : isHighlighted ? fingerColor : isPressed ? '#c0b8a8' : isHomeRow ? '#d4d0c8' : '#ddd8d0'}
-                    strokeWidth={isNext || isHighlighted || isPressed ? 2 : 1.5}
-                    style={{ transition: 'fill 0.1s, stroke 0.1s' }}
+                    x={x} y={rowY} width={w} height={KEY_H}
+                    rx={RADIUS} ry={RADIUS}
+                    fill={fill} stroke={stroke} strokeWidth={strokeW}
+                    style={{
+                      transition: 'fill 0.08s, stroke 0.08s',
+                      ...(animName ? { animation: animName } : {}),
+                    }}
                   />
                   <text
-                    x={x + w / 2}
-                    y={rowY + KEY_H / 2 + 1}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
+                    x={x + w / 2} y={rowY + KEY_H / 2 + 1}
+                    textAnchor="middle" dominantBaseline="middle"
                     className="select-none"
-                    fill={isNext || isHighlighted ? '#1a1a1a' : '#555'}
+                    fill={textFill}
                     fontSize={key.label.length > 1 ? 10 : 13}
                     fontFamily="monospace"
-                    fontWeight={isNext || isHighlighted ? 700 : 400}
+                    fontWeight={fontWeight}
                   >
                     {key.label === ' ' ? '␣' : key.label.toUpperCase()}
                   </text>
@@ -138,15 +194,8 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
         </svg>
       </div>
       {showLegend && (
-        <div className="px-4 py-2 bg-pencil/5 border-t-2 border-pencil/10 flex flex-wrap gap-3 justify-center text-xs font-hand text-pencil/50">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#ff6b6b]" /> Left Pinky</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#ffa94d]" /> Left Ring</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#ffd43b]" /> Left Middle</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#69db7c]" /> Left Index</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#4dabf7]" /> Right Index</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#9775fa]" /> Right Middle</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#f783ac]" /> Right Ring</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-[#adb5bd]" /> Right Pinky</span>
+        <div className="px-4 py-2 bg-pencil/5 border-t-2 border-pencil/10 text-center text-xs font-hand text-pencil/40">
+          Home row keys are shaded. Next key blinks. Wrong key flashes red.
         </div>
       )}
     </div>

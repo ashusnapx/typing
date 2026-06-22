@@ -29,6 +29,9 @@ export async function getRandomPassage(
   difficulty?: string,
   language: string = 'english',
 ): Promise<Passage | null> {
+  // For SSC exams, prefer exam-length passages (>= 1700 key depressions)
+  const isSscMode = category === 'ssc_chsl' || category === 'ssc_cgl';
+
   let query = supabase
     .from('passages')
     .select('*')
@@ -38,11 +41,26 @@ export async function getRandomPassage(
 
   if (category) query = query.eq('category', category);
   if (difficulty) query = query.eq('difficulty', difficulty);
+  if (isSscMode) query = query.eq('is_exam_length', true);
 
   const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
-    // Fallback: try without difficulty filter
+    // Fallback: try without the exam-length filter
+    if (isSscMode) {
+      let fallbackQuery = supabase
+        .from('passages')
+        .select('*')
+        .eq('is_active', true)
+        .eq('language', language)
+        .limit(20);
+      if (category) fallbackQuery = fallbackQuery.eq('category', category);
+      if (difficulty) fallbackQuery = fallbackQuery.eq('difficulty', difficulty);
+      const { data: fallbackData } = await fallbackQuery;
+      if (fallbackData && fallbackData.length > 0) {
+        return fallbackData[Math.floor(Math.random() * fallbackData.length)];
+      }
+    }
     if (difficulty) {
       return getRandomPassage(category, undefined, language);
     }

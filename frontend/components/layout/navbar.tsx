@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/store/auth-store';
+import { useTypingStore } from '@/store/typing-store';
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { User, LogOut, LayoutDashboard, BarChart3, Shield, Menu, X, ChevronRight } from 'lucide-react';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
@@ -14,6 +15,8 @@ export function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const navHidden = useTypingStore((s) => s.navHidden);
 
   const closeMobile = useCallback(() => setShowMobileMenu(false), []);
 
@@ -22,6 +25,8 @@ export function Navbar() {
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
   }, [showMobileMenu]);
+
+  if (navHidden) return null;
 
   const navLinks = [
     { href: '/exam/chsl', label: 'SSC CHSL' },
@@ -47,7 +52,7 @@ export function Navbar() {
             className="flex items-center space-x-3 -rotate-1 hover:rotate-0 transition-transform duration-100"
           >
             <Image
-              src="/images/logo.jpg"
+              src="/images/logo.png"
               alt="Typing Mania"
               width={40}
               height={40}

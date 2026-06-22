@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTypingStore } from '@/store/typing-store';
+import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
+import { getExamSpecs } from '@/lib/exam-config';
 
 const BG = '#f5f5f5';
 const BORDER = '#dcdcdc';
@@ -23,6 +25,7 @@ interface SSCExamUIProps {
 
 export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'english', onComplete, phase }: SSCExamUIProps) {
   const store = useTypingStore();
+  const { user } = useAuthStore();
   const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [tabSwitches, setTabSwitches] = useState(0);
@@ -30,8 +33,9 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [resizeEvents, setResizeEvents] = useState(0);
   const [showWarning, setShowWarning] = useState('');
-  const [candidateName, setCandidateName] = useState('Guest User');
   const [category, setCategory] = useState('UR');
+
+  useEffect(() => { window.scrollTo(0, 0); }, [phase]);
 
   useEffect(() => {
     if (phase === 'typing') {
@@ -144,6 +148,20 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
       <div style={{ maxWidth: 1280, margin: '16px auto', padding: '0 24px', display: 'flex', gap: 20 }}>
         {/* Left: 75% */}
         <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Exam Spec Bar */}
+          {(() => {
+            const specs = getExamSpecs(mode);
+            if (!specs) return null;
+            return (
+              <div style={{ fontSize: 12, color: '#666', background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '8px 16px', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                <span>Duration: <strong>{specs.durationMinutes} min</strong></span>
+                <span>Target: <strong>{specs.qualifyingNature === 'speed_wpm' ? `${specs.englishSpeedWpm} WPM` : `${specs.englishKdph.toLocaleString()} KDPH`}</strong></span>
+                <span>Passage: <strong>{specs.passageKeyDepressions[0]}-{specs.passageKeyDepressions[1]} KD</strong></span>
+                <span>Backspace: <strong style={{ color: specs.backspaceAllowed ? '#4caf50' : '#e53935' }}>{specs.backspaceAllowed ? 'Allowed' : 'Locked'}</strong></span>
+              </div>
+            );
+          })()}
+
           {/* Passage Viewer */}
           <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}`, fontSize: 14, fontWeight: 600, color: TEXT }}>
@@ -222,7 +240,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
           <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
             <div style={{ textAlign: 'center', marginBottom: 12 }}>
               <div style={{ width: 56, height: 56, background: '#e0e0e0', borderRadius: '50%', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{candidateName}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{user?.full_name || user?.email?.split('@')[0] || 'Candidate'}</div>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Category</label>
@@ -257,19 +275,20 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             </button>
           </div>
 
-          {/* Security Status */}
-          <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Security Status</div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.8 }}>
-              <div>Tab Switches: {tabSwitches}</div>
-              <div>Window Blurs: {windowBlurs}</div>
-              <div>Fullscreen Exits: {fullscreenExits}</div>
-              <div>Window Resizes: {resizeEvents}</div>
-              <div style={{ color: suspiciousCount > 0 ? '#e53935' : '#4caf50', fontWeight: 600, marginTop: 4 }}>
-                Suspicious Events: {suspiciousCount}
+          {phase === 'result' && (
+            <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Security Status</div>
+              <div style={{ fontSize: 12, color: '#888', lineHeight: 1.8 }}>
+                <div>Tab Switches: {tabSwitches}</div>
+                <div>Window Blurs: {windowBlurs}</div>
+                <div>Fullscreen Exits: {fullscreenExits}</div>
+                <div>Window Resizes: {resizeEvents}</div>
+                <div style={{ color: suspiciousCount > 0 ? '#e53935' : '#4caf50', fontWeight: 600, marginTop: 4 }}>
+                  Suspicious Events: {suspiciousCount}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

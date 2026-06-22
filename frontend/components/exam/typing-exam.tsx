@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
+import { invalidateDashboardCache } from '@/lib/dashboard-cache';
 import { TestMode } from '@/types';
 import { LoadingLogo } from '@/components/ui/loading-logo';
 import { TypingDisplay } from './typing-display';
@@ -126,6 +127,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         backspace_count: resultData.backspace_count,
       });
       loadUser();
+      invalidateDashboardCache();
       setPhase('result');
       return;
     } catch {
@@ -150,6 +152,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
           backspace_count: resultData.backspace_count,
         });
         loadUser();
+        invalidateDashboardCache();
         setPhase('result');
         return;
       } catch {
@@ -178,6 +181,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       key_depression_count: store.typedContent.length,
       backspace_count: store.backspaces,
     });
+    invalidateDashboardCache();
     setPhase('result');
   };
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, users, passages, tests, analytics, leaderboard, admin, subscription, ai_coach
+from app.api.v1 import auth, users, passages, tests, analytics, leaderboard, admin, subscription, ai_coach, dashboard
 from app.config import settings
 import time
 
@@ -24,3 +24,4 @@ router.include_router(leaderboard.router, prefix="/leaderboard", tags=["Leaderbo
 router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 router.include_router(subscription.router, prefix="/subscription", tags=["Subscription"])
 router.include_router(ai_coach.router, prefix="/coach", tags=["AI Coach"])
+router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])

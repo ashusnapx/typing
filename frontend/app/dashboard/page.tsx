@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
 import { getRecentTestResults } from '@/lib/test-storage';
+import { getCachedDashboard, setCachedDashboard, invalidateDashboardCache } from '@/lib/dashboard-cache';
 import Link from 'next/link';
 import {
   FileText,
@@ -30,21 +31,37 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [recentTests, setRecentTests] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any>(null);
+  const fetched = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) { router.push('/auth/login'); return; }
-    if (isAuthenticated) {
-      api.getAnalyticsOverview().then(setAnalytics).catch(() => {});
-      api.getPredictions().then(setPredictions).catch(() => {});
-      api.getRecentScores().then((apiTests) => {
-        const localTests = getRecentTestResults();
-        const combined = [...(apiTests || []), ...localTests]
-          .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-        setRecentTests(combined);
-      }).catch(() => {
-        setRecentTests(getRecentTestResults());
-      });
+    if (!isAuthenticated || isLoading || fetched.current) return;
+    fetched.current = true;
+
+    const cached = getCachedDashboard();
+    if (cached) {
+      setAnalytics(cached.overview);
+      setPredictions(cached.predictions);
+      const localTests = getRecentTestResults();
+      const combined = [...(cached.recent_scores || []), ...localTests]
+        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      setRecentTests(combined);
     }
+
+    api.request<any>('/dashboard').then((data) => {
+      setCachedDashboard(data);
+      setAnalytics(data.overview);
+      setPredictions(data.predictions);
+      const localTests = getRecentTestResults();
+      const combined = [...(data.recent_scores || []), ...localTests]
+        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      setRecentTests(combined);
+    }).catch(() => {
+      if (!cached) {
+        const localTests = getRecentTestResults();
+        setRecentTests(localTests);
+      }
+    });
   }, [isAuthenticated, isLoading]);
 
   if (isLoading || !user) {

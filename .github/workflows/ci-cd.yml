@@ -78,26 +78,24 @@ jobs:
         working-directory: frontend
         continue-on-error: true
 
-      - name: Trivy — scan + SARIF upload
+      - name: Trivy — filesystem scan
+        uses: aquasecurity/trivy-action@0.29.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          skip-dirs: node_modules,.next,venv,__pycache__,migrations
+
+      - name: Upload Trivy SARIF to Security tab
+        if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Install trivy — download tarball directly (avoid pipefail with curl|sh)
-          TRIVY_VERSION=v0.58.2
-          wget -q "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" \
-            -O /tmp/trivy.tar.gz
-          tar xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy 2>/dev/null
-          chmod +x /usr/local/bin/trivy
-          echo "trivy $(/usr/local/bin/trivy --version 2>/dev/null | head -1)"
-
-          # Run scan — never fail the step
-          /usr/local/bin/trivy fs --format sarif --output trivy-results.sarif \
-            --severity CRITICAL,HIGH --exit-code 1 \
-            --skip-dirs node_modules,.next,venv,__pycache__,migrations \
-            . 2>&1 || true
-
-          # Upload SARIF to GitHub Security tab if file exists
           if [ -f trivy-results.sarif ] && [ -s trivy-results.sarif ]; then
             echo "Uploading SARIF results..."
             gh api --method POST \
@@ -108,7 +106,7 @@ jobs:
               -f sarif="@trivy-results.sarif" \
               -f category="trivy" || echo "SARIF upload skipped (not critical)"
           else
-            echo "No SARIF results generated — scan found no issues or trivy unavailable"
+            echo "No SARIF results generated — scan found no issues"
           fi
 
   # ───────────────────────────────────────────────────────────────────────────

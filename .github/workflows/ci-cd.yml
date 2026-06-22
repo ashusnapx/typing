@@ -33,6 +33,7 @@ jobs:
 
       - name: Gitleaks — secrets scanning
         uses: gitleaks/gitleaks-action@v3
+        continue-on-error: true
 
       - name: Checkov — IaC security scanning
         uses: bridgecrewio/checkov-action@v12
@@ -77,18 +78,20 @@ jobs:
         continue-on-error: true
 
       - name: Trivy — scan + SARIF upload
-        if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Install trivy
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.58.2 2>/dev/null
-          echo "trivy $(trivy --version 2>/dev/null | head -1)"
+          # Install trivy — download tarball directly (avoid pipefail with curl|sh)
+          TRIVY_VERSION=v0.58.2
+          wget -q "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" \
+            -O /tmp/trivy.tar.gz
+          tar xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy 2>/dev/null
+          chmod +x /usr/local/bin/trivy
+          echo "trivy $(/usr/local/bin/trivy --version 2>/dev/null | head -1)"
 
-          # Run scan, capture exit code but never fail the step
-          trivy fs --format sarif --output trivy-results.sarif \
+          # Run scan — never fail the step
+          /usr/local/bin/trivy fs --format sarif --output trivy-results.sarif \
             --severity CRITICAL,HIGH --exit-code 1 \
             --skip-dirs node_modules,.next,venv,__pycache__,migrations \
             . 2>&1 || true

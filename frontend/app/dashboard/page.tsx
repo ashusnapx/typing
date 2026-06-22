@@ -21,6 +21,8 @@ import {
   Timer,
   CheckCircle2,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
@@ -31,6 +33,8 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [recentTests, setRecentTests] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any>(null);
+  const [page, setPage] = useState(0);
+  const perPage = 5;
   const fetched = useRef(false);
 
   useEffect(() => {
@@ -164,7 +168,7 @@ export default function DashboardPage() {
                 No tests taken yet. Start your first test!
               </div>
             ) : (
-              recentTests.slice(0, 10).map((test: any) => (
+              recentTests.slice(page * perPage, (page + 1) * perPage).map((test: any) => (
                 <div key={test.id} className="px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <Sparkles className="w-4 h-4 text-pencil/40" strokeWidth={2.5} />
@@ -188,6 +192,31 @@ export default function DashboardPage() {
               ))
             )}
           </div>
+          {recentTests.length > perPage && (
+            <div className="px-6 py-3 border-t-2 border-pencil/20 flex items-center justify-between">
+              <span className="text-sm font-hand text-pencil/50">
+                Showing {page * perPage + 1}–{Math.min((page + 1) * perPage, recentTests.length)} of {recentTests.length}
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                >
+                  <ChevronLeft className="w-4 h-4" strokeWidth={3} />
+                </button>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={(page + 1) * perPage >= recentTests.length}
+                  className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                >
+                  <ChevronRight className="w-4 h-4" strokeWidth={3} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

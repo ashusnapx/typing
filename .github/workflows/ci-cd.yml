@@ -283,7 +283,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend@${{ steps.frontend-build.outputs.digest }}
 
   # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 5: DEPLOY (main only — Kubernetes)
+  # STAGE 5: DEPLOY (main only — Kubernetes, soft-fail if no cluster)
   # ───────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy
@@ -291,24 +291,35 @@ jobs:
     timeout-minutes: 10
     needs: [build-and-push]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
 
       - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
-      - name: Apply security context
-        run: kubectl apply -f infrastructure/k8s/security-context.yaml
-        continue-on-error: true
-
-      - name: Deploy backend
+      - name: Deploy to Kubernetes
+        shell: bash
         run: |
+          # Check if a K8s cluster is configured
+          if ! kubectl config current-context &>/dev/null; then
+            echo "No Kubernetes cluster configured — skipping deploy"
+            exit 0
+          fi
+
+          # Apply security context if it exists
+          if [ -f infrastructure/k8s/security-context.yaml ]; then
+            kubectl apply -f infrastructure/k8s/security-context.yaml
+          else
+            echo "security-context.yaml not found — skipping"
+          fi
+
+          # Deploy backend
           kubectl set image deployment/backend \
             backend=${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }}
           kubectl rollout status deployment/backend --timeout=300s
 
-      - name: Deploy frontend
-        run: |
+          # Deploy frontend
           kubectl set image deployment/frontend \
             frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
           kubectl rollout status deployment/frontend --timeout=300s

@@ -46,8 +46,6 @@ async def create_subscription_order(
     }
 
 
-import hmac
-
 RAZORPAY_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
 
 

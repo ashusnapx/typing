@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import { WOBBLY_RADII } from '@/lib/config';
 
+const HEALTH_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/health`
+  : '/api/health';
+
 interface HealthStatus {
   backend: 'checking' | 'up' | 'down';
   api: 'checking' | 'up' | 'down';
@@ -17,7 +21,7 @@ export function HealthIndicator() {
   useEffect(() => {
     async function check() {
       try {
-        const res = await fetch('/api/health', { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           setStatus({ backend: 'up', api: 'up' });
         } else {

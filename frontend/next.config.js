@@ -1,9 +1,9 @@
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
-  style-src 'self' 'unsafe-inline';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval';
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' blob: data: https:;
-  font-src 'self' https://fonts.gstatic.com;
+  font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;
   connect-src 'self' http://localhost:8000 https://awfqpmgshuicrfiwyvhy.supabase.co ws://localhost:8000;
   object-src 'none';
   base-uri 'self';

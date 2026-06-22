@@ -16,13 +16,14 @@ interface SSCExamUIProps {
   durationSeconds: number;
   wpmTarget?: number;
   passage: any;
+  lang?: 'english' | 'hindi';
   onComplete: () => void;
   phase: string;
 }
 
-export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, onComplete, phase }: SSCExamUIProps) {
+export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'english', onComplete, phase }: SSCExamUIProps) {
   const store = useTypingStore();
-  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine();
+  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [tabSwitches, setTabSwitches] = useState(0);
   const [windowBlurs, setWindowBlurs] = useState(0);
@@ -129,7 +130,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, onComplet
 
       {/* Language Bar */}
       <div style={{ background: BLUE, height: 48, display: 'flex', alignItems: 'center', maxWidth: 1280, margin: '16px auto 0', borderRadius: 8, padding: '0 24px' }}>
-        <span style={{ color: '#fff', fontSize: 15, fontWeight: 500 }}>Language: English</span>
+        <span style={{ color: '#fff', fontSize: 15, fontWeight: 500 }}>Language: {lang === 'hindi' ? 'Hindi' : 'English'}</span>
       </div>
 
       {/* Warnings */}

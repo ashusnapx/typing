@@ -167,6 +167,88 @@ export const FEATURES = [
 ] as const;
 
 // =============================================================================
+// PAIN POINTS — Problems aspirants face + how we solve them
+// =============================================================================
+export const PAIN_POINTS = [
+  {
+    problem: 'Mock tests look nothing like the real TCS iON exam',
+    problemShort: 'Wrong Interface',
+    solution:
+      'Exact TCS iON replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
+    icon: 'Monitor',
+  },
+  {
+    problem: 'Wrong speed calculation (Gross WPM instead of SSC Net WPM)',
+    problemShort: 'Wrong Formula',
+    solution:
+      'Official SSC Net WPM formula: (Total Keystrokes ÷ 5 − Full Mistakes − Half Mistakes ÷ 2) ÷ Time. Other sites inflate your score. We show the real number.',
+    icon: 'Calculator',
+  },
+  {
+    problem: 'No blind mode — real TCS iON hides errors during the test',
+    problemShort: 'No Blind Mode',
+    solution:
+      'Blind Mode hides all error feedback while typing. Mistakes only revealed at the end — exactly like the real exam. Builds real confidence, not false comfort.',
+    icon: 'EyeOff',
+  },
+  {
+    problem: 'No structured plan — just thrown into 35 WPM tests',
+    problemShort: 'No Curriculum',
+    solution:
+      '10-level progressive curriculum from home row basics to exam-ready. Designed for absolute beginners who have never touched a keyboard.',
+    icon: 'GraduationCap',
+  },
+  {
+    problem: 'No personalized feedback — just a score with no guidance',
+    problemShort: 'No Feedback',
+    solution:
+      'AI Typing Coach analyzes every keystroke. Identifies weak keys, error patterns, fatigue zones. Generates custom drills to fix your specific mistakes.',
+    icon: 'Brain',
+  },
+  {
+    problem: 'No progress tracking — cant see improvement over weeks',
+    problemShort: 'No Tracking',
+    solution:
+      'Dashboard with 30-day history, WPM trends, accuracy graphs, qualification prediction. See exactly how much you improved every day.',
+    icon: 'BarChart3',
+  },
+] as const;
+
+// =============================================================================
+// TESTIMONIALS — Social proof (aspirant stories)
+// =============================================================================
+export const TESTIMONIALS = [
+  {
+    quote:
+      'Pehle 3 mock platforms pe 40+ WPM aata tha but real exam mein fail ho gaya. Maths Mania pe pata chala ki Gross WPM dikha rahe the. Yahan real SSC formula hai.',
+    name: 'Rahul S.',
+    role: 'SSC CHSL 2025 Qualified',
+    wpm: '42 WPM',
+  },
+  {
+    quote:
+      'Main toh typing bilkul nahi aati thi. 10 levels ka course hai — home row se start kiya, 2 mahine mein 35 WPM hit kiya. Aj exam clear kiya!',
+    name: 'Priya M.',
+    role: 'SSC CHSL 2025 Qualified',
+    wpm: '36 WPM',
+  },
+  {
+    quote:
+      'AI Coach ne bataya ki main left hand pe zyada dependent hoon aur number row weak hai. Usne khusus drills di. 2 hafte mein accuracy 88% se 96% ho gayi.',
+    name: 'Amit K.',
+    role: 'SSC CGL DEST Qualified',
+    wpm: '40 WPM',
+  },
+  {
+    quote:
+      'TCS iON replica bilkul same hai. Timer ka placement, font, split-screen — sab. Exam hall mein baithke laga ki pehle bhi de chuka hoon. Game changer.',
+    name: 'Neha J.',
+    role: 'SSC CHSL 2025 Qualified',
+    wpm: '38 WPM',
+  },
+] as const;
+
+// =============================================================================
 // HERO STATS
 // =============================================================================
 export const HERO_STATS = [

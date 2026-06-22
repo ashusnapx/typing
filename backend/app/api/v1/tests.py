@@ -2,7 +2,7 @@ import time
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update, func
 from app.database import get_db
 from app.models.user import User
 from app.models.test import TypingTest, TestMode, TestStatus, KeystrokeEvent
@@ -29,6 +29,7 @@ from uuid import UUID
 from app.utils.uuid7 import uuid7
 from datetime import datetime
 from app.core.cache import cache
+from app.core.response_cache import response_cache
 
 logger = logging.getLogger("tests")
 
@@ -37,10 +38,11 @@ router = APIRouter()
 
 def _calculate_xp(wpm: float, accuracy: float, mode: TestMode) -> int:
     base_xp = 10
-    wpm_bonus = max(0, int((wpm - 20) * 2))
-    accuracy_bonus = max(0, int((accuracy - 80) * 0.5))
+    wpm_bonus = max(0, int((wpm - 10) * 1.5))
+    accuracy_bonus = max(0, int((accuracy - 70) * 2))
+    target_bonus = 25 if accuracy >= 95 and wpm >= 30 else 0
     mode_multiplier = 1.5 if mode in (TestMode.MOCK, TestMode.TCS_ION_REPLICA) else 1.0
-    return int((base_xp + wpm_bonus + accuracy_bonus) * mode_multiplier)
+    return int((base_xp + wpm_bonus + accuracy_bonus + target_bonus) * mode_multiplier)
 
 
 @router.post("/start", response_model=StartTestResponse)
@@ -58,6 +60,10 @@ async def start_test(
         passage = await passage_service.get_random_passage(db)
         if not passage:
             raise HTTPException(status_code=404, detail="No passage available")
+
+    premium_modes = {TestMode.MOCK, TestMode.TCS_ION_REPLICA}
+    if data.mode in premium_modes and not current_user.is_premium:
+        raise HTTPException(status_code=402, detail="Premium subscription required for this mode")
 
     test = TypingTest(
         id=uuid7(),
@@ -113,6 +119,15 @@ async def submit_test(
         if test.status == TestStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="Test already submitted")
 
+        if data.time_taken_seconds > test.duration_seconds:
+            raise HTTPException(status_code=400, detail="Time taken cannot exceed total duration")
+        if data.time_taken_seconds < 10:
+            raise HTTPException(status_code=400, detail="Test time too short")
+
+        premium_modes = {TestMode.MOCK, TestMode.TCS_ION_REPLICA}
+        if test.mode in premium_modes and not current_user.is_premium:
+            raise HTTPException(status_code=402, detail="Premium subscription required for this mode")
+
         test.typed_content = data.typed_content
         test.time_taken_seconds = data.time_taken_seconds
         test.status = TestStatus.COMPLETED
@@ -155,20 +170,33 @@ async def submit_test(
         test.weak_words = metrics.weak_words
         test.error_zones = metrics.error_zones
 
-        test.is_qualified = error_engine.is_qualified_chsl(error_report.net_wpm, error_report.accuracy)
-        if test.mode == TestMode.SSC_CGL_DEST:
-            test.is_qualified = error_engine.is_qualified_cgl_dest(error_report.net_wpm, error_report.accuracy)
+        test.is_qualified = error_engine.is_qualified(
+            error_report.net_wpm, error_report.accuracy, test.mode.value
+        )
 
         xp = _calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
         test.xp_earned = xp
-        current_user.xp += xp
-        current_user.total_tests_taken += 1
-        current_user.total_time_spent_seconds += int(data.time_taken_seconds)
 
-        if current_user.best_wpm is None or error_report.net_wpm > current_user.best_wpm:
-            current_user.best_wpm = error_report.net_wpm
-        if current_user.best_accuracy is None or error_report.accuracy > current_user.best_accuracy:
-            current_user.best_accuracy = error_report.accuracy
+        total_xp = current_user.xp + xp
+        level_thresholds = [0, 250, 750, 2000, 4500, 7500, 11000, 16000]
+        new_level = 1
+        for i in range(len(level_thresholds) - 1, -1, -1):
+            if total_xp >= level_thresholds[i]:
+                new_level = i + 1
+                break
+
+        await db.execute(
+            update(User)
+            .where(User.id == current_user.id)
+            .values(
+                xp=total_xp,
+                level=new_level,
+                total_tests_taken=User.total_tests_taken + 1,
+                total_time_spent_seconds=User.total_time_spent_seconds + int(data.time_taken_seconds),
+                best_wpm=func.greatest(func.coalesce(User.best_wpm, 0), error_report.net_wpm),
+                best_accuracy=func.greatest(func.coalesce(User.best_accuracy, 0), error_report.accuracy),
+            )
+        )
 
         await passage_service.increment_usage(db, test.passage_id)
         await analytics_service.update_user_analytics(db, current_user.id, test)
@@ -221,6 +249,9 @@ async def submit_test(
 
         await db.flush()
 
+        user_cache_key = response_cache.cache_key("dashboard", str(current_user.id))
+        await response_cache.invalidate(user_cache_key)
+
         return TestResultResponse(
             test_id=test.id,
             mode=test.mode,
@@ -271,6 +302,15 @@ async def direct_submit(
     passage = await passage_service.get_passage(db, data.passage_id)
     if not passage:
         raise HTTPException(status_code=404, detail="Passage not found")
+
+    if data.time_taken_seconds > data.duration_seconds:
+        raise HTTPException(status_code=400, detail="Time taken cannot exceed total duration")
+    if data.time_taken_seconds < 10:
+        raise HTTPException(status_code=400, detail="Test time too short")
+
+    premium_modes = {TestMode.MOCK, TestMode.TCS_ION_REPLICA}
+    if data.mode in premium_modes and not current_user.is_premium:
+        raise HTTPException(status_code=402, detail="Premium subscription required for this mode")
 
     test = TypingTest(
         id=uuid7(),
@@ -326,20 +366,33 @@ async def direct_submit(
     test.weak_words = metrics.weak_words
     test.error_zones = metrics.error_zones
 
-    test.is_qualified = error_engine.is_qualified_chsl(error_report.net_wpm, error_report.accuracy)
-    if test.mode == TestMode.SSC_CGL_DEST:
-        test.is_qualified = error_engine.is_qualified_cgl_dest(error_report.net_wpm, error_report.accuracy)
+    test.is_qualified = error_engine.is_qualified(
+        error_report.net_wpm, error_report.accuracy, test.mode.value
+    )
 
     xp = _calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
     test.xp_earned = xp
-    current_user.xp += xp
-    current_user.total_tests_taken += 1
-    current_user.total_time_spent_seconds += int(data.time_taken_seconds)
 
-    if current_user.best_wpm is None or error_report.net_wpm > current_user.best_wpm:
-        current_user.best_wpm = error_report.net_wpm
-    if current_user.best_accuracy is None or error_report.accuracy > current_user.best_accuracy:
-        current_user.best_accuracy = error_report.accuracy
+    total_xp = current_user.xp + xp
+    level_thresholds = [0, 250, 750, 2000, 4500, 7500, 11000, 16000]
+    new_level = 1
+    for i in range(len(level_thresholds) - 1, -1, -1):
+        if total_xp >= level_thresholds[i]:
+            new_level = i + 1
+            break
+
+    await db.execute(
+        update(User)
+        .where(User.id == current_user.id)
+        .values(
+            xp=total_xp,
+            level=new_level,
+            total_tests_taken=User.total_tests_taken + 1,
+            total_time_spent_seconds=User.total_time_spent_seconds + int(data.time_taken_seconds),
+            best_wpm=func.greatest(func.coalesce(User.best_wpm, 0), error_report.net_wpm),
+            best_accuracy=func.greatest(func.coalesce(User.best_accuracy, 0), error_report.accuracy),
+        )
+    )
 
     await passage_service.increment_usage(db, test.passage_id)
     await analytics_service.update_user_analytics(db, current_user.id, test)
@@ -391,6 +444,9 @@ async def direct_submit(
         db.add(ke)
 
     await db.flush()
+
+    user_cache_key = response_cache.cache_key("dashboard", str(current_user.id))
+    await response_cache.invalidate(user_cache_key)
 
     return TestResultResponse(
         test_id=test.id,

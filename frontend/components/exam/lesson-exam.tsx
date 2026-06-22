@@ -10,13 +10,13 @@ import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
 import { api } from '@/lib/api';
 import { TypingDisplay } from './typing-display';
-import { Lesson } from '@/lib/typing-curriculum';
+import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
 import KeyboardSVG from '@/components/learn/keyboard-svg';
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import {
   Timer, Target, CheckCircle2, XCircle, RotateCcw,
-  BarChart3, Keyboard, GraduationCap, ArrowLeft, MousePointer2,
+  BarChart3, Keyboard, GraduationCap, ArrowLeft, ArrowRight, MousePointer2,
 } from 'lucide-react';
 
 interface LessonExamProps {
@@ -43,8 +43,14 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const [showKeyboard, setShowKeyboard] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!authStore.isLoading && !authStore.isAuthenticated) { router.push('/auth/login'); }
+  }, [authStore.isLoading, authStore.isAuthenticated]);
+
   const isMouseLesson = lesson.targetWpm === 0 && lesson.keys.some(k => k.includes('click') || k.includes('scroll'));
-  const sampleText = normalizeCase(lesson.sampleText);
+  const sampleText = normalizeCase(lesson.sampleText)
+    .replace(/\bSpace\b/g, ' ')
+    .replace(/\bEnter\b/g, '\n');
 
   const [mouseActions, setMouseActions] = useState<Set<string>>(new Set());
   const [mouseStep, setMouseStep] = useState(0);
@@ -58,16 +64,23 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   }, [store.isComplete, phase]);
 
   const finishLesson = useCallback(async (extra?: { wpm?: number; acc?: number }) => {
-    const correctChars = typedContent.split('').filter((c, i) => c === originalContent[i]).length;
     const totalType = typedContent.length;
     const finalWpm = extra?.wpm ?? (totalType > 0 ? calculateWPM(totalType, elapsedSeconds) : 0);
-    const finalAcc = extra?.acc ?? (totalType > 0 ? calculateAccuracy(correctChars, totalType) : 100);
+
+    const allEvents = store.keystrokeEvents;
+    const errorEvents = allEvents.filter(e => e.is_error).length;
+    const nonBackspaceEvents = allEvents.filter(e => !e.is_backspace).length;
+    const retrospectiveAcc = nonBackspaceEvents > 0
+      ? ((nonBackspaceEvents - errorEvents) / nonBackspaceEvents) * 100
+      : 100;
+    const finalAcc = extra?.acc ?? (totalType > 0 ? retrospectiveAcc : 100);
+
     const qualified = finalWpm >= lesson.targetWpm && finalAcc >= lesson.minAccuracy;
     const earnedXp = qualified ? lesson.xpReward : Math.round(lesson.xpReward * 0.25);
     const finalResult = {
       net_wpm: finalWpm,
       accuracy: finalAcc,
-      total_errors: totalType - correctChars,
+      total_errors: errorEvents,
       is_qualified: qualified,
       goal_wpm: lesson.targetWpm,
       goal_acc: lesson.minAccuracy,
@@ -80,7 +93,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       mode: 'lesson',
       qualified,
       duration: lesson.durationSec,
-      total_errors: totalType - correctChars,
+      total_errors: errorEvents,
       key_depression_count: totalType,
       xp_earned: earnedXp,
     });
@@ -267,7 +280,12 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
 
           <div className="flex space-x-4">
-            <button onClick={() => window.location.reload()} className="btn-hand flex-1">
+            {passed && getNextLessonId(lesson.id) && (
+              <button onClick={() => router.push(`/exam/lesson/${getNextLessonId(lesson.id)}`)} className="btn-hand flex-1">
+                <ArrowRight className="w-4 h-4 mr-2" strokeWidth={3} /> Next Lesson
+              </button>
+            )}
+            <button onClick={() => window.location.reload()} className={`btn-hand ${passed ? 'flex-1' : 'flex-1'}`}>
               <RotateCcw className="w-4 h-4 mr-2" strokeWidth={3} /> Retry
             </button>
             <button onClick={() => router.push('/learn')} className="btn-hand-secondary flex-1">

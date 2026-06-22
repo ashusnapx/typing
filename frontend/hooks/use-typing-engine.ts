@@ -3,8 +3,9 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useTypingStore } from '@/store/typing-store';
 import { KeystrokeEvent } from '@/types';
+import { transliterateEnglishToHindi } from '@/lib/hindi-transliteration';
 
-export function useTypingEngine() {
+export function useTypingEngine(lang?: 'english' | 'hindi') {
   const {
     originalContent,
     typedContent,
@@ -22,6 +23,9 @@ export function useTypingEngine() {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastCharTime = useRef<number>(0);
+  const englishBuffer = useRef<string>('');
+
+  const isHindi = lang === 'hindi';
 
   useEffect(() => {
     if (isActive && !isComplete) {
@@ -31,6 +35,12 @@ export function useTypingEngine() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isActive, isComplete, tick]);
+
+  useEffect(() => {
+    if (isActive) {
+      englishBuffer.current = '';
+    }
+  }, [isActive]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!isActive || isComplete) return;
@@ -50,17 +60,38 @@ export function useTypingEngine() {
     let newContent = typedContent;
     let expectedChar = '';
 
-    if (isBackspace) {
-      newContent = typedContent.slice(0, -1);
-    } else if (key === 'Tab') {
-      return;
-    } else if (key.length === 1) {
-      newContent = typedContent + key;
+    if (isHindi) {
+      if (isBackspace) {
+        englishBuffer.current = englishBuffer.current.slice(0, -1);
+      } else if (key === 'Tab') {
+        return;
+      } else if (key.length === 1 && /^[a-zA-Z]$/.test(key)) {
+        englishBuffer.current += key;
+      } else if (key.length === 1 && /[\u0900-\u097F]/.test(key)) {
+        englishBuffer.current += key;
+      } else if (key === ' ') {
+        englishBuffer.current += ' ';
+      }
+      const hindiText = transliterateEnglishToHindi(englishBuffer.current);
+      newContent = hindiText;
       expectedChar = originalContent[typedContent.length] || '';
+    } else {
+      if (isBackspace) {
+        newContent = typedContent.slice(0, -1);
+      } else if (key === 'Tab') {
+        return;
+      } else if (key === 'Enter') {
+        newContent = typedContent + '\n';
+        expectedChar = originalContent[typedContent.length] || '';
+      } else if (key.length === 1) {
+        newContent = typedContent + key;
+        expectedChar = originalContent[typedContent.length] || '';
+      }
     }
 
     const expected = originalContent[typedContent.length] || '';
-    const isError = key.length === 1 && key !== expected && !isBackspace;
+    const effectiveKey = key === 'Enter' ? '\n' : key;
+    const isError = effectiveKey.length === 1 && effectiveKey !== expected && !isBackspace;
 
     const event: KeystrokeEvent = {
       key,
@@ -87,7 +118,7 @@ export function useTypingEngine() {
     if (newContent.length >= originalContent.length) {
       completeTest();
     }
-  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents]);
+  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi]);
 
   useEffect(() => {
     if (isActive) {

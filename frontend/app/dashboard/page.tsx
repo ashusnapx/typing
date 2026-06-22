@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
-import { getRecentTestResults } from '@/lib/test-storage';
 import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh, invalidateDashboardCache } from '@/lib/dashboard-cache';
 import Link from 'next/link';
 import {
@@ -29,7 +28,9 @@ import {
   Activity,
   ArrowUp,
   ArrowDown,
+  X,
 } from 'lucide-react';
+import { getLevelFromXP, getLevelIndex, getLevelProgress, LEVEL_NAMES } from '@/lib/utils';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
 
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [recentTests, setRecentTests] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any>(null);
   const [page, setPage] = useState(0);
+  const [showXPModal, setShowXPModal] = useState(false);
   const perPage = 5;
   const fetched = useRef(false);
 
@@ -52,10 +54,7 @@ export default function DashboardPage() {
     if (cached) {
       setAnalytics(cached.overview);
       setPredictions(cached.predictions);
-      const localTests = getRecentTestResults();
-      const combined = [...(cached.recent_scores || []), ...localTests]
-        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-      setRecentTests(combined);
+      setRecentTests(cached.recent_scores || []);
       if (isDashboardCacheFresh()) return;
     }
 
@@ -63,14 +62,10 @@ export default function DashboardPage() {
       setCachedDashboard(data);
       setAnalytics(data.overview);
       setPredictions(data.predictions);
-      const localTests = getRecentTestResults();
-      const combined = [...(data.recent_scores || []), ...localTests]
-        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-      setRecentTests(combined);
+      setRecentTests(data.recent_scores || []);
     }).catch(() => {
       if (!cached) {
-        const localTests = getRecentTestResults();
-        setRecentTests(localTests);
+        setRecentTests([]);
       }
     });
   }, [isAuthenticated, isLoading]);
@@ -92,11 +87,19 @@ export default function DashboardPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { value: analytics?.total_tests || 0, label: 'Tests Taken', icon: <FileText className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1' },
-            { value: analytics?.avg_wpm?.toFixed(1) || 0, label: 'Avg WPM', icon: <Gauge className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
-            { value: `${analytics?.avg_accuracy?.toFixed(1) || 0}%`, label: 'Avg Accuracy', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-2' },
-            { value: user.xp, label: `XP (Lvl ${user.level})`, icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
-          ].map((stat) => (
+            { value: analytics?.total_tests || 0, label: 'Tests Taken', icon: <FileText className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1', isXp: false },
+            { value: analytics?.avg_wpm?.toFixed(1) || 0, label: 'Avg WPM', icon: <Gauge className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1', isXp: false },
+            { value: `${analytics?.avg_accuracy?.toFixed(1) || 0}%`, label: 'Avg Accuracy', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-2', isXp: false },
+            { value: user.xp, label: getLevelFromXP(user.xp), icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1', isXp: true },
+          ].map((stat) => stat.isXp ? (
+            <button key={stat.label} onClick={() => setShowXPModal(true)}
+                 className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all duration-100 cursor-pointer w-full"
+                 style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
+              <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
+              <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
+              <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
+            </button>
+          ) : (
             <div key={stat.label}
                  className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all duration-100"
                  style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
@@ -413,6 +416,129 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+        {/* XP Detail Modal */}
+        {showXPModal && user && (() => {
+          const xp = user.xp || 0;
+          const rank = getLevelFromXP(xp);
+          const rankIdx = getLevelIndex(xp);
+          const progress = getLevelProgress(xp);
+          const totalTests = analytics?.total_tests || 0;
+          const recentXpTotal = recentTests.slice(0, 10).reduce((s: number, t: any) => s + (t.xp_earned || 0), 0);
+          const avgXpPerTest = totalTests > 0 ? Math.round(xp / totalTests) : 0;
+          const lessonXpEstimate = 895;
+          const testXpEstimate = Math.max(0, xp - lessonXpEstimate);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowXPModal(false)}>
+              <div className="bg-white border-2 border-pencil shadow-hard max-w-lg w-full mx-4 relative overflow-y-auto max-h-[90vh]"
+                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                   onClick={e => e.stopPropagation()}>
+                <div className="p-6">
+                  <button onClick={() => setShowXPModal(false)}
+                          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center border-2 border-pencil/30 text-pencil/50 hover:text-pencil hover:border-pencil transition-colors"
+                          style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                    <X className="w-4 h-4" strokeWidth={3} />
+                  </button>
+
+                  {/* Rank Header */}
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 border-[3px] border-yellow-500 rounded-full shrink-0">
+                      <Zap className="w-8 h-8 text-yellow-600" strokeWidth={3} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold font-marker text-pencil">{rank}</h2>
+                      <p className="text-sm font-hand text-pencil/50">{xp.toLocaleString()} total XP</p>
+                    </div>
+                  </div>
+
+                  {/* Progress to next rank */}
+                  {progress.next && (
+                    <>
+                      <div className="mb-1 flex items-center justify-between text-sm font-hand">
+                        <span className="text-pencil/60">Next: {progress.next}</span>
+                        <span className="font-semibold text-pencil">{xp - progress.currentXp} / {progress.nextXp - progress.currentXp} XP</span>
+                      </div>
+                      <div className="w-full h-5 bg-gray-100 rounded-full overflow-hidden border border-pencil/20">
+                        <div className="h-full rounded-full transition-all duration-500 bg-yellow-400 flex items-center justify-end pr-2"
+                             style={{ width: `${progress.progress}%` }}>
+                          {progress.progress > 15 && (
+                            <span className="text-[10px] font-bold text-yellow-800">{progress.progress.toFixed(0)}%</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs font-hand text-pencil/40 mt-1 mb-5">
+                        {Math.ceil(progress.nextXp - xp)} more XP to reach {progress.next}
+                      </p>
+                    </>
+                  )}
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="bg-paper border border-pencil/20 p-3 text-center"
+                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                      <div className="text-xl font-bold font-marker text-pencil">{totalTests}</div>
+                      <div className="text-xs font-hand text-pencil/50">Tests Taken</div>
+                    </div>
+                    <div className="bg-paper border border-pencil/20 p-3 text-center"
+                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                      <div className="text-xl font-bold font-marker text-pencil">{avgXpPerTest}</div>
+                      <div className="text-xs font-hand text-pencil/50">Avg XP / Test</div>
+                    </div>
+                    <div className="bg-paper border border-pencil/20 p-3 text-center"
+                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                      <div className="text-xl font-bold font-marker text-green-600">+{recentXpTotal}</div>
+                      <div className="text-xs font-hand text-pencil/50">Last 10 Tests XP</div>
+                    </div>
+                  </div>
+
+                  {/* XP Sources */}
+                  <div className="mb-5">
+                    <h3 className="text-sm font-bold font-hand text-pencil mb-2">XP Sources</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
+                           style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                        <span className="text-sm font-hand text-pencil/70">Lessons (max 895 XP)</span>
+                        <span className="text-sm font-bold font-mono text-pencil">{Math.min(lessonXpEstimate, xp)}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
+                           style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                        <span className="text-sm font-hand text-pencil/70">Typing Tests</span>
+                        <span className="text-sm font-bold font-mono text-pencil">{Math.max(0, testXpEstimate)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* All Ranks */}
+                  <div className="border-t-2 border-pencil/10 pt-4">
+                    <h3 className="text-sm font-bold font-hand text-pencil mb-3">Rank Progression</h3>
+                    <div className="space-y-1.5">
+                      {LEVEL_NAMES.map((l, i) => {
+                        const unlocked = xp >= l.minXp;
+                        return (
+                          <div key={l.name}
+                               className={`flex items-center justify-between p-2.5 ${unlocked ? 'bg-yellow-50 border border-yellow-200' : 'bg-paper border border-pencil/10'} ${l.name === rank ? 'ring-2 ring-yellow-400' : ''}`}
+                               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold font-mono rounded-full ${unlocked ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-100 text-gray-300'}`}>
+                                {unlocked ? '✓' : i + 1}
+                              </span>
+                              <span className={`text-sm font-hand ${unlocked ? 'text-pencil font-bold' : 'text-pencil/40'}`}>
+                                {l.name}
+                              </span>
+                            </div>
+                            <span className={`text-xs font-hand ${unlocked ? 'text-yellow-600' : 'text-pencil/30'}`}>
+                              {l.minXp === 0 ? 'Start' : `${l.minXp.toLocaleString()} XP`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
       </main>
     </div>
   );

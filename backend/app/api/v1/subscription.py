@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import hashlib
+import hmac
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -43,6 +46,19 @@ async def create_subscription_order(
     }
 
 
+import hmac
+
+RAZORPAY_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+
+
+def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
+    if not RAZORPAY_SECRET:
+        return False
+    payload = f"{order_id}|{payment_id}"
+    expected = hmac.new(RAZORPAY_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
 @router.post("/verify", response_model=SubscriptionResponse)
 async def verify_payment(
     data: dict,
@@ -51,6 +67,14 @@ async def verify_payment(
 ):
     plan = data.get("plan", "premium_monthly")
     provider_payment_id = data.get("provider_payment_id", "")
+    provider_order_id = data.get("provider_order_id", "")
+    provider_signature = data.get("provider_signature", "")
+
+    if plan not in PLAN_PRICES:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+
+    if not provider_signature or not verify_razorpay_signature(provider_order_id, provider_payment_id, provider_signature):
+        raise HTTPException(status_code=402, detail="Payment verification failed")
 
     duration = PLAN_DURATIONS.get(plan, 30)
     now = datetime.utcnow()
@@ -74,6 +98,7 @@ async def verify_payment(
         currency="INR",
         provider=data.get("provider", "razorpay"),
         provider_payment_id=provider_payment_id,
+        provider_order_id=provider_order_id,
         status="completed",
         gst_invoice_number=f"GST-{now.strftime('%Y%m')}-{uuid7().hex[:8].upper()}",
         gst_amount=PLAN_PRICES.get(plan, 299) * 0.18,
@@ -123,11 +148,17 @@ async def get_subscription_status(
 
 @router.get("/payments", response_model=list)
 async def get_payment_history(
+    limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Payment).where(Payment.user_id == current_user.id).order_by(Payment.created_at.desc())
+        select(Payment)
+        .where(Payment.user_id == current_user.id)
+        .order_by(Payment.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     payments = result.scalars().all()
     return [

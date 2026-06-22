@@ -51,8 +51,8 @@ export default function AICoachPage() {
       }).catch(() => {});
     }
 
-    // Weak words with separate 5-min cache
-    const weakKey = 'weak-words';
+    // Weak words with separate 5-min cache (keyed by user)
+    const weakKey = user ? `weak-words-${user.id}` : 'weak-words';
     const cachedWeak = cacheGet<string[]>(weakKey);
     if (cachedWeak) {
       setWeakWords(cachedWeak);

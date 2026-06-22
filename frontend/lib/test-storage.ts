@@ -14,7 +14,17 @@ export interface StoredTestResult {
   xp_earned?: number;
 }
 
-const STORAGE_KEY = 'typing_test_results';
+function storageKey(): string {
+  try {
+    const raw = localStorage.getItem('token');
+    if (raw) {
+      const payload = raw.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return `typing_test_results_${decoded.sub}`;
+    }
+  } catch {}
+  return 'typing_test_results';
+}
 
 function generateId(): string {
   return `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -29,7 +39,7 @@ export function saveTestResult(result: Omit<StoredTestResult, 'id' | 'date'>): v
       ...result,
     };
     stored.unshift(entry);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    localStorage.setItem(storageKey(), JSON.stringify(stored));
   } catch {
     console.warn('Failed to save test result to localStorage');
   }
@@ -37,7 +47,7 @@ export function saveTestResult(result: Omit<StoredTestResult, 'id' | 'date'>): v
 
 export function getTestResults(): StoredTestResult[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return [];
     return JSON.parse(raw) as StoredTestResult[];
   } catch {
@@ -51,6 +61,6 @@ export function getRecentTestResults(limit = 20): StoredTestResult[] {
 
 export function clearTestResults(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey());
   } catch {}
 }

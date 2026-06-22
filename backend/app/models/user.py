@@ -21,6 +21,10 @@ class User(Base):
     phone = Column(String(20), unique=True, nullable=True)
     full_name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=True)
+    password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    password_history = Column(JSON, nullable=True)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
     role = Column(SAEnum(UserRole, name='user_role', values_callable=lambda x: [e.value for e in x], create_type=False), default=UserRole.STUDENT, nullable=False)
 
     state = Column(String(100), nullable=True)

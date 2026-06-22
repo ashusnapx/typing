@@ -21,8 +21,17 @@ class Settings(BaseSettings):
     CLERK_PUBLISHABLE_KEY: str = ""
     JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_HOURS: int = 2
+    JWT_EXPIRY_MINUTES: int = 15
     JWT_REFRESH_EXPIRY_DAYS: int = 7
+    JWT_ISSUER: str = "mathsmania-backend"
+    PASSWORD_MIN_LENGTH: int = 16
+    PASSWORD_MAX_LENGTH: int = 128
+    PASSWORD_HISTORY_COUNT: int = 5
+    PASSWORD_EXPIRY_DAYS: int = 90
+    ACCOUNT_LOCKOUT_THRESHOLD: int = 5
+    ACCOUNT_LOCKOUT_MINUTES: int = 30
+    MAX_LOGIN_ATTEMPTS_PER_IP: int = 5
+    LOGIN_WINDOW_MINUTES: int = 15
 
     R2_ACCESS_KEY: str = ""
     R2_SECRET_KEY: str = ""

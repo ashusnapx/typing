@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { getModeDisplayName } from '@/lib/utils';
 import { TestMode } from '@/types';
 
-const instructions = [
+const instructionsEn = [
   'This is a typing skill test conducted by the Staff Selection Commission (SSC) for recruitment purposes.',
   'The total duration of this test is mentioned above. The timer will start as soon as you click "I am ready to begin".',
   'You are required to type the given passage exactly as displayed on the screen. Pay close attention to punctuation, spacing, and capitalization.',
@@ -21,22 +21,40 @@ const instructions = [
   'Your result, including WPM, accuracy, and qualification status, will be displayed immediately after the test concludes.',
 ];
 
+const instructionsHi = [
+  'यह कर्मचारी चयन आयोग (SSC) द्वारा भर्ती उद्देश्यों के लिए आयोजित एक टाइपिंग कौशल परीक्षा है।',
+  'इस परीक्षा की कुल अवधि ऊपर बताई गई है। जैसे ही आप "मैं शुरू करने के लिए तैयार हूँ" पर क्लिक करेंगे, टाइमर शुरू हो जाएगा।',
+  'आपको स्क्रीन पर दिखाए गए गद्यांश को बिल्कुल वैसा ही टाइप करना है जैसा वह प्रदर्शित होता है। विराम चिह्न, स्थान और बड़े अक्षरों पर विशेष ध्यान दें।',
+  'गद्यांश स्क्रीन के ऊपरी भाग में प्रदर्शित होगा। टाइपिंग क्षेत्र निचले भाग में उपलब्ध है।',
+  'दिए गए टेक्स्ट बॉक्स में कीबोर्ड का उपयोग करके गद्यांश टाइप करें। सिस्टम मूल्यांकन के लिए प्रत्येक कीस्ट्रोक रिकॉर्ड करता है।',
+  'गलतियों को सुधारने के लिए आप Backspace कुंजी का उपयोग कर सकते हैं। सिस्टम परीक्षा के दौरान किए गए सभी सुधारों को ट्रैक करता है।',
+  'एक बार टाइमर शुरू होने के बाद, इसे किसी भी परिस्थिति में रोका, बंद या बढ़ाया नहीं जा सकता।',
+  'आपको संबंधित परीक्षा श्रेणी के लिए SSC दिशानिर्देशों के अनुसार न्यूनतम आवश्यक टाइपिंग गति बनाए रखनी होगी।',
+  'टाइपिंग सटीकता गति जितनी ही महत्वपूर्ण है। मूल्यांकन में शुद्ध गति और सटीकता प्रतिशत दोनों पर विचार किया जाता है।',
+  'परीक्षा के दौरान किसी भी बाहरी संसाधन, कॉपी-पेस्ट, या स्वचालित उपकरणों का उपयोग न करें। ऐसी गतिविधि के परिणामस्वरूप अयोग्यता होगी।',
+  'परीक्षा शुरू करने से पहले सुनिश्चित करें कि आप शांत वातावरण में हैं और आपका इंटरनेट कनेक्शन स्थिर है।',
+  'आपका परिणाम, WPM, सटीकता और योग्यता की स्थिति सहित, परीक्षा समाप्त होने के तुरंत बाद प्रदर्शित किया जाएगा।',
+];
+
 interface ExamInstructionsProps {
   mode: TestMode;
   durationSeconds: number;
+  lang?: 'english' | 'hindi';
   onBegin: () => void;
 }
 
-export function ExamInstructions({ mode, durationSeconds, onBegin }: ExamInstructionsProps) {
+export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBegin }: ExamInstructionsProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const [agreed, setAgreed] = useState(false);
+  const [instructionLang, setInstructionLang] = useState<'english' | 'hindi'>(lang === 'hindi' ? 'hindi' : 'english');
 
   const durationLabel = durationSeconds >= 60
     ? `${Math.floor(durationSeconds / 60)} Mins`
     : `${durationSeconds} Secs`;
 
   const examTitle = getModeDisplayName(mode);
+  const instructions = instructionLang === 'hindi' ? instructionsHi : instructionsEn;
 
   return (
     <div style={{
@@ -173,7 +191,28 @@ export function ExamInstructions({ mode, durationSeconds, onBegin }: ExamInstruc
                   minWidth: 120,
                 }}
               >
-                <option>English</option>
+                <option>{lang === 'hindi' ? 'Hindi' : 'English'}</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#222' }}>Instruction Language:</span>
+              <select
+                value={instructionLang}
+                onChange={(e) => setInstructionLang(e.target.value as 'english' | 'hindi')}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #e5e5e5',
+                  borderRadius: 4,
+                  fontSize: 14,
+                  color: '#222',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  minWidth: 120,
+                }}
+              >
+                <option value="english">English</option>
+                <option value="hindi">हिन्दी</option>
               </select>
             </div>
 

@@ -2,10 +2,15 @@ FROM node:20-alpine
 
 RUN apk add --no-cache libc6-compat
 
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV WATCHPACK_POLLING true
+
+USER nextjs
 
 EXPOSE 3000
 

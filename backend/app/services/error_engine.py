@@ -200,5 +200,13 @@ class SSCErrorEngine:
     def is_qualified_cgl_dest(self, wpm: float, accuracy: float) -> bool:
         return accuracy >= 95.0
 
+    def is_qualified(self, wpm: float, accuracy: float, test_mode: str) -> bool:
+        """Dispatch to the correct qualification check based on test mode."""
+        if test_mode == "ssc_hindi":
+            return self.is_qualified_chsl(wpm, accuracy, mode="hindi")
+        if test_mode == "ssc_cgl_dest":
+            return self.is_qualified_cgl_dest(wpm, accuracy)
+        return self.is_qualified_chsl(wpm, accuracy)
+
 
 error_engine = SSCErrorEngine()

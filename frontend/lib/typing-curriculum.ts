@@ -751,4 +751,82 @@ const LEVELS: Level[] = [
   },
 ];
 
+export interface FlatLesson {
+  id: string;
+  title: string;
+  levelId: number;
+  levelName: string;
+  order: number;
+}
+
+export function getFlatLessons(): FlatLesson[] {
+  const all: FlatLesson[] = [];
+  let order = 0;
+  for (const level of LEVELS) {
+    for (const lesson of level.lessons) {
+      all.push({ id: lesson.id, title: lesson.title, levelId: level.id, levelName: level.name, order });
+      order++;
+    }
+  }
+  return all;
+}
+
+export function getNextLessonId(currentId: string): string | null {
+  const all = getFlatLessons();
+  const idx = all.findIndex((l) => l.id === currentId);
+  if (idx === -1 || idx >= all.length - 1) return null;
+  return all[idx + 1].id;
+}
+
+export function isLessonUnlocked(lessonId: string, progress: Record<string, any>): boolean {
+  const all = getFlatLessons();
+  const idx = all.findIndex((l) => l.id === lessonId);
+  if (idx === -1) return false;
+  if (idx === 0) return true;
+  const prevLesson = all[idx - 1];
+  return !!progress[prevLesson.id];
+}
+
+export const LEVEL_NAMES = [
+  { name: 'Rookie', minXp: 0 },
+  { name: 'Novice', minXp: 250 },
+  { name: 'Amateur', minXp: 750 },
+  { name: 'Expert', minXp: 2000 },
+  { name: 'Candidate Master', minXp: 4500 },
+  { name: 'Master', minXp: 7500 },
+  { name: 'Grandmaster', minXp: 11000 },
+  { name: 'Goated', minXp: 16000 },
+] as const;
+
+export function getLevelName(xp: number): string {
+  let name: string = LEVEL_NAMES[0].name;
+  for (const l of LEVEL_NAMES) {
+    if (xp >= l.minXp) name = l.name;
+  }
+  return name;
+}
+
+export function getLevelIndex(xp: number): number {
+  let idx = 0;
+  for (let i = 0; i < LEVEL_NAMES.length; i++) {
+    if (xp >= LEVEL_NAMES[i].minXp) idx = i;
+  }
+  return idx;
+}
+
+export function getLevelProgress(xp: number): { current: string; next: string | null; currentXp: number; nextXp: number; progress: number } {
+  const idx = getLevelIndex(xp);
+  const current = LEVEL_NAMES[idx];
+  const next = idx < LEVEL_NAMES.length - 1 ? LEVEL_NAMES[idx + 1] : null;
+  const range = next ? next.minXp - current.minXp : 1;
+  const progress = next ? ((xp - current.minXp) / (next.minXp - current.minXp)) * 100 : 100;
+  return {
+    current: current.name,
+    next: next?.name || null,
+    currentXp: current.minXp,
+    nextXp: next?.minXp || current.minXp,
+    progress: Math.min(100, Math.max(0, progress)),
+  };
+}
+
 export default LEVELS;

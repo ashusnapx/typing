@@ -8,11 +8,21 @@ export interface LessonProgress {
   completedDates: string[];
 }
 
-const STORAGE_KEY = 'typing_lesson_progress';
+function storageKey(): string {
+  try {
+    const raw = localStorage.getItem('token');
+    if (raw) {
+      const payload = raw.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return `typing_lesson_progress_${decoded.sub}`;
+    }
+  } catch {}
+  return 'typing_lesson_progress';
+}
 
 function getAll(): Record<string, LessonProgress> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return {};
     return JSON.parse(raw) as Record<string, LessonProgress>;
   } catch {
@@ -22,7 +32,7 @@ function getAll(): Record<string, LessonProgress> {
 
 function save(all: Record<string, LessonProgress>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    localStorage.setItem(storageKey(), JSON.stringify(all));
   } catch {}
 }
 
@@ -104,6 +114,6 @@ export function getCompletionTimeline(): { lessonId: string; wpm: number; accura
 
 export function clearLessonProgress(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey());
   } catch {}
 }

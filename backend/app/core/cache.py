@@ -38,6 +38,15 @@ class CacheService:
                 return None
         return self._client
 
+    async def ping(self) -> bool:
+        client = await self.get_client()
+        if not client:
+            return False
+        try:
+            return await client.ping()
+        except Exception:
+            return False
+
     async def get(self, key: str) -> Optional[Any]:
         client = await self.get_client()
         if not client:

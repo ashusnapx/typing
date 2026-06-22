@@ -1,8 +1,13 @@
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from app.models.passage import PassageLanguage, PassageCategory, PassageDifficulty
+
+
+def strip_html(value: str) -> str:
+    return re.sub(r'<[^>]*>', '', value).strip()
 
 
 class PassageCreate(BaseModel):
@@ -18,6 +23,16 @@ class PassageCreate(BaseModel):
     topic: Optional[str] = None
     source: Optional[str] = None
     ssc_exam_year: Optional[str] = None
+
+    @field_validator("title", "content", "content_hindi", "topic", "source")
+    @classmethod
+    def sanitize_html(cls, v):
+        if v is None:
+            return v
+        cleaned = strip_html(v)
+        if len(cleaned) < len(v.strip()):
+            raise ValueError("HTML tags are not allowed in passage content")
+        return v
 
 
 class PassageResponse(BaseModel):

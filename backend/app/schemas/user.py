@@ -8,7 +8,7 @@ import re
 
 class UserCreate(BaseModel):
     email: str
-    password: Optional[str] = None
+    password: str
     full_name: str
     phone: Optional[str] = None
     state: Optional[str] = None
@@ -36,6 +36,15 @@ class UserCreate(BaseModel):
             raise ValueError("Name too long")
         if not re.match(r'^[a-zA-Z\s\-\'\.]+$', v):
             raise ValueError("Name contains invalid characters")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not re.match(r'^\+?[1-9]\d{9,14}$', v):
+                raise ValueError("Invalid phone number format (E.164 expected)")
         return v
 
     @field_validator("password")
@@ -99,4 +108,13 @@ class UserProfileUpdate(BaseModel):
                 raise ValueError("Name must be at least 2 characters")
             if len(v) > 255:
                 raise ValueError("Name too long")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not re.match(r'^\+?[1-9]\d{9,14}$', v):
+                raise ValueError("Invalid phone number format (E.164 expected)")
         return v

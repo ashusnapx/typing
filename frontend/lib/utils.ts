@@ -41,8 +41,45 @@ export function getQualificationColor(probability: number): string {
   return 'text-red-600';
 }
 
-export function getLevelFromXP(xp: number): number {
-  return Math.floor(xp / 100) + 1;
+export const LEVEL_NAMES = [
+  { name: 'Rookie', minXp: 0 },
+  { name: 'Novice', minXp: 250 },
+  { name: 'Amateur', minXp: 750 },
+  { name: 'Expert', minXp: 2000 },
+  { name: 'Candidate Master', minXp: 4500 },
+  { name: 'Master', minXp: 7500 },
+  { name: 'Grandmaster', minXp: 11000 },
+  { name: 'Goated', minXp: 16000 },
+] as const;
+
+export function getLevelFromXP(xp: number): string {
+  let name: string = LEVEL_NAMES[0].name;
+  for (const l of LEVEL_NAMES) {
+    if (xp >= l.minXp) name = l.name;
+  }
+  return name;
+}
+
+export function getLevelIndex(xp: number): number {
+  let idx = 0;
+  for (let i = 0; i < LEVEL_NAMES.length; i++) {
+    if (xp >= LEVEL_NAMES[i].minXp) idx = i;
+  }
+  return idx;
+}
+
+export function getLevelProgress(xp: number): { current: string; next: string | null; currentXp: number; nextXp: number; progress: number } {
+  const idx = getLevelIndex(xp);
+  const current = LEVEL_NAMES[idx];
+  const next = idx < LEVEL_NAMES.length - 1 ? LEVEL_NAMES[idx + 1] : null;
+  const progress = next ? ((xp - current.minXp) / (next.minXp - current.minXp)) * 100 : 100;
+  return {
+    current: current.name,
+    next: next?.name || null,
+    currentXp: current.minXp,
+    nextXp: next?.minXp || current.minXp,
+    progress: Math.min(100, Math.max(0, progress)),
+  };
 }
 
 export function normalizeCase(text: string): string {

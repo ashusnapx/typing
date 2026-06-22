@@ -22,30 +22,35 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as e:
+            logger.exception("Unhandled error %s %s: %s", request.method, request.url.path, e)
             response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "0"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        if not settings.DEBUG:
-            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
         return response
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    SENSITIVE_PATHS = ["/api/v1/auth/login", "/api/v1/auth/register"]
-    GENERAL_LIMIT = 100
-    GENERAL_WINDOW = 60
+    AUTH_PATHS = ["/api/v1/auth/login", "/api/v1/auth/register"]
+    GENERAL_LIMIT = 1000
+    GENERAL_WINDOW = 3600
+    AUTH_LIMIT = 10
+    AUTH_WINDOW = 60
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         client_ip = hash_ip(request.client.host if request.client else "unknown")
         path = request.url.path
 
-        if any(path.startswith(p) for p in self.SENSITIVE_PATHS):
+        if any(path.startswith(p) for p in self.AUTH_PATHS):
             allowed, retry_after = await security_store.check_rate(
-                client_ip, path, max_attempts=10, window_seconds=60, lockout_minutes=15
+                client_ip, path,
+                max_attempts=self.AUTH_LIMIT,
+                window_seconds=self.AUTH_WINDOW,
+                lockout_minutes=15
             )
             if not allowed:
                 audit_api_abuse(client_ip, path)
@@ -54,14 +59,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Too many requests. Please try again later."},
                     headers={"Retry-After": str(retry_after)},
                 )
-        elif path.startswith("/api/v1/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        elif path.startswith("/api/v1/"):
             allowed, retry_after = await security_store.check_rate(
-                client_ip, f"gen:{request.method}:{path}", max_attempts=self.GENERAL_LIMIT, window_seconds=self.GENERAL_WINDOW, lockout_minutes=0
+                client_ip, f"api:{request.method}:{path.split('/')[3] if len(path.split('/')) > 3 else 'other'}",
+                max_attempts=self.GENERAL_LIMIT,
+                window_seconds=self.GENERAL_WINDOW,
+                lockout_minutes=0
             )
             if not allowed:
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": "Too many requests. Please slow down."},
+                    content={"detail": "Rate limit exceeded. Please slow down."},
+                    headers={"Retry-After": "3600"},
                 )
 
         response = await call_next(request)

@@ -2,6 +2,8 @@
 
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { clearLessonProgress } from '@/lib/lesson-storage';
+import { clearTestResults } from '@/lib/test-storage';
 
 interface AuthUser {
   id: string;
@@ -41,6 +43,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     api.setToken(null);
+    clearLessonProgress();
+    clearTestResults();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 

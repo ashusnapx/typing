@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
@@ -27,16 +28,18 @@ total_errors = Counter("total_errors", "Total typing errors tracked")
 tests_completed = Counter("tests_completed", "Total tests completed")
 
 
+MONITORING_USER = "metrics"
+MONITORING_PASS = os.environ.get("METRICS_PASSWORD", "")
+
+
 def verify_metrics_access(credentials: HTTPBasicCredentials = Depends(security)):
-    if settings.DEBUG:
+    if settings.DEBUG and not MONITORING_PASS:
         return True
     if not credentials:
         raise HTTPException(status_code=401, detail="Authentication required")
-    expected_user = "metrics"
-    expected_pass = settings.JWT_SECRET[:16] if settings.JWT_SECRET else "monitoring"
-    if not secrets.compare_digest(credentials.username, expected_user):
+    if not secrets.compare_digest(credentials.username, MONITORING_USER):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not secrets.compare_digest(credentials.password, expected_pass):
+    if not MONITORING_PASS or not secrets.compare_digest(credentials.password, MONITORING_PASS):
         raise HTTPException(status_code=403, detail="Access denied")
     return True
 

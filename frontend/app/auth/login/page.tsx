@@ -7,6 +7,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { PasswordStrength } from '@/components/password-strength';
+import { ButtonSpinner } from '@/components/ui/loading-logo';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
 
@@ -89,9 +91,10 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+          <PasswordStrength password={password} />
 
-          <button type="submit" disabled={loading} className="btn-hand w-full text-xl py-4">
-            {loading ? 'Signing in...' : 'Sign In'}
+          <button type="submit" disabled={loading} className="btn-hand w-full text-xl py-4 flex items-center justify-center gap-2">
+            {loading ? <ButtonSpinner /> : 'Sign In'}
           </button>
         </form>
 

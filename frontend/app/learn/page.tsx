@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import LEVELS from "@/lib/typing-curriculum";
+import LEVELS, { isLessonUnlocked } from "@/lib/typing-curriculum";
 import { APP, WOBBLY_RADII } from "@/lib/config";
 import {
   getAllLessonProgress,
@@ -313,29 +313,29 @@ export default function LearnPage() {
                     {level.lessons.map((lesson, i) => {
                       const lessonOpen = activeLesson === lesson.id;
                       const lessonProg = progress[lesson.id];
+                      const unlocked = lesson.id === 'l0-mouse' || isLessonUnlocked(lesson.id, progress);
                       return (
                         <div
                           key={lesson.id}
-                          className={`border-2 ${lessonProg?.qualified ? "border-green-300" : "border-pencil"} bg-paper hover:shadow-hard-sm transition-all`}
+                          className={`border-2 ${lessonProg?.qualified ? "border-green-300" : unlocked ? "border-pencil" : "border-pencil/20"} ${unlocked ? "bg-paper hover:shadow-hard-sm" : "bg-gray-50"} transition-all relative`}
                           style={{ borderRadius: WOBBLY_RADII.sm }}
                         >
                           <button
-                            onClick={() =>
-                              setActiveLesson(lessonOpen ? null : lesson.id)
-                            }
+                            onClick={() => unlocked && setActiveLesson(lessonOpen ? null : lesson.id)}
+                            disabled={!unlocked}
                             className='w-full text-left p-4 flex items-center justify-between'
                           >
                             <div className='flex items-center space-x-3'>
                               <span
                                 className={`w-8 h-8 flex items-center justify-center text-sm font-bold font-hand
-                                ${lessonProg ? "bg-green-100 border-green-300 text-green-700" : "bg-muted border-2 border-pencil text-pencil"}`}
+                                ${lessonProg ? "bg-green-100 border-green-300 text-green-700" : unlocked ? "bg-muted border-2 border-pencil text-pencil" : "bg-gray-100 border-2 border-gray-200 text-gray-300"}`}
                                 style={{ borderRadius: WOBBLY_RADII.sm }}
                               >
-                                {lessonProg ? "✓" : i + 1}
+                                {lessonProg ? "✓" : unlocked ? i + 1 : <Lock className="w-3.5 h-3.5" strokeWidth={3} />}
                               </span>
                               <div>
                                 <div className='flex items-center gap-2'>
-                                  <span className='font-bold text-pencil font-hand'>
+                                  <span className={`font-bold font-hand ${unlocked ? "text-pencil" : "text-gray-300"}`}>
                                     {lesson.title}
                                   </span>
                                   {lessonProg && (
@@ -372,6 +372,9 @@ export default function LearnPage() {
                               </div>
                             </div>
                             <div className='flex items-center gap-2'>
+                              {!unlocked && (
+                                <Lock className="w-4 h-4 text-gray-300" strokeWidth={3} />
+                              )}
                               {lessonProg && (
                                 <span
                                   className={`text-[10px] font-hand px-1.5 py-0.5 border ${
@@ -386,14 +389,16 @@ export default function LearnPage() {
                                   : "Attempted"}
                                 </span>
                               )}
-                              <Play
-                                className={`w-5 h-5 ${lessonOpen ? "text-accent" : "text-pencil/30"}`}
-                                strokeWidth={3}
-                              />
+                              {unlocked && (
+                                <Play
+                                  className={`w-5 h-5 ${lessonOpen ? "text-accent" : "text-pencil/30"}`}
+                                  strokeWidth={3}
+                                />
+                              )}
                             </div>
                           </button>
 
-                          {lessonOpen && (
+                          {lessonOpen && unlocked && (
                             <div className='px-4 pb-4 space-y-3'>
                               <div
                                 className='p-3 bg-postit border-2 border-pencil'
@@ -455,6 +460,13 @@ export default function LearnPage() {
                                 />
                                 {lessonProg ? "Retry Lesson" : "Start Lesson"}
                               </button>
+                            </div>
+                          )}
+                          {lessonOpen && !unlocked && (
+                            <div className='px-4 pb-4'>
+                              <p className='text-sm font-hand text-pencil/40 text-center'>
+                                Complete the previous lesson to unlock this one.
+                              </p>
                             </div>
                           )}
                         </div>

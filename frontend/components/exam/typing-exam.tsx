@@ -12,6 +12,7 @@ import { saveTestResult } from '@/lib/test-storage';
 import { invalidateDashboardCache } from '@/lib/dashboard-cache';
 import { TestMode } from '@/types';
 import { LoadingLogo } from '@/components/ui/loading-logo';
+import Image from 'next/image';
 import { SSCExamUI } from './ssc-exam-ui';
 import { ExamInstructions } from './exam-instructions';
 import {
@@ -19,7 +20,6 @@ import {
   XCircle,
   RotateCcw,
   BarChart3,
-  Loader2,
 } from 'lucide-react';
 
 interface TypingExamProps {
@@ -32,9 +32,9 @@ interface TypingExamProps {
 
 export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english', isTCSReplica = false }: TypingExamProps) {
   const router = useRouter();
-  const { user, isLoading: authLoading, loadUser } = useAuthStore();
+  const { user, isAuthenticated, isLoading: authLoading, loadUser } = useAuthStore();
   const store = useTypingStore();
-  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine();
+  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
@@ -42,6 +42,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [phase, setPhase] = useState<'loading' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
 
   useEffect(() => {
+    if (!authLoading && !isAuthenticated) { router.push('/auth/login'); return; }
     const waitAndInit = async () => {
       if (authLoading) return;
       initTest();
@@ -50,8 +51,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   }, [authLoading]);
 
   useEffect(() => {
-    if (store.isComplete && !showResult) submitTest();
-  }, [store.isComplete]);
+    if (store.isComplete && !showResult && phase === 'typing') submitTest();
+  }, [store.isComplete, phase]);
 
   useEffect(() => {
     if (phase === 'result') {
@@ -60,6 +61,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   }, [phase]);
 
   const initTest = async () => {
+    store.reset();
     try {
       const category = mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined;
       const passageData = await getRandomPassage(category, undefined, lang);
@@ -117,6 +119,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         total_errors: resultData.total_errors,
         key_depression_count: resultData.key_depression_count,
         backspace_count: resultData.backspace_count,
+        xp_earned: resultData.xp_earned || 0,
       });
       loadUser();
       invalidateDashboardCache();
@@ -142,6 +145,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
           total_errors: resultData.total_errors,
           key_depression_count: resultData.key_depression_count,
           backspace_count: resultData.backspace_count,
+          xp_earned: resultData.xp_earned || 0,
         });
         loadUser();
         invalidateDashboardCache();
@@ -186,6 +190,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       <ExamInstructions
         mode={mode}
         durationSeconds={durationSeconds}
+        lang={lang}
         onBegin={startTyping}
       />
     );
@@ -202,14 +207,22 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         justifyContent: 'center',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <Loader2 size={48} color="#2F5BFF" style={{ animation: 'spin 1s linear infinite' }} />
+          <div className="inline-block animate-spin">
+            <Image
+              src="/images/logo.jpg"
+              alt=""
+              width={64}
+              height={64}
+              className="w-16 h-16 border-2 border-pencil shadow-hard-sm"
+              style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+            />
+          </div>
           <p style={{ marginTop: 20, fontSize: 18, color: '#666', fontWeight: 500 }}>
             Evaluating your typing test...
           </p>
           <p style={{ marginTop: 8, fontSize: 14, color: '#999' }}>
             Please wait while we analyze your performance
           </p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
@@ -234,6 +247,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       durationSeconds={durationSeconds}
       wpmTarget={wpmTarget}
       passage={passage}
+      lang={lang}
       onComplete={() => store.completeTest()}
       phase={phase}
     />
@@ -305,7 +319,7 @@ function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedC
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 800, width: '100%', background: '#fff', border: '1px solid #dcdcdc', borderRadius: 8, padding: 32 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{
             width: 80, height: 80, margin: '0 auto 16px', borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -322,6 +336,21 @@ function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedC
           <p style={{ marginTop: 4, fontSize: 16, color: '#888' }}>
             {getModeDisplayName(mode)} &mdash; {result.time_taken_seconds?.toFixed(0) || '0'}s
           </p>
+          {!qualified && (
+            <div style={{ marginTop: 8, fontSize: 13, color: '#888', display: 'flex', gap: 16, justifyContent: 'center' }}>
+              {(result.net_wpm || 0) < (wpmTarget || 35) && (
+                <span style={{ color: '#e53935' }}>WPM: {result.net_wpm?.toFixed(1)} / {wpmTarget || 35} required</span>
+              )}
+              {(result.accuracy || 0) < 95 && (
+                <span style={{ color: '#e53935' }}>Accuracy: {result.accuracy?.toFixed(1)}% / 95% required</span>
+              )}
+            </div>
+          )}
+          {result.xp_earned > 0 && (
+            <div style={{ marginTop: 8, fontSize: 15, color: '#e65100', fontWeight: 600 }}>
+              +{result.xp_earned} XP earned
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>

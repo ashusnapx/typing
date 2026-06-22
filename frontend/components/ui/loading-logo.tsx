@@ -22,6 +22,24 @@ export function LoadingLogo() {
   );
 }
 
+export function ButtonSpinner() {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-block animate-spin">
+        <Image
+          src="/images/logo.jpg"
+          alt=""
+          width={20}
+          height={20}
+          className="w-5 h-5 border border-pencil/30"
+          style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+        />
+      </span>
+      <span>Please wait...</span>
+    </span>
+  );
+}
+
 export function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper">

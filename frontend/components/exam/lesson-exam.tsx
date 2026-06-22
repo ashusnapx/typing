@@ -7,6 +7,7 @@ import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName, normalizeCase } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
+import { saveLessonProgress } from '@/lib/lesson-storage';
 import { api } from '@/lib/api';
 import { TypingDisplay } from './typing-display';
 import { Lesson } from '@/lib/typing-curriculum';
@@ -83,6 +84,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       key_depression_count: totalType,
       xp_earned: earnedXp,
     });
+    saveLessonProgress(lesson.id, finalWpm, finalAcc, qualified);
 
     if (authStore.isAuthenticated && authStore.user) {
       try {

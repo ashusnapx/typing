@@ -73,12 +73,27 @@ async def get_dashboard(
             "id": str(t.id),
             "date": t.completed_at.isoformat() if t.completed_at else None,
             "wpm": t.net_wpm,
+            "gross_wpm": t.gross_wpm,
             "accuracy": t.accuracy,
             "mode": t.mode.value,
             "qualified": t.is_qualified,
+            "duration": t.duration_seconds,
+            "total_errors": t.total_errors,
+            "backspace_count": t.backspace_count,
+            "consistency_score": t.consistency_score,
+            "xp_earned": t.xp_earned,
+            "key_depression_count": t.key_depression_count,
         }
         for t in recent
     ]
+
+    recent_avg_wpm = sum(wpms) / len(wpms) if wpms else 0
+    recent_avg_accuracy = sum(accs) / len(accs) if accs else 0
+
+    chsl_wpm_target = 35
+    chsl_acc_target = 95
+    wpm_gap = max(0, chsl_wpm_target - recent_avg_wpm)
+    acc_gap = max(0, chsl_acc_target - recent_avg_accuracy)
 
     return {
         "overview": overview,
@@ -89,6 +104,15 @@ async def get_dashboard(
             "accuracy_trend": acc_trend,
             "consistency_score": chsl_pred.get("avg_consistency", 50),
             "recommendation": _generate_recommendation(chsl_pred, cgl_pred),
+            "recent_avg_wpm": round(recent_avg_wpm, 1),
+            "recent_avg_accuracy": round(recent_avg_accuracy, 1),
+            "wpm_gap": round(wpm_gap, 1),
+            "acc_gap": round(acc_gap, 1),
+            "chsl_wpm_target": chsl_wpm_target,
+            "chsl_acc_target": chsl_acc_target,
+            "tests_analyzed": len(tests_data),
+            "wpm_series": [round(w, 1) for w in wpms[-10:]],
+            "accuracy_series": [round(a, 1) for a in accs[-10:]],
         },
         "recent_scores": recent_scores,
     }

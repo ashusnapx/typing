@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { cacheGet, cacheSet } from '@/lib/dashboard-cache';
 import { Trophy, Medal, Gauge, Target, FileText, Zap } from 'lucide-react';
 
 const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
@@ -11,7 +12,17 @@ export default function LeaderboardPage() {
   const [scope, setScope] = useState('global');
 
   useEffect(() => {
-    api.getLeaderboard(scope).then(setLeaderboard).catch(() => {});
+    const cacheKey = `leaderboard-${scope}`;
+    const cached = cacheGet<any>(cacheKey);
+    if (cached) {
+      setLeaderboard(cached);
+    }
+    if (!cached) {
+      api.getLeaderboard(scope).then((data) => {
+        setLeaderboard(data);
+        cacheSet(cacheKey, data, 2 * 60 * 1000);
+      }).catch(() => {});
+    }
   }, [scope]);
 
   return (

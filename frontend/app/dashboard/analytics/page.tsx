@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
+import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh } from '@/lib/dashboard-cache';
 import Link from 'next/link';
 import {
   FileText,
@@ -29,14 +30,27 @@ export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [recentTests, setRecentTests] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any>(null);
+  const fetched = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) { router.push('/auth/login'); return; }
-    if (isAuthenticated) {
-      api.getAnalyticsOverview().then(setAnalytics).catch(() => {});
-      api.getRecentScores().then(setRecentTests).catch(() => {});
-      api.getPredictions().then(setPredictions).catch(() => {});
+    if (!isAuthenticated || isLoading || fetched.current) return;
+    fetched.current = true;
+
+    const cached = getCachedDashboard();
+    if (cached) {
+      setAnalytics(cached.overview);
+      setPredictions(cached.predictions);
+      setRecentTests(cached.recent_scores || []);
+      if (isDashboardCacheFresh()) return;
     }
+
+    api.request<any>('/dashboard').then((data) => {
+      setCachedDashboard(data);
+      setAnalytics(data.overview);
+      setPredictions(data.predictions);
+      setRecentTests(data.recent_scores || []);
+    }).catch(() => {});
   }, [isAuthenticated, isLoading]);
 
   if (isLoading || !user) {

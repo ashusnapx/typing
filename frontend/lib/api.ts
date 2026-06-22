@@ -3,11 +3,29 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v
 class ApiClient {
   private token: string | null = null;
   private refreshing: Promise<boolean> | null = null;
+  private pending: Map<string, Promise<any>> = new Map();
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('token');
     }
+  }
+
+  private dedupKey(endpoint: string, options: RequestInit = {}): string {
+    return `${options.method || 'GET'}:${endpoint}:${options.body || ''}`;
+  }
+
+  private async dedupedFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const key = this.dedupKey(endpoint, options);
+    const isGet = !options.method || options.method === 'GET';
+    if (isGet && this.pending.has(key)) {
+      return this.pending.get(key)!;
+    }
+    const promise = this._request<T>(endpoint, options).finally(() => {
+      if (isGet) this.pending.delete(key);
+    });
+    if (isGet) this.pending.set(key, promise);
+    return promise;
   }
 
   setToken(token: string | null) {
@@ -53,6 +71,13 @@ class ApiClient {
   }
 
   async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    return this.dedupedFetch<T>(endpoint, options);
+  }
+
+  private async _request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {

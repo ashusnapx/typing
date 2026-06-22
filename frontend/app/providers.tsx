@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 
 const queryClient = new QueryClient({
@@ -16,8 +16,11 @@ const queryClient = new QueryClient({
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const loadUser = useAuthStore((s) => s.loadUser);
+  const called = useRef(false);
 
   useEffect(() => {
+    if (called.current) return;
+    called.current = true;
     loadUser();
   }, [loadUser]);
 

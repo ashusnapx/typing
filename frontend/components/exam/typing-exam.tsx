@@ -13,11 +13,13 @@ import { invalidateDashboardCache } from '@/lib/dashboard-cache';
 import { TestMode } from '@/types';
 import { LoadingLogo } from '@/components/ui/loading-logo';
 import { SSCExamUI } from './ssc-exam-ui';
+import { ExamInstructions } from './exam-instructions';
 import {
   CheckCircle2,
   XCircle,
   RotateCcw,
   BarChart3,
+  Loader2,
 } from 'lucide-react';
 
 interface TypingExamProps {
@@ -37,8 +39,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [passage, setPassage] = useState<any>(null);
-  const [countdown, setCountdown] = useState(3);
-  const [phase, setPhase] = useState<'loading' | 'countdown' | 'typing' | 'submitting' | 'result'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
 
   useEffect(() => {
     const waitAndInit = async () => {
@@ -51,6 +52,12 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   useEffect(() => {
     if (store.isComplete && !showResult) submitTest();
   }, [store.isComplete]);
+
+  useEffect(() => {
+    if (phase === 'result') {
+      if (document.fullscreenElement) document.exitFullscreen();
+    }
+  }, [phase]);
 
   const initTest = async () => {
     try {
@@ -78,27 +85,17 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       }
 
       setLoading(false);
-      startCountdown();
+      setPhase('instructions');
     } catch {
       setLoading(false);
       store.startTest('local', mode, 'Sample passage for typing practice.', durationSeconds);
-      startCountdown();
+      setPhase('instructions');
     }
-  };
-
-  const startCountdown = () => {
-    setPhase('countdown');
-    let count = 3;
-    setCountdown(count);
-    const interval = setInterval(() => {
-      count--;
-      if (count <= 0) { clearInterval(interval); startTyping(); }
-      else setCountdown(count);
-    }, 1000);
   };
 
   const startTyping = () => {
     setPhase('typing');
+    try { document.documentElement.requestFullscreen(); } catch {}
   };
 
   const submitTest = async () => {
@@ -184,22 +181,51 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     return <LoadingLogo />;
   }
 
-  if (phase === 'countdown') {
+  if (phase === 'instructions') {
+    return (
+      <ExamInstructions
+        mode={mode}
+        durationSeconds={durationSeconds}
+        onBegin={startTyping}
+      />
+    );
+  }
+
+  if (phase === 'submitting') {
     return (
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif'
+        minHeight: '100vh',
+        background: '#f5f5f5',
+        fontFamily: 'Poppins, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 96, fontWeight: 700, color: '#2F5BFF' }}>{countdown}</div>
-          <p style={{ marginTop: 16, fontSize: 20, color: '#333' }}>Get ready...</p>
+          <Loader2 size={48} color="#2F5BFF" style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ marginTop: 20, fontSize: 18, color: '#666', fontWeight: 500 }}>
+            Evaluating your typing test...
+          </p>
+          <p style={{ marginTop: 8, fontSize: 14, color: '#999' }}>
+            Please wait while we analyze your performance
+          </p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
   }
 
   if (phase === 'result' && result) {
-    return <ResultScreen result={result} mode={mode} wpmTarget={wpmTarget} router={router} />;
+    return (
+      <ResultScreen
+        result={result}
+        mode={mode}
+        wpmTarget={wpmTarget}
+        router={router}
+        originalContent={store.originalContent}
+        typedContent={store.typedContent}
+      />
+    );
   }
 
   return (
@@ -214,14 +240,71 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   );
 }
 
-function ResultScreen({ result, mode, wpmTarget, router }: { result: any; mode: string; wpmTarget?: number; router: any }) {
+function WordsDiff({ original, typed }: { original: string; typed: string }) {
+  const origWords = original.split(' ');
+  const typedWords = typed.split(' ');
+
+  return (
+    <div style={{ fontFamily: "'Courier New', monospace", fontSize: 14, lineHeight: 2 }}>
+      {origWords.map((word, i) => {
+        const typed = typedWords[i];
+        if (!typed) {
+          return (
+            <span key={i} style={{ color: '#999', background: '#f5f5f5', padding: '1px 2px', margin: '0 1px', borderRadius: 2, textDecoration: 'line-through' }}>
+              {word}{' '}
+            </span>
+          );
+        }
+        const match = typed === word;
+        let bg = '#e8f5e9';
+        let color = '#2e7d32';
+        if (!match) {
+          const ratio = levenshteinRatio(word, typed);
+          if (ratio > 0.6) {
+            bg = '#fff3e0';
+            color = '#e65100';
+          } else {
+            bg = '#ffebee';
+            color = '#c62828';
+          }
+        }
+        return (
+          <span key={i} style={{ background: bg, color, padding: '1px 3px', margin: '0 1px', borderRadius: 3, borderBottom: match ? '2px solid #4caf50' : '2px solid transparent' }}>
+            {typed}{' '}
+          </span>
+        );
+      })}
+      {typedWords.length > origWords.length && (
+        <span style={{ color: '#c62828', background: '#ffebee', padding: '1px 3px', margin: '0 1px', borderRadius: 3 }}>
+          +{typedWords.slice(origWords.length).join(' ')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function levenshteinRatio(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return 1 - dp[m][n] / Math.max(m, n);
+}
+
+function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedContent }:
+  { result: any; mode: string; wpmTarget?: number; router: any; originalContent: string; typedContent: string }) {
   const qualified = result.is_qualified !== undefined
     ? result.is_qualified
     : (result.net_wpm || 0) >= (wpmTarget || 35) && (result.accuracy || 0) >= 95;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 640, width: '100%', background: '#fff', border: '1px solid #dcdcdc', borderRadius: 8, padding: 32 }}>
+      <div style={{ maxWidth: 800, width: '100%', background: '#fff', border: '1px solid #dcdcdc', borderRadius: 8, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             width: 80, height: 80, margin: '0 auto 16px', borderRadius: 8,
@@ -257,28 +340,43 @@ function ResultScreen({ result, mode, wpmTarget, router }: { result: any; mode: 
           ))}
         </div>
 
+        {typedContent && originalContent && (
+          <div style={{ borderTop: '1px solid #eee', paddingTop: 16, marginBottom: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', marginBottom: 12 }}>
+              Word-by-Word Feedback
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#888', marginLeft: 8 }}>
+                Green = correct, Orange = partial, Red = wrong, Strikethrough = missed
+              </span>
+            </h3>
+            <div style={{ maxHeight: 200, overflowY: 'auto', padding: 12, background: '#fafafa', borderRadius: 6, border: '1px solid #eee' }}>
+              <WordsDiff original={originalContent} typed={typedContent} />
+            </div>
+          </div>
+        )}
+
         <div style={{ borderTop: `1px solid ${'#eee'}`, paddingTop: 16, marginBottom: 24 }}>
           <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', marginBottom: 12 }}>Detailed Breakdown</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, fontSize: 14 }}>
             {[
-              { label: 'Omission', value: result.omission_errors || 0 },
-              { label: 'Addition', value: result.addition_errors || 0 },
-              { label: 'Substitution', value: result.substitution_errors || 0 },
-              { label: 'Wrong Word', value: result.wrong_word_errors || 0 },
-              { label: 'Space Errors', value: result.space_errors || 0 },
-              { label: 'Backspaces', value: result.backspace_count || 0 },
+              { label: 'Omission', value: result.omission_errors || 0, color: '#e53935' },
+              { label: 'Addition', value: result.addition_errors || 0, color: '#e53935' },
+              { label: 'Substitution', value: result.substitution_errors || 0, color: '#e65100' },
+              { label: 'Wrong Word', value: result.wrong_word_errors || 0, color: '#e53935' },
+              { label: 'Space Errors', value: result.space_errors || 0, color: '#e65100' },
+              { label: 'Backspaces', value: result.backspace_count || 0, color: '#1565c0' },
             ].map((item) => (
               <div key={item.label} style={{ padding: '6px 8px', background: '#f5f5f5', borderRadius: 4, textAlign: 'center' }}>
                 <span style={{ color: '#888' }}>{item.label}: </span>
-                <strong style={{ color: '#333' }}>{item.value}</strong>
+                <strong style={{ color: (item as any).color || '#333' }}>{item.value}</strong>
               </div>
             ))}
           </div>
         </div>
 
         {result.feedback && (
-          <div style={{ marginBottom: 24, padding: 16, background: '#fff8e1', border: '1px solid #ffc107', borderRadius: 6, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
-            {result.feedback}
+          <div style={{ marginBottom: 24, padding: 16, background: '#e3f2fd', borderLeft: '4px solid #1976d2', borderRadius: 4, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
+            <strong style={{ color: '#1976d2' }}>AI Coach Feedback</strong>
+            <div style={{ marginTop: 4 }}>{result.feedback}</div>
           </div>
         )}
 

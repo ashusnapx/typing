@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
+import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh, cacheGet, cacheSet } from '@/lib/dashboard-cache';
 import {
   Brain,
   Target,
@@ -28,15 +29,38 @@ export default function AICoachPage() {
   const [weakWords, setWeakWords] = useState<string[]>([]);
   const [recentTests, setRecentTests] = useState<any[]>([]);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const fetched = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) { router.push('/auth/login'); }
   }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      api.getRecentScores().then(setRecentTests).catch(() => {});
-      api.getWeakWords().then(setWeakWords).catch(() => {});
+    if (!isAuthenticated || fetched.current) return;
+    fetched.current = true;
+
+    // Recent scores via dashboard cache
+    const cached = getCachedDashboard();
+    if (cached) {
+      setRecentTests(cached.recent_scores || []);
+    }
+    if (!cached || !isDashboardCacheFresh()) {
+      api.request<any>('/dashboard').then((data) => {
+        setCachedDashboard(data);
+        setRecentTests(data.recent_scores || []);
+      }).catch(() => {});
+    }
+
+    // Weak words with separate 5-min cache
+    const weakKey = 'weak-words';
+    const cachedWeak = cacheGet<string[]>(weakKey);
+    if (cachedWeak) {
+      setWeakWords(cachedWeak);
+    } else {
+      api.getWeakWords().then((words) => {
+        setWeakWords(words);
+        cacheSet(weakKey, words, 5 * 60 * 1000);
+      }).catch(() => {});
     }
   }, [isAuthenticated]);
 

@@ -256,7 +256,10 @@ async def submit_test(
         logger.exception("Test submission failed unexpectedly")
         raise HTTPException(status_code=500, detail="Submission failed. Please try again.")
     finally:
-        await cache.delete(submit_lock_key)
+        try:
+            await cache.delete(submit_lock_key)
+        except Exception:
+            pass
 
 
 @router.post("/direct-submit", response_model=TestResultResponse)

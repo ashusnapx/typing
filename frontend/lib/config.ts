@@ -316,7 +316,7 @@ export const FOOTER = {
     { label: 'AI Coach', href: '/coach' },
     { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Blog', href: '/blog' },
+    { label: 'FAQ', href: '/faq' },
   ],
   accountLinks: [
     { label: 'Login', href: '/auth/login' },

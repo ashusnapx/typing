@@ -3,7 +3,8 @@ import logging
 import hashlib
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.cors import CORSMiddleware as StarletteCORSMiddleware
 from app.config import settings
 from app.api.v1 import router as v1_router
 from app.core.monitoring import setup_monitoring
@@ -11,6 +12,16 @@ from app.core.middleware import SecurityHeadersMiddleware, RateLimitMiddleware, 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("security")
+
+
+class CORSMiddleware(StarletteCORSMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await super().dispatch(request, call_next)
+        except Exception:
+            response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        return response
+
 
 app = FastAPI(
     title=settings.APP_NAME,

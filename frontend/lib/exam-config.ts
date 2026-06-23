@@ -17,7 +17,25 @@ export interface SscExamSpec {
   backspaceAllowed: boolean;
   posts: string[];
   source: string;
+  citations: string[];
 }
+
+export const FULL_MISTAKES = [
+  'Omission — skipping any word, number, or figure present in the passage',
+  'Substitution — replacing a word with a different word',
+  'Addition — typing an extra word or figure not in the passage',
+  'Spelling errors (repetition, addition, omission, or substitution of letters)',
+  'Repetition of a word or number (e.g., "the the")',
+  'Incomplete or half-typed words',
+];
+
+export const HALF_MISTAKES = [
+  'Spacing errors — no space between words (e.g., "Ihope") or extra space within a word (e.g., "I h ave")',
+  'Wrong capitalisation — capital used instead of small letter or vice versa (not applicable for Hindi)',
+  'Punctuation errors — missing, extra, or wrong punctuation mark',
+  'Transposition — words typed in wrong order (e.g., "hope I" instead of "I hope")',
+  'Paragraph formatting — manual spacing used instead of Tab key at paragraph start',
+];
 
 export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
   ssc_chsl_ldc_jsa: {
@@ -37,6 +55,10 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     backspaceAllowed: true,
     posts: ['LDC', 'JSA', 'Postal Assistant', 'Sorting Assistant', 'Court Clerk'],
     source: 'SSC CHSL 2025 Notification Para 13.8.13.7',
+    citations: [
+      'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_chsl_2025.pdf',
+      'https://jptyping.com/blog/ssc-chsl-typing-test-complete-guide',
+    ],
   },
   ssc_chsl_deo: {
     type: 'ssc_chsl_deo',
@@ -55,6 +77,9 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     backspaceAllowed: true,
     posts: ['DEO', 'DEO Grade A (except CAG)'],
     source: 'SSC CHSL 2025 Notification Para 13.8.13.6(iii)',
+    citations: [
+      'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_chsl_2025.pdf',
+    ],
   },
   ssc_chsl_deo_grade_a: {
     type: 'ssc_chsl_deo_grade_a',
@@ -73,6 +98,9 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     backspaceAllowed: true,
     posts: ['DEO Grade A (CAG)'],
     source: 'SSC CHSL 2025 Notification Para 13.8.13.6(ii)',
+    citations: [
+      'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_chsl_2025.pdf',
+    ],
   },
   ssc_cgl_dest: {
     type: 'ssc_cgl_dest',
@@ -91,6 +119,10 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     backspaceAllowed: true,
     posts: ['Tax Assistant (CBDT/CBIC)', 'Compiler (MoSPI/NSSO)'],
     source: 'SSC CGL 2025 Notification Tier-4 DEST',
+    citations: [
+      'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2025.pdf',
+      'https://www.adda247.com/exams/ssc/ssc-cgl-typing-test/',
+    ],
   },
 };
 
@@ -147,20 +179,11 @@ export function checkQualification(
   netWpm: number,
   accuracy: number,
   kdph: number,
+  errorPct: number,
   category: string = 'UR'
 ): { qualified: boolean; required: string; actual: string } {
   const specs = getExamSpecs(mode);
   if (!specs) return { qualified: false, required: 'Unknown', actual: '' };
-
-  if (specs.qualifyingNature === 'speed_wpm') {
-    const required = `>= ${specs.englishSpeedWpm} WPM`;
-    const actual = `${netWpm} WPM`;
-    return {
-      qualified: netWpm >= specs.englishSpeedWpm,
-      required,
-      actual,
-    };
-  }
 
   const errorAllowanceMap: Record<string, number> = {
     UR: specs.errorAllowanceGeneral,
@@ -171,11 +194,18 @@ export function checkQualification(
     ST: specs.errorAllowanceScSt,
   };
   const maxErrorPct = errorAllowanceMap[category.toUpperCase()] ?? specs.errorAllowanceGeneral;
-  const required = `>= ${specs.englishKdph.toLocaleString()} KDPH (≤ ${maxErrorPct}% errors)`;
-  const actual = `${kdph.toLocaleString()} KDPH (${(100 - accuracy).toFixed(1)}% errors)`;
-  return {
-    qualified: kdph >= specs.englishKdph,
-    required,
-    actual,
-  };
+
+  if (specs.qualifyingNature === 'speed_wpm') {
+    const speedOk = netWpm >= specs.englishSpeedWpm;
+    const errorOk = errorPct <= maxErrorPct;
+    const required = `≥ ${specs.englishSpeedWpm} WPM & ≤ ${maxErrorPct}% errors`;
+    const actual = `${netWpm} WPM, ${errorPct.toFixed(1)}% errors`;
+    return { qualified: speedOk && errorOk, required, actual };
+  }
+
+  const speedOk = kdph >= specs.englishKdph;
+  const errorOk = errorPct <= maxErrorPct;
+  const required = `≥ ${specs.englishKdph.toLocaleString()} KDPH & ≤ ${maxErrorPct}% errors`;
+  const actual = `${kdph.toLocaleString()} KDPH, ${errorPct.toFixed(1)}% errors`;
+  return { qualified: speedOk && errorOk, required, actual };
 }

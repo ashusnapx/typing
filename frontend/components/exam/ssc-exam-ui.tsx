@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
-import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
+import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
 
 const BG = '#f5f5f5';
@@ -98,11 +98,20 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
   const mistakes = totalChars - correctChars;
 
   const suspiciousCount = tabSwitches + windowBlurs + fullscreenExits;
+  const isLowTime = remaining < 60;
 
   return (
     <div style={{ background: BG, minHeight: '100vh', fontFamily: 'Poppins, sans-serif' }}>
-      {/* Top Header */}
-      <div style={{ background: '#fff', borderBottom: `2px solid ${BORDER}`, padding: '12px 24px' }}>
+      {/* Sticky Header — timer always visible */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        background: '#fff',
+        borderBottom: `2px solid ${BORDER}`,
+        padding: '12px 24px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 48, height: 48, background: BLUE, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>
@@ -114,7 +123,14 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'monospace', color: TEXT, letterSpacing: 2 }}>
+            <div style={{
+              fontSize: 36,
+              fontWeight: 700,
+              fontFamily: 'monospace',
+              color: '#e53935',
+              letterSpacing: 2,
+              animation: isLowTime ? 'blink 1s step-end infinite' : 'none',
+            }}>
               {String(hours).padStart(2, '0')} : {String(mins).padStart(2, '0')} : {String(secs).padStart(2, '0')}
             </div>
             <div style={{ fontSize: 11, color: '#888', marginTop: 2, letterSpacing: 4 }}>
@@ -146,7 +162,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
 
       {/* Main Layout */}
       <div style={{ maxWidth: 1280, margin: '16px auto', padding: '0 24px', display: 'flex', gap: 20 }}>
-        {/* Left: 75% */}
+        {/* Left: Passage + Typing */}
         <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Exam Spec Bar */}
           {(() => {
@@ -162,13 +178,13 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             );
           })()}
 
-          {/* Passage Viewer */}
+          {/* Passage Viewer — plain text, no live feedback */}
           <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}`, fontSize: 14, fontWeight: 600, color: TEXT }}>
               Passage
             </div>
             <div
-              style={{ height: 320, overflowY: 'auto', padding: 16, fontSize: 18, lineHeight: 1.8, color: TEXT, userSelect: 'none' }}
+              style={{ height: 280, overflowY: 'auto', padding: 16, fontSize: 18, lineHeight: 2, color: TEXT, userSelect: 'none' }}
               className="ssc-scrollbar"
               onCopy={e => e.preventDefault()}
               onContextMenu={e => e.preventDefault()}
@@ -197,10 +213,10 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
               placeholder="Start typing here..."
               style={{
                 width: '100%',
-                height: 300,
+                height: 280,
                 padding: 16,
                 fontSize: 18,
-                lineHeight: 1.8,
+                lineHeight: 2,
                 color: TEXT,
                 border: 'none',
                 resize: 'none',
@@ -211,24 +227,25 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             />
           </div>
 
-          {/* Live Stats Footer */}
-          <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14, color: TEXT }}>
-            <div style={{ display: 'flex', gap: 24 }}>
-              <span>Chars: <strong>{totalChars}</strong></span>
-              <span>Words: <strong>{wordsTyped}</strong></span>
-              <span>Gross: <strong>{grossWpm}</strong></span>
+          {/* Blind Mode — stats hidden during typing */}
+          {phase !== 'typing' && (
+            <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14, color: TEXT }}>
+              <div style={{ display: 'flex', gap: 24 }}>
+                <span>Chars: <strong>{totalChars}</strong></span>
+                <span>Words: <strong>{wordsTyped}</strong></span>
+                <span>Gross: <strong>{grossWpm}</strong></span>
+              </div>
+              <div style={{ display: 'flex', gap: 24 }}>
+                <span>Net WPM: <strong>{netWpm}</strong></span>
+                <span>Accuracy: <strong>{accuracy.toFixed(1)}%</strong></span>
+                <span style={{ color: mistakes > 0 ? '#e53935' : undefined }}>Mistakes: <strong>{mistakes}</strong></span>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 24 }}>
-              <span>Net WPM: <strong>{netWpm}</strong></span>
-              <span>Accuracy: <strong>{accuracy.toFixed(1)}%</strong></span>
-              <span style={{ color: mistakes > 0 ? '#e53935' : undefined }}>Mistakes: <strong>{mistakes}</strong></span>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Right: 25% */}
+        {/* Right: Candidate Info & Submit */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Instructions */}
           <button
             onClick={() => setShowWarning('Read all instructions carefully before starting the test.')}
             style={{ width: '100%', padding: '10px 0', background: '#000', color: '#fff', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', border: 'none' }}
@@ -236,7 +253,6 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             📄 Instructions
           </button>
 
-          {/* Candidate Info */}
           <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 16 }}>
             <div style={{ textAlign: 'center', marginBottom: 12 }}>
               <div style={{ width: 56, height: 56, background: '#e0e0e0', borderRadius: '50%', margin: '0 auto 8px' }} />
@@ -275,7 +291,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             </button>
           </div>
 
-          {phase === 'result' && (
+          {phase !== 'typing' && (
             <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Security Status</div>
               <div style={{ fontSize: 12, color: '#888', lineHeight: 1.8 }}>
@@ -297,6 +313,9 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
         .ssc-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
         .ssc-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
         .ssc-scrollbar::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+        @keyframes blink {
+          50% { opacity: 0.3; }
+        }
       `}</style>
     </div>
   );

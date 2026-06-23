@@ -1,60 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { getModeDisplayName } from '@/lib/utils';
+import { getExamSpecs, FULL_MISTAKES, HALF_MISTAKES } from '@/lib/exam-config';
 import { TestMode } from '@/types';
-
-const instructionsEn = [
-  'This is a typing skill test conducted by the Staff Selection Commission (SSC) for recruitment purposes.',
-  'The total duration of this test is mentioned above. The timer will start as soon as you click "I am ready to begin".',
-  'You are required to type the given passage exactly as displayed on the screen. Pay close attention to punctuation, spacing, and capitalization.',
-  'The passage will be displayed in the upper section of the screen. The typing area is provided in the lower section.',
-  'Use the keyboard to type the passage in the text box provided. The system records every keystroke for evaluation.',
-  'You may use the Backspace key to correct mistakes. The system tracks all corrections made during the test.',
-  'Once the timer starts, it cannot be paused, stopped, or extended under any circumstances.',
-  'You must maintain the minimum required typing speed as per SSC guidelines for the respective exam category.',
-  'Typing accuracy is equally important as speed. The evaluation considers both net speed and accuracy percentage.',
-  'Do not use any external resources, copy-paste, or automated tools during the test. Such activity will result in disqualification.',
-  'Ensure you are in a quiet environment with a stable internet connection before beginning the test.',
-  'Your result, including WPM, accuracy, and qualification status, will be displayed immediately after the test concludes.',
-];
-
-const instructionsHi = [
-  'यह कर्मचारी चयन आयोग (SSC) द्वारा भर्ती उद्देश्यों के लिए आयोजित एक टाइपिंग कौशल परीक्षा है।',
-  'इस परीक्षा की कुल अवधि ऊपर बताई गई है। जैसे ही आप "मैं शुरू करने के लिए तैयार हूँ" पर क्लिक करेंगे, टाइमर शुरू हो जाएगा।',
-  'आपको स्क्रीन पर दिखाए गए गद्यांश को बिल्कुल वैसा ही टाइप करना है जैसा वह प्रदर्शित होता है। विराम चिह्न, स्थान और बड़े अक्षरों पर विशेष ध्यान दें।',
-  'गद्यांश स्क्रीन के ऊपरी भाग में प्रदर्शित होगा। टाइपिंग क्षेत्र निचले भाग में उपलब्ध है।',
-  'दिए गए टेक्स्ट बॉक्स में कीबोर्ड का उपयोग करके गद्यांश टाइप करें। सिस्टम मूल्यांकन के लिए प्रत्येक कीस्ट्रोक रिकॉर्ड करता है।',
-  'गलतियों को सुधारने के लिए आप Backspace कुंजी का उपयोग कर सकते हैं। सिस्टम परीक्षा के दौरान किए गए सभी सुधारों को ट्रैक करता है।',
-  'एक बार टाइमर शुरू होने के बाद, इसे किसी भी परिस्थिति में रोका, बंद या बढ़ाया नहीं जा सकता।',
-  'आपको संबंधित परीक्षा श्रेणी के लिए SSC दिशानिर्देशों के अनुसार न्यूनतम आवश्यक टाइपिंग गति बनाए रखनी होगी।',
-  'टाइपिंग सटीकता गति जितनी ही महत्वपूर्ण है। मूल्यांकन में शुद्ध गति और सटीकता प्रतिशत दोनों पर विचार किया जाता है।',
-  'परीक्षा के दौरान किसी भी बाहरी संसाधन, कॉपी-पेस्ट, या स्वचालित उपकरणों का उपयोग न करें। ऐसी गतिविधि के परिणामस्वरूप अयोग्यता होगी।',
-  'परीक्षा शुरू करने से पहले सुनिश्चित करें कि आप शांत वातावरण में हैं और आपका इंटरनेट कनेक्शन स्थिर है।',
-  'आपका परिणाम, WPM, सटीकता और योग्यता की स्थिति सहित, परीक्षा समाप्त होने के तुरंत बाद प्रदर्शित किया जाएगा।',
-];
+import { PracticeSet } from '@/lib/practice-sets';
 
 interface ExamInstructionsProps {
   mode: TestMode;
   durationSeconds: number;
   lang?: 'english' | 'hindi';
   onBegin: () => void;
+  selectedSet?: PracticeSet;
 }
 
-export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBegin }: ExamInstructionsProps) {
+export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBegin, selectedSet }: ExamInstructionsProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const [agreed, setAgreed] = useState(false);
   const [instructionLang, setInstructionLang] = useState<'english' | 'hindi'>(lang === 'hindi' ? 'hindi' : 'english');
 
+  const specs = getExamSpecs(mode);
+  const examTitle = getModeDisplayName(mode);
+  const isSscChsl = mode === 'ssc_chsl';
+  const isSscCgl = mode === 'ssc_cgl_dest';
+
   const durationLabel = durationSeconds >= 60
     ? `${Math.floor(durationSeconds / 60)} Mins`
     : `${durationSeconds} Secs`;
-
-  const examTitle = getModeDisplayName(mode);
-  const instructions = instructionLang === 'hindi' ? instructionsHi : instructionsEn;
 
   return (
     <div style={{
@@ -97,80 +72,274 @@ export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBe
 
       {/* Main content */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {/* Left: Instructions (83%) */}
+        {/* Left: Instructions */}
         <div style={{
           flex: '0 0 83%',
           display: 'flex',
           flexDirection: 'column',
           borderRight: '1px solid #e5e5e5',
         }}>
-          {/* Scrollable instructions */}
           <div style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '40px 48px 24px',
+            padding: '32px 48px 16px',
           }}
             className="exam-scroll"
           >
             <h1 style={{
-              fontSize: 48,
+              fontSize: 40,
               fontWeight: 700,
               color: '#222222',
-              margin: '0 0 8px',
+              margin: '0 0 4px',
               textAlign: 'center',
             }}>
               {examTitle}
             </h1>
 
+            {selectedSet && (
+              <div style={{ textAlign: 'center', marginTop: 4, marginBottom: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 500, color: '#2563eb' }}>
+                  Practice Set {selectedSet.number}: {selectedSet.title}
+                </span>
+              </div>
+            )}
+
             <div style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: '#222',
-              marginTop: 32,
-              marginBottom: 8,
+              fontSize: 14,
+              fontWeight: 500,
+              color: '#666',
+              marginTop: 20,
+              marginBottom: 16,
+              textAlign: 'center',
             }}>
-              Duration: {durationLabel}
+              Duration: {durationLabel} | Qualifying Nature (No Marks)
             </div>
 
-            <p style={{
-              fontSize: 15,
-              color: '#222',
-              marginBottom: 20,
-              fontWeight: 400,
-            }}>
-              Read the following instructions carefully before starting the test.
-            </p>
+            {/* ===== TEST OVERVIEW ===== */}
+            <Section title="1. Test Overview">
+              <p style={pStyle}>
+                This is a <strong>qualifying skill test</strong> conducted by the Staff Selection Commission (SSC) for{' '}
+                {isSscCgl ? 'CGL DEST (Data Entry Speed Test)' : isSscChsl ? 'CHSL Tier-2 Section-III Module-II' : 'CHSL DEO Skill Test'}.
+                No marks are added to the merit list, but <strong>passing is mandatory</strong> for final selection.
+                Failure to qualify leads to disqualification regardless of written exam scores.
+              </p>
+              <p style={pStyle}>
+                The test passage consists of approximately <strong>2,000 key depressions</strong> of moderate
+                difficulty on general topics. You must type the passage exactly as displayed, following all
+                formatting rules prescribed by the Commission.
+              </p>
+              <p style={pStyle}>
+                The typing test <strong>automatically ends after {isSscChsl ? '10' : '15'} minutes</strong>.
+                No manual submission is required.
+              </p>
+            </Section>
 
-            <ol style={{
-              padding: 0,
-              margin: 0,
-              listStyle: 'none',
-            }}>
-              {instructions.map((text, i) => (
-                <li key={i} style={{
-                  fontSize: 15,
-                  lineHeight: 1.8,
-                  color: '#222222',
-                  paddingLeft: 32,
-                  position: 'relative',
-                  marginBottom: 4,
-                }}>
-                  <span style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    fontWeight: 600,
-                    color: '#222',
-                  }}>
-                    {i + 1}.
-                  </span>
-                  {text}
+            {/* ===== SPEED REQUIREMENTS ===== */}
+            <Section title="2. Speed Requirements">
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Post</th>
+                    <th style={thStyle}>Speed Required</th>
+                    <th style={thStyle}>Duration</th>
+                    <th style={thStyle}>Passage Length</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isSscCgl ? (
+                    <tr>
+                      <td style={tdStyle}>Tax Assistant / Compiler</td>
+                      <td style={tdStyle}>~27 WPM (8,000 KDPH)</td>
+                      <td style={tdStyle}>15 minutes</td>
+                      <td style={tdStyle}>~2,000 key depressions</td>
+                    </tr>
+                  ) : isSscChsl ? (
+                    <>
+                      <tr>
+                        <td style={tdStyle}>LDC / JSA / PA / SA</td>
+                        <td style={tdStyle}>35 WPM English / 30 WPM Hindi (10,500/9,000 KDPH)</td>
+                        <td style={tdStyle}>10 minutes</td>
+                        <td style={tdStyle}>~2,000 key depressions</td>
+                      </tr>
+                      <tr>
+                        <td style={tdStyle}>DEO</td>
+                        <td style={tdStyle}>~27 WPM (8,000 KDPH)</td>
+                        <td style={tdStyle}>15 minutes</td>
+                        <td style={tdStyle}>~2,000 key depressions</td>
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      <td style={tdStyle}>DEO (CAG)</td>
+                      <td style={tdStyle}>~50 WPM (15,000 KDPH)</td>
+                      <td style={tdStyle}>15 minutes</td>
+                      <td style={tdStyle}>~3,700–4,000 key depressions</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </Section>
+
+            {/* ===== QUALIFYING STANDARDS ===== */}
+            <Section title="3. Qualifying Standards (Category-wise Error Allowance)">
+              <p style={pStyle}>
+                Errors are calculated as a percentage of total words/key depressions. Candidates must stay within
+                the permissible error limit for their category:
+              </p>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Category</th>
+                    <th style={thStyle}>Max Error %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td style={tdStyle}>Unreserved (UR)</td><td style={tdStyle}>≤{specs?.errorAllowanceGeneral ?? 20}%</td></tr>
+                  <tr><td style={tdStyle}>OBC / EWS</td><td style={tdStyle}>≤{specs?.errorAllowanceObcEws ?? 25}%</td></tr>
+                  <tr><td style={tdStyle}>SC / ST / Others</td><td style={tdStyle}>≤{specs?.errorAllowanceScSt ?? 30}%</td></tr>
+                </tbody>
+              </table>
+              <p style={{ ...pStyle, fontSize: 13, color: '#cc0000' }}>
+                ⚠ If you exceed the prescribed error percentage, you are declared <strong>Not Qualified</strong>,
+                even if you complete the entire passage within the time limit.
+              </p>
+            </Section>
+
+            {/* ===== MARKING SCHEME ===== */}
+            <Section title="4. Error Marking Scheme — Full Mistakes (1 error each)">
+              <ul style={ulStyle}>
+                {FULL_MISTAKES.map((m, i) => (
+                  <li key={i} style={liStyle}>{m}</li>
+                ))}
+              </ul>
+
+              <h4 style={{ fontSize: 15, fontWeight: 600, marginTop: 20, marginBottom: 8, color: '#ea580c' }}>
+                Half Mistakes (0.5 error each)
+              </h4>
+              <ul style={ulStyle}>
+                {HALF_MISTAKES.map((m, i) => (
+                  <li key={i} style={liStyle}>{m}</li>
+                ))}
+              </ul>
+
+              <div style={{
+                marginTop: 12, padding: '10px 14px', background: '#f0fdf4',
+                border: '1px solid #16a34a', borderRadius: 6, fontSize: 14, color: '#166534',
+              }}>
+                <strong>Formula:</strong> Total Errors = Full Mistakes + (Half Mistakes ÷ 2)<br />
+                <strong>Error %</strong> = (Total Errors ÷ Total Key Depressions) × 100<br />
+                SSC calculates errors up to <strong>2 decimal places</strong>.
+              </div>
+            </Section>
+
+            {/* ===== FORMATTING RULES ===== */}
+            <Section title="5. Paragraph & Formatting Rules">
+              <p style={pStyle}>
+                <strong>Formatting errors count as half mistakes per paragraph.</strong>
+              </p>
+              <ul style={ulStyle}>
+                <li style={liStyle}>
+                  <strong>Tab Key must be used</strong> to start a new paragraph. Using manual spaces instead
+                  of Tab results in a half mistake for that paragraph.
                 </li>
-              ))}
-            </ol>
+                <li style={liStyle}>
+                  Only <strong>one space</strong> should be given after punctuation marks.
+                </li>
+                <li style={liStyle}>
+                  The formatting style of the given passage must be followed strictly.
+                </li>
+                <li style={liStyle}>
+                  Words, numbers, figures, and years must be typed <strong>exactly as given</strong>.
+                </li>
+              </ul>
+            </Section>
+
+            {/* ===== LANGUAGE RULES ===== */}
+            <Section title="6. Medium & Language Rules">
+              <ul style={ulStyle}>
+                <li style={liStyle}>
+                  Candidates must strictly follow the medium selected in the application form.
+                </li>
+                <li style={liStyle}>
+                  <strong>English Medium</strong> — Only English typing is allowed.
+                </li>
+                <li style={liStyle}>
+                  <strong>Hindi Medium</strong> — Only Hindi typing is allowed (Mangal Unicode font).
+                </li>
+                <li style={liStyle}>
+                  Typing in any other language or script is treated as an error.
+                </li>
+              </ul>
+            </Section>
+
+            {/* ===== BACKSPACE & REVISION ===== */}
+            <Section title="7. Backspace, Revision & Submission">
+              <ul style={ulStyle}>
+                <li style={liStyle}>
+                  <strong>Backspace is allowed.</strong> You may use Backspace to correct mistakes during the test.
+                  However, over-relying on backspace wastes time and may lead to incomplete passage.
+                </li>
+                <li style={liStyle}>
+                  You are <strong>not required to retype</strong> the passage after completing it once.
+                </li>
+                <li style={liStyle}>
+                  If time remains, you may <strong>revise and correct visible errors</strong>.
+                  Focus on spelling, spacing, and punctuation errors.
+                </li>
+                <li style={liStyle}>
+                  The test <strong>automatically ends</strong> when the timer runs out. No manual submission needed.
+                </li>
+                <li style={liStyle}>
+                  Avoid panic typing or excessive corrections in the final seconds — this increases errors.
+                </li>
+              </ul>
+            </Section>
+
+            {/* ===== IMPORTANT TIPS ===== */}
+            <Section title="8. Important Tips">
+              <ul style={ulStyle}>
+                <li style={liStyle}>
+                  <strong>Accuracy &gt; Raw Speed.</strong> It is better to type at consistent speed with 99% accuracy
+                  than high speed with many errors. Speed without accuracy or accuracy without speed can both lead to failure.
+                </li>
+                <li style={liStyle}>
+                  Maintain <strong>consistent typing speed</strong> throughout the test. Avoid excessive hesitation,
+                  repeated corrections, or unnecessary pauses.
+                </li>
+                <li style={liStyle}>
+                  <strong>Never skip lines</strong> — skipping a line can result in consecutive Full Mistakes.
+                  Use your finger on the screen/paper to track your reading line.
+                </li>
+                <li style={liStyle}>
+                  Ensure you are in a quiet environment with a <strong>stable internet connection</strong> before beginning.
+                </li>
+                <li style={liStyle}>
+                  Do not use any external resources, copy-paste, or automated tools during the test.
+                  Such activity will result in <strong>disqualification</strong>.
+                </li>
+              </ul>
+            </Section>
+
+            {/* ===== CITATIONS ===== */}
+            <Section title="References">
+              <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>
+                <strong>Sources:</strong>
+                <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                  {specs?.citations?.map((url, i) => (
+                    <li key={i}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                  <li><a href="https://ssc.gov.in" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>https://ssc.gov.in</a></li>
+                </ul>
+              </div>
+            </Section>
+
           </div>
 
-          {/* Language & Declaration */}
+          {/* Declaration */}
           <div style={{
             borderTop: '1px solid #e5e5e5',
             padding: '20px 48px',
@@ -240,7 +409,7 @@ export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBe
           </div>
         </div>
 
-        {/* Right: Candidate Panel (17%) */}
+        {/* Right: Candidate Panel */}
         <div style={{
           flex: '0 0 17%',
           background: '#ffffff',
@@ -348,6 +517,60 @@ export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBe
           background: #6a8a9a;
         }
       `}</style>
+    </div>
+  );
+}
+
+const pStyle: React.CSSProperties = {
+  fontSize: 15,
+  lineHeight: 1.7,
+  color: '#222',
+  margin: '0 0 8px',
+};
+
+const ulStyle: React.CSSProperties = {
+  padding: 0,
+  margin: '4px 0 0',
+  listStyle: 'none',
+};
+
+const liStyle: React.CSSProperties = {
+  fontSize: 15,
+  lineHeight: 1.7,
+  color: '#222',
+  paddingLeft: 24,
+  position: 'relative',
+  marginBottom: 2,
+};
+
+const tableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: 14,
+  marginTop: 8,
+  marginBottom: 8,
+};
+
+const thStyle: React.CSSProperties = {
+  border: '1px solid #dcdcdc',
+  padding: '8px 12px',
+  background: '#f5f5f5',
+  fontWeight: 600,
+  textAlign: 'left',
+  color: '#222',
+};
+
+const tdStyle: React.CSSProperties = {
+  border: '1px solid #dcdcdc',
+  padding: '8px 12px',
+  color: '#222',
+};
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: '#222', marginBottom: 8 }}>{title}</h2>
+      {children}
     </div>
   );
 }

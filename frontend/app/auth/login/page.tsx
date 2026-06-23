@@ -41,7 +41,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 border-2 border-pencil bg-paper mb-4"
                style={wobbly}>
             <Image
-              src="/images/logo.png"
+              src="/images/logo.png?v=2"
               alt="Typing Mania"
               width={40}
               height={40}

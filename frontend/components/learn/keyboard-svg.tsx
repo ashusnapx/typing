@@ -2,11 +2,13 @@
 
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { KEYBOARD_KEYS, getKeyByLabel } from './keyboard-layout';
+import { KeystrokeEvent } from '@/types';
 
 interface KeyboardSVGProps {
   expectedChar?: string | null;
   typedHistory?: string[];
   showLegend?: boolean;
+  keystrokeEvents?: KeystrokeEvent[];
 }
 
 const KEY_W = 44;
@@ -35,10 +37,11 @@ function maxRowWidth() {
   return max;
 }
 
-export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegend = true }: KeyboardSVGProps) {
+export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegend = true, keystrokeEvents }: KeyboardSVGProps) {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const [wrongFlash, setWrongFlash] = useState<string | null>(null);
   const prevLenRef = useRef(0);
+  const prevEventsLen = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,10 +64,26 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
   }, []);
 
   useEffect(() => {
+    if (!keystrokeEvents) return;
+    if (keystrokeEvents.length > prevEventsLen.current) {
+      const lastEvent = keystrokeEvents[keystrokeEvents.length - 1];
+      if (lastEvent.is_error) {
+        const def = getKeyByLabel(lastEvent.key);
+        if (def) {
+          setWrongFlash(def.label);
+          setTimeout(() => setWrongFlash(null), 400);
+        }
+      }
+    }
+    prevEventsLen.current = keystrokeEvents.length;
+  }, [keystrokeEvents]);
+
+  useEffect(() => {
+    if (keystrokeEvents) return;
     if (typedHistory.length > prevLenRef.current) {
       const lastChar = typedHistory[typedHistory.length - 1];
       if (expectedChar && lastChar !== expectedChar) {
-        const def = getKeyByLabel(expectedChar);
+        const def = getKeyByLabel(lastChar);
         if (def) {
           setWrongFlash(def.label);
           setTimeout(() => setWrongFlash(null), 400);
@@ -72,7 +91,7 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
       }
     }
     prevLenRef.current = typedHistory.length;
-  }, [typedHistory, expectedChar]);
+  }, [typedHistory, expectedChar, keystrokeEvents]);
 
   const activeLabels = useMemo(() => {
     const set = new Set<string>();
@@ -148,8 +167,8 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
                 fontWeight = 700;
                 animName = 'key-flash-red 0.4s ease-out';
               } else if (isNext) {
-                fill = '#ffd43b';
-                stroke = '#d4a017';
+                fill = '#4ade80';
+                stroke = '#16a34a';
                 textFill = '#1a1a1a';
                 strokeW = 2;
                 fontWeight = 700;

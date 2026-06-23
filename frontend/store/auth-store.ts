@@ -26,6 +26,32 @@ interface AuthState {
   updateUser: (data: Partial<AuthUser>) => void;
 }
 
+const CACHE_KEY = 'auth_cache';
+
+function getCachedUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { user, token } = JSON.parse(raw);
+    if (api.getToken() !== token) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedUser(user: AuthUser) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ user, token: api.getToken() }));
+  } catch {}
+}
+
+function clearCachedUser() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {}
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
@@ -33,45 +59,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email: string, password: string) => {
     const { user } = await api.login(email, password);
+    setCachedUser(user);
     set({ user, isAuthenticated: true, isLoading: false });
   },
 
   register: async (email: string, password: string, full_name: string) => {
     const { user } = await api.register(email, password, full_name);
+    setCachedUser(user);
     set({ user, isAuthenticated: true, isLoading: false });
   },
 
   logout: () => {
     api.setToken(null);
+    clearCachedUser();
     clearLessonProgress();
     clearTestResults();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
   loadUser: async () => {
-    const { user: currentUser } = get();
     const token = api.getToken();
     if (!token) {
       set({ isLoading: false, isAuthenticated: false });
       return;
     }
-    if (currentUser) {
-      set({ isLoading: false });
-      return;
+
+    const cached = getCachedUser();
+    if (cached) {
+      set({ user: cached, isAuthenticated: true, isLoading: false });
     }
+
     try {
       const user = await api.getMe();
+      setCachedUser(user);
       set({ user, isAuthenticated: true, isLoading: false });
     } catch {
       try {
         const refreshed = await api.refreshToken();
         if (refreshed) {
           const user = await api.getMe();
+          setCachedUser(user);
           set({ user, isAuthenticated: true, isLoading: false });
           return;
         }
       } catch {}
       api.setToken(null);
+      clearCachedUser();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -79,7 +112,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateUser: (data: Partial<AuthUser>) => {
     const current = get().user;
     if (current) {
-      set({ user: { ...current, ...data } });
+      const updated = { ...current, ...data };
+      setCachedUser(updated);
+      set({ user: updated });
     }
   },
 }));

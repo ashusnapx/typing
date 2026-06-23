@@ -49,8 +49,19 @@ class SSCErrorEngine:
         original_clean = original.strip()
         typed_clean = typed.strip()
 
-        char_diffs = self._character_level_diff(original_clean, typed_clean)
-        word_errors = self._word_level_mapping(original_clean, typed_clean)
+        # Truncate original to only the portion the user attempted.
+        # Without this, every untyped word counts as an omission/full mistake
+        # making SSC WPM = 0 for any partial attempt. SSC only grades what
+        # was actually typed — the remaining passage is simply unattempted.
+        if typed_clean:
+            typed_word_count = len(typed_clean.split())
+            original_words = original_clean.split()
+            original_for_compare = ' '.join(original_words[:typed_word_count])
+        else:
+            original_for_compare = ''
+
+        char_diffs = self._character_level_diff(original_for_compare, typed_clean)
+        word_errors = self._word_level_mapping(original_for_compare, typed_clean)
 
         omission_errors = sum(1 for d in char_diffs if d["type"] == "omission")
         addition_errors = sum(1 for d in char_diffs if d["type"] == "addition")
@@ -66,7 +77,7 @@ class SSCErrorEngine:
         gross_wpm = self._calculate_gross_wpm(typed_clean, duration_seconds)
         net_wpm = self._calculate_net_wpm(typed_clean, duration_seconds, incorrect_key_depressions)
 
-        total_errors = omission_errors + addition_errors + wrong_word_errors + substitution_errors + space_errors
+        total_errors = omission_errors + addition_errors + substitution_errors + space_errors
         accuracy = self._calculate_accuracy(correct_key_depressions, key_depression_count) if key_depression_count > 0 else 0.0
         error_percentage = round(100.0 - accuracy, 2) if accuracy > 0 else 0.0
 
@@ -323,12 +334,24 @@ class SSCErrorEngine:
         return accuracy >= 95.0
 
     def is_qualified(self, wpm: float, accuracy: float, test_mode: str) -> bool:
-        """Dispatch to the correct qualification check based on test mode."""
+        """Dispatch to the correct qualification check based on test mode.
+        For SSC modes, qualification should use SSC metrics (full/half mistakes),
+        not traditional character-level error rate.
+        """
         if test_mode == "ssc_hindi":
             return self.is_qualified_chsl(wpm, accuracy, mode="hindi")
         if test_mode == "ssc_cgl_dest":
             return self.is_qualified_cgl_dest(wpm, accuracy)
         return self.is_qualified_chsl(wpm, accuracy)
+
+    def is_qualified_from_report(self, report: ErrorReport, test_mode: str) -> bool:
+        """Qualify using SSC metrics for SSC modes, traditional for others."""
+        if test_mode in ("ssc_chsl", "ssc_hindi", "ssc_cgl_dest"):
+            if test_mode == "ssc_cgl_dest":
+                return report.ssc_accuracy >= 95.0
+            wpm_target = 30 if test_mode == "ssc_hindi" else 35
+            return report.ssc_net_wpm >= wpm_target and report.ssc_accuracy >= 95.0
+        return self.is_qualified(report.net_wpm, report.accuracy, test_mode)
 
 
 error_engine = SSCErrorEngine()

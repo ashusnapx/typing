@@ -54,6 +54,9 @@ class TypingTest(Base):
     formatting_errors = Column(Integer, nullable=True)
     space_errors = Column(Integer, nullable=True)
 
+    full_mistakes = Column(Integer, nullable=True)
+    half_mistakes = Column(Integer, nullable=True)
+
     total_errors = Column(Integer, nullable=True)
     total_words_typed = Column(Integer, nullable=True)
     total_correct_words = Column(Integer, nullable=True)

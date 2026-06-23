@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [predictions, setPredictions] = useState<any>(null);
   const [page, setPage] = useState(0);
   const [showXPModal, setShowXPModal] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const perPage = 5;
   const fetched = useRef(false);
 
@@ -55,6 +56,7 @@ export default function DashboardPage() {
       setAnalytics(cached.overview);
       setPredictions(cached.predictions);
       setRecentTests(cached.recent_scores || []);
+      setLoadingData(false);
       if (isDashboardCacheFresh()) return;
     }
 
@@ -63,7 +65,9 @@ export default function DashboardPage() {
       setAnalytics(data.overview);
       setPredictions(data.predictions);
       setRecentTests(data.recent_scores || []);
+      setLoadingData(false);
     }).catch(() => {
+      setLoadingData(false);
       if (!cached) {
         setRecentTests([]);
       }
@@ -72,6 +76,55 @@ export default function DashboardPage() {
 
   if (isLoading || !user) {
     return <FullPageLoader />;
+  }
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-paper">
+        <main className="max-w-5xl mx-auto px-6 py-8">
+          <div className="mb-8 -rotate-1">
+            <div className="h-9 w-48 bg-pencil/10 rounded animate-pulse" />
+            <div className="h-5 w-64 bg-pencil/10 rounded mt-2 animate-pulse" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="bg-white border-2 border-pencil/10 shadow-hard-sm p-4">
+                <div className="h-10 w-10 bg-pencil/10 rounded animate-pulse mb-3 mx-auto" />
+                <div className="h-8 w-16 bg-pencil/10 rounded animate-pulse mx-auto mb-2" />
+                <div className="h-4 w-20 bg-pencil/10 rounded animate-pulse mx-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {[1,2].map(i => (
+              <div key={i} className="bg-white border-2 border-pencil/10 shadow-hard-sm p-4">
+                <div className="h-5 w-32 bg-pencil/10 rounded animate-pulse mb-3" />
+                <div className="h-4 w-48 bg-pencil/10 rounded animate-pulse mb-2" />
+                <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-white border-2 border-pencil/10 shadow-hard-sm">
+            <div className="px-6 py-4 border-b-2 border-pencil/10">
+              <div className="h-5 w-28 bg-pencil/10 rounded animate-pulse" />
+            </div>
+            {[1,2,3].map(i => (
+              <div key={i} className="px-6 py-4 border-b border-pencil/10">
+                <div className="flex justify-between mb-2">
+                  <div className="h-4 w-32 bg-pencil/10 rounded animate-pulse" />
+                  <div className="h-4 w-12 bg-pencil/10 rounded animate-pulse" />
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1,2,3,4].map(j => (
+                    <div key={j} className="h-10 bg-pencil/10 rounded animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -307,7 +360,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               recentTests.slice(page * perPage, (page + 1) * perPage).map((test: any, idx: number) => (
-                <div key={test.id} className="px-6 py-4 hover:bg-muted/50 transition-colors">
+                <Link key={test.id} href={`/analysis/${test.id}`} className="px-6 py-4 hover:bg-muted/50 transition-colors block">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2.5">
                       <Sparkles className="w-4 h-4 text-pencil/40" strokeWidth={2.5} />
@@ -386,7 +439,7 @@ export default function DashboardPage() {
                       );
                     })()}
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

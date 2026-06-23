@@ -15,8 +15,8 @@ export const APP = {
   keywords:
     'SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing, Typing Lessons',
   url: 'https://typingmania.com',
-  logo: '/images/logo.png',
-  ogImage: '/images/logo.png',
+  logo: '/images/logo.png?v=2',
+  ogImage: '/images/logo.png?v=2',
   footer:
     "© 2026 Typing Mania by Maths Mania. India's Most Accurate SSC Typing Exam Simulator.",
   footerDisclaimer:

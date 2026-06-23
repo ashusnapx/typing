@@ -20,6 +20,9 @@ const nextConfig = {
   output: 'standalone',
 
   images: {
+    localPatterns: [
+      { pathname: '/images/**' },
+    ],
     remotePatterns: [
       { protocol: 'https', hostname: 'mathsmania.com' },
       { protocol: 'https', hostname: 'r2.mathsmania.com' },

@@ -5,7 +5,7 @@ import { useTypingStore } from '@/store/typing-store';
 import { KeystrokeEvent } from '@/types';
 import { transliterateEnglishToHindi } from '@/lib/hindi-transliteration';
 
-export function useTypingEngine(lang?: 'english' | 'hindi') {
+export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, requireCapsLock?: boolean) {
   const {
     originalContent,
     typedContent,
@@ -93,6 +93,20 @@ export function useTypingEngine(lang?: 'english' | 'hindi') {
     const effectiveKey = key === 'Enter' ? '\n' : key;
     const isError = effectiveKey.length === 1 && effectiveKey !== expected && !isBackspace;
 
+    if (requireCapsLock && !isBackspace && expected !== '' && /[A-Z]/.test(expected) && !e.getModifierState('CapsLock')) {
+      const event: KeystrokeEvent = {
+        key,
+        timestamp_ms,
+        duration_ms: 0,
+        is_error: true,
+        is_backspace: false,
+        cursor_position: typedContent.length,
+        expected_char: expected,
+      };
+      addKeystroke(event);
+      return;
+    }
+
     const event: KeystrokeEvent = {
       key,
       timestamp_ms,
@@ -104,6 +118,11 @@ export function useTypingEngine(lang?: 'english' | 'hindi') {
     };
 
     addKeystroke(event);
+
+    if (strict && isError && !isBackspace) {
+      return;
+    }
+
     updateTypedContent(newContent);
 
     const correctChars = newContent.split('').filter((c, i) => c === originalContent[i]).length;
@@ -118,7 +137,7 @@ export function useTypingEngine(lang?: 'english' | 'hindi') {
     if (newContent.length >= originalContent.length) {
       completeTest();
     }
-  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi]);
+  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, requireCapsLock]);
 
   useEffect(() => {
     if (isActive) {

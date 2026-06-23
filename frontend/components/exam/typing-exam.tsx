@@ -10,11 +10,14 @@ import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
 import { invalidateDashboardCache } from '@/lib/dashboard-cache';
+import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from './passage-diff';
 import { TestMode } from '@/types';
 import { getExamSpecs, SSC_EXAM_SPECS, checkQualification, calculateNetWpm, calculateAccuracySsc } from '@/lib/exam-config';
+import { getPracticeSets, PracticeSet } from '@/lib/practice-sets';
 import { LoadingLogo } from '@/components/ui/loading-logo';
 import Image from 'next/image';
 import { SSCExamUI } from './ssc-exam-ui';
+import PracticeSetSelector from './practice-set-selector';
 import { ExamInstructions } from './exam-instructions';
 import {
   CheckCircle2,
@@ -40,15 +43,19 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [passage, setPassage] = useState<any>(null);
-  const [phase, setPhase] = useState<'loading' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
+  const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
+  const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) { router.push('/auth/login'); return; }
-    const waitAndInit = async () => {
-      if (authLoading) return;
+    if (authLoading) return;
+    const sets = getPracticeSets(mode);
+    if (sets.length > 0) {
+      setPhase('select-set');
+      setLoading(false);
+    } else {
       initTest();
-    };
-    waitAndInit();
+    }
   }, [authLoading]);
 
   useEffect(() => {
@@ -65,11 +72,11 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     store.setNavHidden(phase === 'typing' || phase === 'submitting');
   }, [phase]);
 
-  const initTest = async () => {
+  const initTest = async (practiceSet?: number) => {
     store.reset();
     try {
       const category = mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined;
-      const passageData = await getRandomPassage(category, undefined, lang);
+      const passageData = await getRandomPassage(category, undefined, lang, practiceSet);
       setPassage(passageData);
       const fallbackContent = passageData?.content || 'Sample passage for typing practice.';
 
@@ -115,8 +122,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       );
       setResult(resultData);
       saveTestResult({
-        wpm: resultData.net_wpm || 0,
-        accuracy: resultData.accuracy || 0,
+        wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
+        accuracy: resultData.ssc_accuracy || resultData.accuracy || 0,
         mode,
         qualified: !!resultData.is_qualified,
         duration: durationSeconds,
@@ -124,8 +131,20 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         total_errors: resultData.total_errors,
         key_depression_count: resultData.key_depression_count,
         backspace_count: resultData.backspace_count,
+        typed_content: store.typedContent,
+        original_content: store.originalContent,
+        full_mistakes: resultData.full_mistakes,
+        half_mistakes: resultData.half_mistakes,
+        ssc_net_wpm: resultData.ssc_net_wpm,
+        ssc_accuracy: resultData.ssc_accuracy,
+        omission_errors: resultData.omission_errors,
+        addition_errors: resultData.addition_errors,
+        substitution_errors: resultData.substitution_errors,
+        wrong_word_errors: resultData.wrong_word_errors,
+        space_errors: resultData.space_errors,
+        consistency_score: resultData.consistency_score,
         xp_earned: resultData.xp_earned || 0,
-      });
+      }, resultData.test_id);
       loadUser();
       invalidateDashboardCache();
       setPhase('result');
@@ -141,8 +160,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         );
         setResult(resultData);
         saveTestResult({
-          wpm: resultData.net_wpm || 0,
-          accuracy: resultData.accuracy || 0,
+          wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
+          accuracy: resultData.ssc_accuracy || resultData.accuracy || 0,
           mode,
           qualified: !!resultData.is_qualified,
           duration: durationSeconds,
@@ -150,8 +169,20 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
           total_errors: resultData.total_errors,
           key_depression_count: resultData.key_depression_count,
           backspace_count: resultData.backspace_count,
+          typed_content: store.typedContent,
+          original_content: store.originalContent,
+          full_mistakes: resultData.full_mistakes,
+          half_mistakes: resultData.half_mistakes,
+          ssc_net_wpm: resultData.ssc_net_wpm,
+          ssc_accuracy: resultData.ssc_accuracy,
+          omission_errors: resultData.omission_errors,
+          addition_errors: resultData.addition_errors,
+          substitution_errors: resultData.substitution_errors,
+          wrong_word_errors: resultData.wrong_word_errors,
+          space_errors: resultData.space_errors,
+          consistency_score: resultData.consistency_score,
           xp_earned: resultData.xp_earned || 0,
-        });
+        }, resultData.test_id);
         loadUser();
         invalidateDashboardCache();
         setPhase('result');
@@ -181,6 +212,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       total_errors: store.errors,
       key_depression_count: store.typedContent.length,
       backspace_count: store.backspaces,
+      typed_content: store.typedContent,
+      original_content: store.originalContent,
     });
     invalidateDashboardCache();
     setPhase('result');
@@ -190,12 +223,32 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     return <LoadingLogo />;
   }
 
+  if (phase === 'select-set') {
+    const sets = getPracticeSets(mode);
+    const spec = getExamSpecs(mode);
+    return (
+      <PracticeSetSelector
+        examName={getModeDisplayName(mode)}
+        sets={sets}
+        durationMinutes={spec?.durationMinutes || Math.round(durationSeconds / 60)}
+        wpmTarget={spec?.englishSpeedWpm}
+        onSelect={(set) => {
+          setSelectedSet(set);
+          setPhase('loading');
+          initTest(set.number);
+        }}
+        onBack={() => router.push('/exam')}
+      />
+    );
+  }
+
   if (phase === 'instructions') {
     return (
       <ExamInstructions
         mode={mode}
         durationSeconds={durationSeconds}
         lang={lang}
+        selectedSet={selectedSet || undefined}
         onBegin={startTyping}
       />
     );
@@ -214,7 +267,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         <div style={{ textAlign: 'center' }}>
           <div className="inline-block animate-spin">
             <Image
-              src="/images/logo.png"
+              src="/images/logo.png?v=2"
               alt=""
               width={64}
               height={64}
@@ -259,206 +312,212 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   );
 }
 
-function WordsDiff({ original, typed }: { original: string; typed: string }) {
-  const origWords = original.split(' ');
-  const typedWords = typed.split(' ');
-
-  return (
-    <div style={{ fontFamily: "'Courier New', monospace", fontSize: 14, lineHeight: 2 }}>
-      {origWords.map((word, i) => {
-        const typed = typedWords[i];
-        if (!typed) {
-          return (
-            <span key={i} style={{ color: '#999', background: '#f5f5f5', padding: '1px 2px', margin: '0 1px', borderRadius: 2, textDecoration: 'line-through' }}>
-              {word}{' '}
-            </span>
-          );
-        }
-        const match = typed === word;
-        let bg = '#e8f5e9';
-        let color = '#2e7d32';
-        if (!match) {
-          const ratio = levenshteinRatio(word, typed);
-          if (ratio > 0.6) {
-            bg = '#fff3e0';
-            color = '#e65100';
-          } else {
-            bg = '#ffebee';
-            color = '#c62828';
-          }
-        }
-        return (
-          <span key={i} style={{ background: bg, color, padding: '1px 3px', margin: '0 1px', borderRadius: 3, borderBottom: match ? '2px solid #4caf50' : '2px solid transparent' }}>
-            {typed}{' '}
-          </span>
-        );
-      })}
-      {typedWords.length > origWords.length && (
-        <span style={{ color: '#c62828', background: '#ffebee', padding: '1px 3px', margin: '0 1px', borderRadius: 3 }}>
-          +{typedWords.slice(origWords.length).join(' ')}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function levenshteinRatio(a: string, b: string): number {
-  const m = a.length, n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return 1 - dp[m][n] / Math.max(m, n);
-}
+// PassageDiffView and helpers extracted to ./passage-diff
 
 function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedContent }:
   { result: any; mode: string; wpmTarget?: number; router: any; originalContent: string; typedContent: string }) {
   const specs = getExamSpecs(mode);
   const sscNetWpm = result.ssc_net_wpm || result.net_wpm || 0;
   const sscAccuracy = result.ssc_accuracy || result.accuracy || 0;
-  const sscErrorPct = result.ssc_error_percentage || (100 - sscAccuracy);
+  const fullMistakes = result.full_mistakes ?? 0;
+  const halfMistakes = result.half_mistakes ?? 0;
+  const sscErrorPct = result.ssc_error_percentage ?? (sscAccuracy > 0 ? +(100 - sscAccuracy).toFixed(2) : 0);
 
-  const qualified = result.is_qualified !== undefined
-    ? result.is_qualified
-    : sscNetWpm >= (wpmTarget || (specs?.englishSpeedWpm || 35)) && sscAccuracy >= 95;
+  const typedWordCount = typedContent?.trim() ? typedContent.trim().split(/\s+/).length : 0;
+  const originalWordCount = originalContent?.trim() ? originalContent.trim().split(/\s+/).length : 1;
+  const passageCompletionPct = Math.min(100, Math.round((typedWordCount / originalWordCount) * 100));
+
+  const qualifiesCategory = (maxErrPct: number) => {
+    if (specs?.qualifyingNature === 'speed_wpm') {
+      return sscNetWpm >= (wpmTarget || specs?.englishSpeedWpm || 35) && sscErrorPct <= maxErrPct;
+    }
+    const kdphVal = result.key_depression_count && result.time_taken_seconds
+      ? Math.round((result.key_depression_count / (result.time_taken_seconds / 60)) * 60)
+      : 0;
+    return kdphVal >= (specs?.englishKdph || 8000) && sscErrorPct <= maxErrPct;
+  };
+
+  const qualified = qualifiesCategory(specs?.errorAllowanceGeneral ?? 20) && passageCompletionPct >= 50;
+
+  const wpmTargetNum = wpmTarget || specs?.englishSpeedWpm || 35;
+  const categories = [
+    { cat: 'UR', label: 'Unreserved', errLimit: specs?.errorAllowanceGeneral ?? 20 },
+    { cat: 'OBC/EWS', label: 'OBC / EWS', errLimit: specs?.errorAllowanceObcEws ?? 25 },
+    { cat: 'SC/ST', label: 'SC / ST', errLimit: specs?.errorAllowanceScSt ?? 30 },
+  ];
+
+  const N = '#333';
+  const G = '#16a34a';
+  const R = '#dc2626';
+  const O = '#ea580c';
+  const B = '#f5f5f5';
+  const BD = '#dcdcdc';
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 800, width: '100%', background: '#fff', border: '1px solid #dcdcdc', borderRadius: 8, padding: 32 }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{
-            width: 80, height: 80, margin: '0 auto 16px', borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: qualified ? '#e8f5e9' : '#ffebee',
-            border: `2px solid ${qualified ? '#4caf50' : '#e53935'}`
-          }}>
-            {qualified
-              ? <CheckCircle2 size={40} color="#4caf50" />
-              : <XCircle size={40} color="#e53935" />}
-          </div>
-          <h2 style={{ fontSize: 28, fontWeight: 700, color: '#333', margin: 0 }}>
-            {qualified ? 'Qualified' : 'Not Qualified'}
-          </h2>
-          <p style={{ marginTop: 4, fontSize: 16, color: '#888' }}>
-            {getModeDisplayName(mode)} &mdash; {result.time_taken_seconds?.toFixed(0) || '0'}s
-          </p>
-
-          {/* SSC Official Metrics */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{sscNetWpm.toFixed(1)}</div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>SSC Net WPM</div>
-              {specs?.qualifyingNature === 'speed_wpm' && (
-                <div style={{ fontSize: 11, color: sscNetWpm >= specs.englishSpeedWpm ? '#4caf50' : '#e53935', marginTop: 2 }}>
-                  Target: {specs.englishSpeedWpm} WPM
-                </div>
-              )}
+    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Poppins, sans-serif', padding: 24 }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', background: '#fff', border: `1px solid ${BD}`, borderRadius: 12, padding: 32 }}>
+        
+        {/* Qualification + Primary Metrics */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: qualified ? '#f0fdf4' : '#fef2f2',
+              border: `3px solid ${qualified ? G : R}`
+            }}>
+              {qualified ? <CheckCircle2 size={32} color={G} /> : <XCircle size={32} color={R} />}
             </div>
-            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{sscAccuracy.toFixed(1)}%</div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>Accuracy</div>
-            </div>
-            <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8f9fa', borderRadius: 8, minWidth: 120 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#333' }}>{result.key_depression_count || 0}</div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>Key Depressions</div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: qualified ? G : R }}>{qualified ? 'QUALIFIED' : 'NOT QUALIFIED'}</div>
+              <div style={{ fontSize: 13, color: '#888' }}>{getModeDisplayName(mode)} — {result.time_taken_seconds?.toFixed(0) || 0}s</div>
             </div>
           </div>
-
-          {/* SSC Full/Half Mistakes */}
-          {(result.full_mistakes > 0 || result.half_mistakes > 0) && (
-            <div style={{ marginTop: 12, display: 'flex', gap: 16, justifyContent: 'center', fontSize: 13 }}>
-              <span>Full Mistakes: <strong style={{ color: '#e53935' }}>{result.full_mistakes}</strong></span>
-              <span>Half Mistakes: <strong style={{ color: '#e65100' }}>{result.half_mistakes}</strong></span>
-              <span>Error %: <strong style={{ color: sscErrorPct > 10 ? '#e53935' : '#4caf50' }}>{sscErrorPct.toFixed(1)}%</strong></span>
-            </div>
-          )}
-
-          {!qualified && (
-            <div style={{ marginTop: 8, fontSize: 13, color: '#888', display: 'flex', gap: 16, justifyContent: 'center' }}>
-              {(result.net_wpm || 0) < (wpmTarget || 35) && (
-                <span style={{ color: '#e53935' }}>WPM: {result.net_wpm?.toFixed(1)} / {wpmTarget || 35} required</span>
-              )}
-              {(result.accuracy || 0) < 95 && (
-                <span style={{ color: '#e53935' }}>Accuracy: {result.accuracy?.toFixed(1)}% / 95% required</span>
-              )}
-            </div>
-          )}
           {result.xp_earned > 0 && (
-            <div style={{ marginTop: 8, fontSize: 15, color: '#e65100', fontWeight: 600 }}>
-              +{result.xp_earned} XP earned
+            <div style={{ background: '#fef3c7', border: `1px solid #f59e0b`, borderRadius: 8, padding: '6px 14px', fontSize: 14, fontWeight: 700, color: '#92400e' }}>
+              +{result.xp_earned} XP
             </div>
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        {/* SSC Metrics Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Characters Typed', value: result.key_depression_count || 0 },
-            { label: 'Target Characters', value: '~2000' },
-            { label: 'Net WPM', value: `${result.net_wpm?.toFixed(1) || 0}` },
-            { label: 'Gross WPM', value: `${result.gross_wpm?.toFixed(1) || 0}` },
-            { label: 'Accuracy', value: `${result.accuracy?.toFixed(1) || 0}%` },
-            { label: 'Mistakes', value: result.total_errors || 0, color: '#e53935' },
-          ].map((s) => (
-            <div key={s.label} style={{ padding: 12, background: '#f9f9f9', borderRadius: 6, textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: (s as any).color || '#333' }}>{s.value}</div>
-              <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{s.label}</div>
+            { label: 'SSC Net WPM', value: sscNetWpm.toFixed(1), sub: `Target: ${wpmTargetNum} WPM`, color: sscNetWpm >= wpmTargetNum ? G : R },
+            { label: 'SSC Accuracy', value: `${sscAccuracy.toFixed(1)}%`, sub: 'Target: ≥ 95%', color: sscAccuracy >= 95 ? G : R },
+            { label: 'Full Mistakes', value: fullMistakes, sub: '100% penalty each', color: fullMistakes > 0 ? R : G },
+            { label: 'Half Mistakes', value: halfMistakes, sub: '50% penalty each', color: halfMistakes > 0 ? O : G },
+          ].map((m, i) => (
+            <div key={i} style={{ padding: '14px 10px', background: B, borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: m.color }}>{m.value}</div>
+              <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{m.label}</div>
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>{m.sub}</div>
             </div>
           ))}
         </div>
 
-        {typedContent && originalContent && (
-          <div style={{ borderTop: '1px solid #eee', paddingTop: 16, marginBottom: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', marginBottom: 12 }}>
-              Word-by-Word Feedback
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#888', marginLeft: 8 }}>
-                Green = correct, Orange = partial, Red = wrong, Strikethrough = missed
-              </span>
-            </h3>
-            <div style={{ maxHeight: 200, overflowY: 'auto', padding: 12, background: '#fafafa', borderRadius: 6, border: '1px solid #eee' }}>
-              <WordsDiff original={originalContent} typed={typedContent} />
-            </div>
+        {/* Error % + Key Depressions + Qualification by Category */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div style={{ padding: '12px 16px', background: B, borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>SSC Error %</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: sscErrorPct > 10 ? R : G }}>{sscErrorPct.toFixed(1)}%</div>
           </div>
-        )}
-
-        <div style={{ borderTop: `1px solid ${'#eee'}`, paddingTop: 16, marginBottom: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', marginBottom: 12 }}>Detailed Breakdown</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, fontSize: 14 }}>
-            {[
-              { label: 'Omission', value: result.omission_errors || 0, color: '#e53935' },
-              { label: 'Addition', value: result.addition_errors || 0, color: '#e53935' },
-              { label: 'Substitution', value: result.substitution_errors || 0, color: '#e65100' },
-              { label: 'Wrong Word', value: result.wrong_word_errors || 0, color: '#e53935' },
-              { label: 'Space Errors', value: result.space_errors || 0, color: '#e65100' },
-              { label: 'Backspaces', value: result.backspace_count || 0, color: '#1565c0' },
-            ].map((item) => (
-              <div key={item.label} style={{ padding: '6px 8px', background: '#f5f5f5', borderRadius: 4, textAlign: 'center' }}>
-                <span style={{ color: '#888' }}>{item.label}: </span>
-                <strong style={{ color: (item as any).color || '#333' }}>{item.value}</strong>
-              </div>
-            ))}
+          <div style={{ padding: '12px 16px', background: B, borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Key Depressions</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: N }}>{result.key_depression_count || 0}</div>
+          </div>
+          <div style={{ padding: '12px 16px', background: B, borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Backspaces</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: N }}>{result.backspace_count || 0}</div>
           </div>
         </div>
 
-        {result.feedback && (
-          <div style={{ marginBottom: 24, padding: 16, background: '#e3f2fd', borderLeft: '4px solid #1976d2', borderRadius: 4, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
-            <strong style={{ color: '#1976d2' }}>AI Coach Feedback</strong>
-            <div style={{ marginTop: 4 }}>{result.feedback}</div>
+        {/* Citation */}
+        <div style={{ fontSize: 11, color: '#999', marginBottom: 12, lineHeight: 1.5, padding: '8px 10px', background: '#f9f9f9', borderRadius: 6 }}>
+          <strong>Source:</strong> {specs?.source || 'SSC Official Notification'}. Error allowance varies by post — LDC/JSA uses 7%/10%, DEO/DEST uses 20%/25%/30%.
+          {' '}
+          {specs?.citations?.map((url, i) => (
+            <span key={i}><a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#2F5BFF' }}>{url.replace(/^https?:\/\//, '')}</a>{i < (specs.citations?.length ?? 0) - 1 ? ' · ' : ''} </span>
+          ))}
+          <a href="https://ssc.gov.in" target="_blank" rel="noopener noreferrer" style={{ color: '#2F5BFF' }}>ssc.gov.in</a>
+        </div>
+
+        {/* Qualification by Category */}
+        <details style={{ marginBottom: 20 }}>
+          <summary style={{ fontSize: 14, fontWeight: 600, color: N, cursor: 'pointer', userSelect: 'none', padding: '8px 0' }}>
+            Qualification by Category
+          </summary>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+            {categories.map(c => {
+              const qualifies = qualifiesCategory(c.errLimit);
+              return (
+                <div key={c.cat} style={{
+                  padding: '10px', borderRadius: 6,
+                  background: qualifies ? '#f0fdf4' : '#fef2f2',
+                  border: `1px solid ${qualifies ? G : R}`,
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: qualifies ? G : R }}>{c.cat}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Error ≤ {c.errLimit}%</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: qualifies ? G : R, marginTop: 2 }}>
+                    {qualifies ? '✓' : '✗'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+
+        {!qualified && (
+          <div style={{ padding: '10px 14px', background: '#fef2f2', border: `1px solid ${R}`, borderRadius: 6, fontSize: 13, color: R, marginBottom: 20 }}>
+            {sscNetWpm < wpmTargetNum && <span>Speed: {sscNetWpm.toFixed(1)} WPM (need {wpmTargetNum}){sscErrorPct > (specs?.errorAllowanceGeneral ?? 20) ? '  |  ' : ''}</span>}
+            {sscErrorPct > (specs?.errorAllowanceGeneral ?? 20) && <span>Errors: {sscErrorPct.toFixed(1)}% (need ≤{specs?.errorAllowanceGeneral ?? 20}%){passageCompletionPct < 50 ? '  |  ' : ''}</span>}
+            {passageCompletionPct < 50 && <span>Passage: {passageCompletionPct}% completed (need ≥50%)</span>}
           </div>
         )}
 
+        {/* Side-by-Side Passage Comparison */}
+        {typedContent && originalContent && (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: N, marginBottom: 8 }}>
+              Passage Comparison
+              <span style={{ fontSize: 11, fontWeight: 400, color: '#999', marginLeft: 10, display: 'inline-block' }}>
+                <span style={{ color: '#16a34a' }}>green</span> = correct &nbsp;
+                <span style={{ color: '#ea580c' }}>orange ~</span> = typo/caps &nbsp;
+                <span style={{ color: '#dc2626' }}>red ✗</span> = wrong &nbsp;
+                <span style={{ color: '#bbb' }}>gray —</span> = missed &nbsp;
+                <span style={{ color: '#dc2626', textDecoration: 'underline' }}>red _</span> = extra
+              </span>
+            </h3>
+            <PassageDiffView original={originalContent} typed={typedContent} />
+          </div>
+        )}
+
+        {/* Detailed Breakdown (collapsible) */}
+        <details style={{ marginBottom: 20 }}>
+          <summary style={{ fontSize: 14, fontWeight: 600, color: N, cursor: 'pointer', userSelect: 'none', padding: '8px 0' }}>
+            Detailed Error Breakdown
+          </summary>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+            {[
+              { label: 'Omission', value: result.omission_errors || 0, color: R },
+              { label: 'Addition', value: result.addition_errors || 0, color: R },
+              { label: 'Substitution', value: result.substitution_errors || 0, color: O },
+              { label: 'Wrong Word', value: result.wrong_word_errors || 0, color: R },
+              { label: 'Space', value: result.space_errors || 0, color: O },
+              { label: 'Consistency', value: result.consistency_score ? `${result.consistency_score.toFixed(0)}%` : '-', color: N },
+            ].map((item, i) => (
+              <div key={i} style={{ padding: '8px 10px', background: B, borderRadius: 6, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#888' }}>{item.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: (item as any).color }}>{(item as any).value}</div>
+              </div>
+            ))}
+          </div>
+        </details>
+
+        {/* AI Coach Feedback */}
+        {result.feedback && (
+          <div style={{ marginBottom: 20, padding: 14, background: '#eef2ff', borderLeft: `4px solid #4f46e5`, borderRadius: 6, fontSize: 13, color: N, lineHeight: 1.6 }}>
+            <strong style={{ color: '#4f46e5', display: 'block', marginBottom: 4 }}>AI Coach Feedback</strong>
+            <div>{result.feedback}</div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={() => window.location.reload()}
             style={{ flex: 1, padding: '10px 0', border: `1px solid ${'#2F5BFF'}`, borderRadius: 8, background: '#2F5BFF', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
             Take Another Test
           </button>
           <button onClick={() => router.push('/dashboard')}
-            style={{ flex: 1, padding: '10px 0', border: `1px solid ${'#dcdcdc'}`, borderRadius: 8, background: '#fff', color: '#333', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ flex: 1, padding: '10px 0', border: `1px solid ${BD}`, borderRadius: 8, background: '#fff', color: N, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
             Dashboard
           </button>
+          {result.test_id && (
+            <button onClick={() => router.push(`/analysis/${result.test_id}`)}
+              style={{ padding: '10px 16px', border: `1px solid ${'#2F5BFF'}`, borderRadius: 8, background: '#fff', color: '#2F5BFF', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Full Report →
+            </button>
+          )}
         </div>
       </div>
     </div>

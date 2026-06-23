@@ -52,7 +52,7 @@ export function Navbar() {
             className="flex items-center space-x-3 -rotate-1 hover:rotate-0 transition-transform duration-100"
           >
             <Image
-              src="/images/logo.png"
+              src="/images/logo.png?v=2"
               alt="Typing Mania"
               width={40}
               height={40}

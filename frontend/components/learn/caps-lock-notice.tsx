@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Keyboard } from 'lucide-react';
 
-export function CapsLockNotice({ showDuringLesson = false }: { showDuringLesson?: boolean }) {
+export function CapsLockNotice({ expectedChar }: { expectedChar?: string | null }) {
   const [capsOn, setCapsOn] = useState(false);
 
   useEffect(() => {
@@ -18,34 +18,21 @@ export function CapsLockNotice({ showDuringLesson = false }: { showDuringLesson?
     };
   }, []);
 
-  if (!showDuringLesson) {
-    return (
-      <div className="bg-yellow-50 border-2 border-yellow-400 p-4 mb-6 shadow-hard-sm"
-        style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 flex items-center justify-center bg-yellow-100 border-2 border-yellow-400 rounded-full shrink-0">
-            <Keyboard className="w-5 h-5 text-yellow-700" strokeWidth={3} />
-          </div>
-          <div>
-            <p className="font-bold text-yellow-800 font-marker text-lg">Caps Lock Required</p>
-            <p className="text-yellow-700 font-hand text-base mt-1">
-              Please turn <strong>ON Caps Lock</strong> before starting this lesson. Lessons use capital letters for finger guidance.
-            </p>
-          </div>
-        </div>
+  const needsCaps = expectedChar ? /[A-Z]/.test(expectedChar) : false;
+
+  return needsCaps && !capsOn ? (
+    <div className="bg-red-50 border-2 border-red-400 p-4 shadow-hard-sm flex flex-col items-center text-center"
+      style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', animation: 'caps-blink 0.8s ease-in-out infinite' }}>
+      <style>{`@keyframes caps-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+      <div className="w-10 h-10 flex items-center justify-center bg-red-100 border-2 border-red-400 rounded-full shrink-0 mb-2">
+        <Keyboard className="w-5 h-5 text-red-700" strokeWidth={3} />
       </div>
-    );
-  }
-
-  if (!capsOn) return null;
-
-  return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-yellow-400 border-2 border-yellow-600 px-3 py-1.5 shadow-hard-sm animate-pulse"
-      style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
-    >
-      <Keyboard className="w-4 h-4 text-yellow-800" strokeWidth={3} />
-      <span className="text-sm font-bold text-yellow-800 font-hand">Caps Lock ON</span>
+      <p className="font-bold text-red-800 font-marker text-base">
+        Turn ON Caps Lock
+      </p>
+      <p className="text-red-700 font-hand text-sm mt-1">
+        Press <kbd className="px-1.5 py-0.5 bg-white border border-red-500 rounded text-red-800 text-xs font-mono">Caps Lock</kbd> to type <kbd className="px-1.5 py-0.5 bg-white border border-red-500 rounded text-red-800 text-xs font-mono">{expectedChar}</kbd>
+      </p>
     </div>
-  );
+  ) : null;
 }

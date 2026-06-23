@@ -172,8 +172,8 @@ async def submit_test(
         test.weak_words = metrics.weak_words
         test.error_zones = metrics.error_zones
 
-        test.is_qualified = error_engine.is_qualified(
-            error_report.net_wpm, error_report.accuracy, test.mode.value
+        test.is_qualified = error_engine.is_qualified_from_report(
+            error_report, test.mode.value
         )
 
         xp = _calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
@@ -373,8 +373,8 @@ async def direct_submit(
     test.weak_words = metrics.weak_words
     test.error_zones = metrics.error_zones
 
-    test.is_qualified = error_engine.is_qualified(
-        error_report.net_wpm, error_report.accuracy, test.mode.value
+    test.is_qualified = error_engine.is_qualified_from_report(
+        error_report, test.mode.value
     )
 
     xp = _calculate_xp(error_report.net_wpm, error_report.accuracy, test.mode)
@@ -546,6 +546,29 @@ async def get_test_result(
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
 
+    # Always compute SSC values from stored content
+    full_mistakes = test.full_mistakes or 0
+    half_mistakes = test.half_mistakes or 0
+    ssc_net_wpm = 0
+    ssc_accuracy = 0.0
+    ssc_error_percentage = 0.0
+
+    if test.typed_content and test.original_content and test.time_taken_seconds:
+        try:
+            error_report = error_engine.evaluate(
+                original=test.original_content,
+                typed=test.typed_content,
+                duration_seconds=test.time_taken_seconds,
+                mode=test.mode.value,
+            )
+            ssc_net_wpm = error_report.ssc_net_wpm
+            ssc_accuracy = error_report.ssc_accuracy
+            ssc_error_percentage = error_report.ssc_error_percentage
+            full_mistakes = error_report.full_mistakes
+            half_mistakes = error_report.half_mistakes
+        except Exception:
+            pass
+
     return TestResultResponse(
         test_id=test.id,
         mode=test.mode,
@@ -553,9 +576,12 @@ async def get_test_result(
         net_wpm=test.net_wpm or 0,
         accuracy=test.accuracy or 0,
         error_percentage=test.error_percentage or 0,
+        ssc_net_wpm=ssc_net_wpm,
+        ssc_accuracy=ssc_accuracy,
+        ssc_error_percentage=ssc_error_percentage,
+        full_mistakes=full_mistakes,
+        half_mistakes=half_mistakes,
         key_depression_count=test.key_depression_count or 0,
-        full_mistakes=test.full_mistakes or 0,
-        half_mistakes=test.half_mistakes or 0,
         total_errors=test.total_errors or 0,
         omission_errors=test.omission_errors or 0,
         addition_errors=test.addition_errors or 0,
@@ -563,6 +589,8 @@ async def get_test_result(
         substitution_errors=test.substitution_errors or 0,
         formatting_errors=test.formatting_errors or 0,
         space_errors=test.space_errors or 0,
+        typed_content=test.typed_content or '',
+        original_content=test.original_content or '',
         time_taken_seconds=test.time_taken_seconds or 0,
         time_utilization_percentage=test.time_utilization_percentage or 0,
         backspace_count=test.backspace_count or 0,

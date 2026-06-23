@@ -33,7 +33,7 @@ RUN mkdir -p /app/.next/cache /app/.next/server /app/.next/trace && \
 
 USER nextjs
 ENV HOME=/home/nextjs
-ENV PORT 3000
+ENV PORT 8080
 ENV HOSTNAME "0.0.0.0"
 
 EXPOSE 3000

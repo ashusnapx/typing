@@ -29,15 +29,15 @@ export const metadata: Metadata = {
   keywords:
     "SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing",
   icons: {
-    icon: "/images/logo.png",
-    apple: "/images/logo.png",
+    icon: "/images/logo.png?v=2",
+    apple: "/images/logo.png?v=2",
   },
   openGraph: {
     title: "Typing Mania by Maths Mania - SSC Typing Test Simulator",
     description:
       "India's Most Accurate SSC Typing Exam Simulator. Learn from scratch.",
     type: "website",
-    images: [{ url: "/images/logo.png", width: 900, height: 900 }],
+    images: [{ url: "/images/logo.png?v=2", width: 900, height: 900 }],
   },
 };
 
@@ -68,7 +68,7 @@ export default function RootLayout({
                   className='flex items-center space-x-2 -rotate-1 inline-block hover:rotate-0 transition-transform'
                 >
                   <Image
-                    src='/images/logo.png'
+                    src='/images/logo.png?v=2'
                     alt='Typing Mania'
                     width={32}
                     height={32}

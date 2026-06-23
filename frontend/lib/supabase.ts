@@ -22,14 +22,15 @@ export interface Passage {
   topic: string | null;
   source: string | null;
   ssc_exam_year: string | null;
+  practice_set?: number | null;
 }
 
 export async function getRandomPassage(
   category?: PassageCategory,
   difficulty?: string,
   language: string = 'english',
+  practiceSet?: number,
 ): Promise<Passage | null> {
-  // For SSC exams, prefer exam-length passages (>= 1700 key depressions)
   const isSscMode = category === 'ssc_chsl' || category === 'ssc_cgl';
 
   let query = supabase
@@ -42,11 +43,15 @@ export async function getRandomPassage(
   if (category) query = query.eq('category', category);
   if (difficulty) query = query.eq('difficulty', difficulty);
   if (isSscMode) query = query.eq('is_exam_length', true);
+  if (practiceSet) query = query.eq('practice_set', practiceSet);
 
   const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
-    // Fallback: try without the exam-length filter
+    if (practiceSet) {
+      console.warn(`No passages found for practice_set=${practiceSet}, falling back to any passage`);
+      return getRandomPassage(category, difficulty, language);
+    }
     if (isSscMode) {
       let fallbackQuery = supabase
         .from('passages')

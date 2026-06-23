@@ -49,6 +49,8 @@ class TestResultResponse(BaseModel):
     half_mistakes: int = 0
 
     key_depression_count: int
+    typed_content: Optional[str] = None
+    original_content: Optional[str] = None
     total_errors: int
     omission_errors: int
     addition_errors: int

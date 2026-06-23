@@ -5,6 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { usePathname } from 'next/navigation';
+import { CSS } from '@/lib/config';
+import { initCapsLockTracker } from '@/lib/caps-lock-tracker';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +22,7 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
   const called = useRef(false);
 
   useEffect(() => {
+    initCapsLockTracker();
     if (called.current) return;
     called.current = true;
     loadUser();
@@ -50,7 +53,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             color: '#fdfbf7',
             fontFamily: 'Patrick Hand, cursive',
             border: '3px solid #2d2d2d',
-            borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
+            borderRadius: CSS.radii.sm,
             boxShadow: '4px 4px 0px 0px #2d2d2d',
           },
         }}

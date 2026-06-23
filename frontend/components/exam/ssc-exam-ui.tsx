@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
+import { CSS } from '@/lib/config';
 
 const BG = '#f5f5f5';
 const BORDER = '#dcdcdc';
@@ -173,7 +174,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
                 <span>Duration: <strong>{specs.durationMinutes} min</strong></span>
                 <span>Target: <strong>{specs.qualifyingNature === 'speed_wpm' ? `${specs.englishSpeedWpm} WPM` : `${specs.englishKdph.toLocaleString()} KDPH`}</strong></span>
                 <span>Passage: <strong>{specs.passageKeyDepressions[0]}-{specs.passageKeyDepressions[1]} KD</strong></span>
-                <span>Backspace: <strong style={{ color: specs.backspaceAllowed ? '#4caf50' : '#e53935' }}>{specs.backspaceAllowed ? 'Allowed' : 'Locked'}</strong></span>
+                <span>Backspace: <strong style={{ color: specs.backspaceAllowed ? CSS.colors.green : CSS.colors.red }}>{specs.backspaceAllowed ? 'Allowed' : 'Locked'}</strong></span>
               </div>
             );
           })()}
@@ -238,7 +239,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
               <div style={{ display: 'flex', gap: 24 }}>
                 <span>Net WPM: <strong>{netWpm}</strong></span>
                 <span>Accuracy: <strong>{accuracy.toFixed(1)}%</strong></span>
-                <span style={{ color: mistakes > 0 ? '#e53935' : undefined }}>Mistakes: <strong>{mistakes}</strong></span>
+                <span style={{ color: mistakes > 0 ? CSS.colors.red : undefined }}>Mistakes: <strong>{mistakes}</strong></span>
               </div>
             </div>
           )}
@@ -299,7 +300,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
                 <div>Window Blurs: {windowBlurs}</div>
                 <div>Fullscreen Exits: {fullscreenExits}</div>
                 <div>Window Resizes: {resizeEvents}</div>
-                <div style={{ color: suspiciousCount > 0 ? '#e53935' : '#4caf50', fontWeight: 600, marginTop: 4 }}>
+                <div style={{ color: suspiciousCount > 0 ? CSS.colors.red : CSS.colors.green, fontWeight: 600, marginTop: 4 }}>
                   Suspicious Events: {suspiciousCount}
                 </div>
               </div>

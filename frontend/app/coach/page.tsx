@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { FullPageLoader } from '@/components/ui/loading-logo';
+import { CSS, ROUTES, TIME } from '@/lib/config';
 import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh, cacheGet, cacheSet } from '@/lib/dashboard-cache';
 import {
   Brain,
@@ -20,7 +21,7 @@ import {
   Activity,
 } from 'lucide-react';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AICoachPage() {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -32,7 +33,7 @@ export default function AICoachPage() {
   const fetched = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push('/auth/login'); }
+    if (!isLoading && !isAuthenticated) { router.push(ROUTES.authLogin); }
   }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function AICoachPage() {
       setRecentTests(cached.recent_scores || []);
     }
     if (!cached || !isDashboardCacheFresh()) {
-      api.request<any>('/dashboard').then((data) => {
+      api.request<any>(ROUTES.dashboard).then((data) => {
         setCachedDashboard(data);
         setRecentTests(data.recent_scores || []);
       }).catch(() => {});
@@ -59,7 +60,7 @@ export default function AICoachPage() {
     } else {
       api.getWeakWords().then((words) => {
         setWeakWords(words);
-        cacheSet(weakKey, words, 5 * 60 * 1000);
+        cacheSet(weakKey, words, TIME.cacheWeakWords);
       }).catch(() => {});
     }
   }, [isAuthenticated]);

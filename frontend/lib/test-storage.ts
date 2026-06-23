@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '@/lib/config';
+
 export interface StoredTestResult {
   id: string;
   date: string;
@@ -31,10 +33,10 @@ function storageKey(): string {
     if (raw) {
       const payload = raw.split('.')[1];
       const decoded = JSON.parse(atob(payload));
-      return `typing_test_results_${decoded.sub}`;
+      return `${STORAGE_KEYS.testResults}_${decoded.sub}`;
     }
   } catch {}
-  return 'typing_test_results';
+  return STORAGE_KEYS.testResults;
 }
 
 function generateId(): string {

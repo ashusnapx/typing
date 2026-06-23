@@ -21,8 +21,9 @@ import {
   XCircle,
   Brain,
 } from 'lucide-react';
+import { CSS, ROUTES } from '@/lib/config';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AnalyticsPage() {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -33,7 +34,7 @@ export default function AnalyticsPage() {
   const fetched = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push('/auth/login'); return; }
+    if (!isLoading && !isAuthenticated) { router.push(ROUTES.authLogin); return; }
     if (!isAuthenticated || isLoading || fetched.current) return;
     fetched.current = true;
 
@@ -67,7 +68,7 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-paper">
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center space-x-4 mb-8">
-          <Link href="/dashboard" className="w-10 h-10 flex items-center justify-center border-2 border-pencil hover:bg-muted transition-colors"
+          <Link href={ROUTES.dashboard} className="w-10 h-10 flex items-center justify-center border-2 border-pencil hover:bg-muted transition-colors"
                 style={wobbly}>
             <ArrowLeft className="w-5 h-5 text-pencil" strokeWidth={3} />
           </Link>
@@ -86,8 +87,8 @@ export default function AnalyticsPage() {
             { value: user.xp, label: `XP (Lvl ${user.level})`, icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
           ].map((stat) => (
             <div key={stat.label}
-                 className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all duration-100"
-                 style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
+                 className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all duration-100`}
+                 style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
               <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
               <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
               <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
@@ -97,7 +98,7 @@ export default function AnalyticsPage() {
 
         {/* Best Scores */}
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
-          <div className="bg-postit border-2 border-pencil shadow-hard-sm p-4 -rotate-[0.3deg] hover:rotate-0 transition-transform">
+          <div className={`bg-postit border-2 border-pencil ${CSS.shadows.sm} p-4 -rotate-[0.3deg] hover:rotate-0 transition-transform`}>
             <div className="tape" />
             <div className="flex items-center space-x-2 mb-3">
               <Gauge className="w-5 h-5 text-pencil" strokeWidth={3} />
@@ -106,7 +107,7 @@ export default function AnalyticsPage() {
             <div className="text-5xl font-bold text-pencil font-marker">{bestWpm.toFixed(1)}</div>
             <div className="text-base text-pencil/60 font-hand mt-1">words per minute</div>
           </div>
-          <div className="bg-postit border-2 border-pencil shadow-hard-sm p-4 rotate-[0.3deg] hover:rotate-0 transition-transform">
+          <div className={`bg-postit border-2 border-pencil ${CSS.shadows.sm} p-4 rotate-[0.3deg] hover:rotate-0 transition-transform`}>
             <div className="tape" />
             <div className="flex items-center space-x-2 mb-3">
               <Target className="w-5 h-5 text-pencil" strokeWidth={3} />
@@ -119,14 +120,14 @@ export default function AnalyticsPage() {
 
         {/* Qualification Prediction */}
         {predictions && (
-          <div className="bg-white border-2 border-pencil shadow-hard p-6 mb-8 -rotate-[0.3deg] hover:rotate-0 transition-transform relative">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.md} p-6 mb-8 -rotate-[0.3deg] hover:rotate-0 transition-transform relative`}>
             <div className="tack" />
             <div className="flex items-center space-x-3 mb-4">
               <TrendingUp className="w-6 h-6 text-pencil" strokeWidth={3} />
               <h2 className="text-xl font-bold text-pencil font-marker">Qualification Prediction</h2>
             </div>
             <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              <div className="bg-paper border-2 border-pencil p-4 shadow-hard-sm"
+              <div className={`bg-paper border-2 border-pencil p-4 ${CSS.shadows.sm}`}
                    style={wobbly}>
                 <div className="text-sm text-pencil/60 font-hand">SSC CHSL</div>
                 <div className="text-3xl font-bold text-pencil font-marker mt-1">
@@ -136,7 +137,7 @@ export default function AnalyticsPage() {
                   Trend: {predictions.wpm_trend} | Consistency: {predictions.consistency_score}
                 </div>
               </div>
-              <div className="bg-paper border-2 border-pencil p-4 shadow-hard-sm"
+              <div className={`bg-paper border-2 border-pencil p-4 ${CSS.shadows.sm}`}
                    style={wobbly}>
                 <div className="text-sm text-pencil/60 font-hand">SSC CGL DEST</div>
                 <div className="text-3xl font-bold text-pencil font-marker mt-1">
@@ -159,7 +160,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* All Tests History */}
-        <div className="bg-white border-2 border-pencil shadow-hard-sm">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
           <div className="px-6 py-4 border-b-2 border-pencil flex items-center space-x-3">
             <BarChart3 className="w-5 h-5 text-pencil" strokeWidth={3} />
             <h2 className="text-lg font-bold text-pencil font-marker">Test History</h2>
@@ -168,7 +169,7 @@ export default function AnalyticsPage() {
             {recentTests.length === 0 ? (
               <div className="p-6 text-center font-hand text-pencil/50">
                 No tests taken yet.{' '}
-                <Link href="/exam/practice" className="text-blue-pen font-bold hover:underline">Start your first test</Link>
+                <Link href={ROUTES.examPractice} className="text-blue-pen font-bold hover:underline">Start your first test</Link>
               </div>
             ) : (
               recentTests.map((test: any, idx: number) => (
@@ -199,21 +200,21 @@ export default function AnalyticsPage() {
 
         {/* Quick Links */}
         <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          <Link href="/exam/practice"
-                className="bg-white border-2 border-pencil shadow-hard-sm p-4 hover:shadow-hard transition-all duration-100 text-center -rotate-1"
-                style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px' }}>
+          <Link href={ROUTES.examPractice}
+                className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 text-center -rotate-1`}
+                style={{ borderRadius: CSS.radii.md }}>
             <Timer className="w-6 h-6 text-pencil mx-auto mb-2" strokeWidth={3} />
             <span className="font-bold text-pencil font-hand">Practice Mode</span>
           </Link>
           <Link href="/coach"
-                className="bg-white border-2 border-pencil shadow-hard-sm p-4 hover:shadow-hard transition-all duration-100 text-center rotate-1"
-                style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px' }}>
+                className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 text-center rotate-1`}
+                style={{ borderRadius: CSS.radii.md }}>
             <Brain className="w-6 h-6 text-pencil mx-auto mb-2" strokeWidth={3} />
             <span className="font-bold text-pencil font-hand">AI Coach</span>
           </Link>
           <Link href="/leaderboard"
-                className="bg-white border-2 border-pencil shadow-hard-sm p-4 hover:shadow-hard transition-all duration-100 text-center -rotate-2"
-                style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px' }}>
+                className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 text-center -rotate-2`}
+                style={{ borderRadius: CSS.radii.md }}>
             <TrendingUp className="w-6 h-6 text-pencil mx-auto mb-2" strokeWidth={3} />
             <span className="font-bold text-pencil font-hand">Leaderboard</span>
           </Link>

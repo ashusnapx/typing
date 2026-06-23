@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { cacheGet, cacheSet } from '@/lib/dashboard-cache';
 import { Trophy, Medal, Gauge, Target, FileText, Zap } from 'lucide-react';
+import { CSS, TIME, ROUTES, LEADERBOARD_SCOPES } from '@/lib/config';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<any>(null);
@@ -20,7 +21,7 @@ export default function LeaderboardPage() {
     if (!cached) {
       api.getLeaderboard(scope).then((data) => {
         setLeaderboard(data);
-        cacheSet(cacheKey, data, 2 * 60 * 1000);
+        cacheSet(cacheKey, data, TIME.cacheLeaderboard);
       }).catch(() => {});
     }
   }, [scope]);
@@ -34,18 +35,18 @@ export default function LeaderboardPage() {
         </div>
 
         <div className="flex space-x-2 mb-6">
-          {['global', 'state', 'college'].map((s) => (
+          {LEADERBOARD_SCOPES.map((s) => (
             <button
-              key={s}
-              onClick={() => setScope(s)}
+              key={s.id}
+              onClick={() => setScope(s.id)}
               className={`px-4 py-2 border-[3px] border-pencil font-hand text-base transition-all duration-100 ${
-                scope === s
+                scope === s.id
                   ? 'bg-pencil text-paper shadow-hard-sm'
                   : 'bg-white text-pencil shadow-hard-sm hover:shadow-hard'
               }`}
               style={wobbly}
             >
-              {s.charAt(0).toUpperCase() + s.slice(1)}
+              {s.label}
             </button>
           ))}
         </div>

@@ -21,7 +21,7 @@
 //   Phase 7 — Passage Practice — fluency & endurance
 //   Phase 8 — Speed Building — 25→35→45 WPM milestones
 //   Phase 9 — Accuracy Polish — 95%+ zero‑error mindset
-//   Phase 10 — Exam Simulation — TCS iON replica, mock tests
+//   Phase 10 — Exam Simulation — Ediquity replica, mock tests
 //
 // PASS CRITERIA per lesson: accuracy ≥ 90%  OR  speed ≥ 80 % of target.
 // =============================================================================
@@ -86,8 +86,8 @@ const LEVELS: Level[] = [
         title: "Keys Pehchano",
         instruction:
           "Dheere dheere har key dabake dekho. Dekho ki kaunsi ungli kis key ke liye sahi hai. Left hand: A-S-D-F, Right hand: J-K-L-;",
-        keys: ["A", "S", "D", "F", "J", "K", "L", ";", "Enter", "Space"],
-        sampleText: "A S D F J K L ; A S D F J K L ; Space dabao. Enter dabao.",
+        keys: ["A", "S", "D", "F", "J", "K", "L", ";"],
+        sampleText: "A S D F J K L ; A S D F J K L ;",
         targetWpm: 0,
         minAccuracy: 70,
         durationSec: 300,
@@ -705,7 +705,7 @@ const LEVELS: Level[] = [
     name: "Exam Simulation",
     subtitle: "Real exam jaisa experience",
     description:
-      "Aap ready ho. Ab real exam jaisa mahaul mein type karo. TCS iON replica, strict timer, aur exact SSC evaluation.",
+      "Aap ready ho. Ab real exam jaisa mahaul mein type karo. Ediquity replica, strict timer, aur exact SSC evaluation.",
     icon: "Award",
     lessons: [
       {
@@ -736,9 +736,9 @@ const LEVELS: Level[] = [
       },
       {
         id: "l10-mock-full",
-        title: "Full Mock — TCS iON Replica",
+        title: "Full Mock — Ediquity Replica",
         instruction:
-          "Yeh asli exam hai. TCS iON ka exact layout. Same timer, same interface. Koi help nahi. Aap khud!",
+          "Yeh asli exam hai. Ediquity ka exact layout. Same timer, same interface. Koi help nahi. Aap khud!",
         keys: [],
         sampleText:
           "The government has announced a comprehensive plan for digital transformation of the economy. This initiative aims to improve the ease of doing business and enhance the quality of life for citizens. The plan focuses on key areas such as digital infrastructure, digital literacy, and digital delivery of services. The implementation of this plan will be carried out in phases over the next five years.",
@@ -778,13 +778,8 @@ export function getNextLessonId(currentId: string): string | null {
   return all[idx + 1].id;
 }
 
-export function isLessonUnlocked(lessonId: string, progress: Record<string, any>): boolean {
-  const all = getFlatLessons();
-  const idx = all.findIndex((l) => l.id === lessonId);
-  if (idx === -1) return false;
-  if (idx === 0) return true;
-  const prevLesson = all[idx - 1];
-  return !!progress[prevLesson.id];
+export function isLessonUnlocked(_lessonId: string, _progress: Record<string, any>): boolean {
+  return true;
 }
 
 export const LEVEL_NAMES = [

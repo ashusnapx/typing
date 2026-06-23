@@ -5,8 +5,9 @@ import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Shield, Users, Activity, BarChart3, Zap, TrendingUp } from 'lucide-react';
+import { CSS, ROUTES } from '@/lib/config';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AdminPage() {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -17,7 +18,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated || (user?.role !== 'admin' && user?.role !== 'super_admin')) {
-        router.push('/');
+        router.push(ROUTES.home);
       }
     }
   }, [isAuthenticated, isLoading, user]);
@@ -48,8 +49,8 @@ export default function AdminPage() {
               { value: dashboard.active_tests, label: 'Active Tests', icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
             ].map((stat) => (
               <div key={stat.label}
-                   className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all"
-                   style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
+                   className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all`}
+                   style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
                 <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
                 <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
                 <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
@@ -58,7 +59,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        <div className="bg-white border-2 border-pencil shadow-hard-sm">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
           <div className="px-6 py-4 border-b-2 border-pencil bg-muted/30 flex items-center space-x-2">
             <Users className="w-5 h-5 text-pencil" strokeWidth={3} />
             <h2 className="text-lg font-bold font-marker text-pencil">Users</h2>

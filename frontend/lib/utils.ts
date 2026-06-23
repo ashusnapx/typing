@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { WOBBLY_RADII, CSS } from '@/lib/config';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,7 +31,7 @@ export function getModeDisplayName(mode: string): string {
     practice: 'Practice',
     blind: 'Blind Mode',
     mock: 'Mock Test',
-    tcs_ion_replica: 'TCS iON Replica',
+    tcs_ion_replica: 'Ediquity Replica',
   };
   return names[mode] || mode;
 }
@@ -41,6 +42,7 @@ export function getQualificationColor(probability: number): string {
   return 'text-red-600';
 }
 
+// Keep in sync with any other copy of LEVEL_NAMES
 export const LEVEL_NAMES = [
   { name: 'Rookie', minXp: 0 },
   { name: 'Novice', minXp: 250 },
@@ -90,15 +92,6 @@ export function normalizeCase(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
 
-export const wobblyStyle = {
-  borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px',
-};
-
-export const wobblyMdStyle = {
-  borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px',
-};
-
 export function getRotation(index: number): string {
-  const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-2', '-rotate-0.5', 'rotate-0.5'];
-  return rotations[index % rotations.length];
+  return CSS.rotations[index % CSS.rotations.length];
 }

@@ -57,7 +57,6 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     source: 'SSC CHSL 2025 Notification Para 13.8.13.7',
     citations: [
       'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_chsl_2025.pdf',
-      'https://jptyping.com/blog/ssc-chsl-typing-test-complete-guide',
     ],
   },
   ssc_chsl_deo: {
@@ -121,7 +120,6 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     source: 'SSC CGL 2025 Notification Tier-4 DEST',
     citations: [
       'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2025.pdf',
-      'https://www.adda247.com/exams/ssc/ssc-cgl-typing-test/',
     ],
   },
 };

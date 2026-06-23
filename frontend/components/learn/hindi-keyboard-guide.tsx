@@ -1,5 +1,7 @@
 'use client';
 
+import { CSS } from '@/lib/config';
+
 const PHONETIC_MAP = [
   { eng: 'k', hin: 'क', eng2: 'kh', hin2: 'ख' },
   { eng: 'g', hin: 'ग', eng2: 'gh', hin2: 'घ' },
@@ -102,7 +104,7 @@ export default function HindiKeyboardGuide() {
         </div>
 
         <div className="bg-postit border-2 border-pencil p-3 rounded text-pencil/70 font-hand text-sm leading-relaxed"
-             style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+             style={{ borderRadius: CSS.radii.sm }}>
           <p className="font-bold text-pencil font-marker text-xs mb-1 uppercase tracking-wider">Tip</p>
           <p>
             Example: &quot;namaste&quot; type karein → <span className="font-bold text-pencil">नमस्ते</span>

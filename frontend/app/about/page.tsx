@@ -12,7 +12,7 @@ export default function AboutPage() {
             <p className="text-base text-pencil/70 font-hand leading-relaxed">
               {APP.fullName} is India&apos;s most accurate SSC typing exam simulator. We help students
               prepare for SSC CHSL, CGL DEST, and other government typing exams with exact
-              evaluation logic that mirrors the real TCS iON platform.
+              evaluation logic that mirrors the real Ediquity platform.
             </p>
           </section>
           <section>

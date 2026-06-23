@@ -11,7 +11,7 @@ export const APP = {
   fullName: 'Typing Mania by Maths Mania',
   tagLineFull: "India's Most Accurate SSC Typing Exam Simulator",
   description:
-    "India's Most Accurate SSC Typing Exam Simulator. Practice SSC CHSL, CGL DEST with exact evaluation logic and TCS iON replica experience. Learn typing from scratch with progressive lessons.",
+    "India's Most Accurate SSC Typing Exam Simulator. Practice SSC CHSL, CGL DEST with exact evaluation logic and Ediquity replica experience. Learn typing from scratch with progressive lessons.",
   keywords:
     'SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing, Typing Lessons',
   url: 'https://typingmania.com',
@@ -20,7 +20,7 @@ export const APP = {
   footer:
     "© 2026 Typing Mania by Maths Mania. India's Most Accurate SSC Typing Exam Simulator.",
   footerDisclaimer:
-    'Not affiliated with SSC or TCS iON. This is a practice platform.',
+    'Not affiliated with SSC or Ediquity. This is a practice platform.',
 } as const;
 
 // =============================================================================
@@ -95,9 +95,9 @@ export const EXAM_MODES = [
   },
   {
     id: 'tcs_ion_replica',
-    title: 'TCS iON Replica',
+    title: 'Ediquity Replica',
     description:
-      'Exact replica of TCS iON exam environment. Same layout, fonts, and experience.',
+      'Exact replica of Ediquity exam environment. Same layout, fonts, and experience.',
     href: '/exam/tcs-ion',
     duration: 600,
     wpmTarget: 35,
@@ -141,7 +141,7 @@ export const FEATURES = [
     icon: 'Play',
   },
   {
-    title: 'TCS iON Replica',
+    title: 'Ediquity Replica',
     description:
       'Same layout, fonts, timer placement, instructions, and typing area as real exam.',
     icon: 'Award',
@@ -171,10 +171,10 @@ export const FEATURES = [
 // =============================================================================
 export const PAIN_POINTS = [
   {
-    problem: 'Mock tests look nothing like the real TCS iON exam',
+    problem: 'Mock tests look nothing like the real Ediquity exam',
     problemShort: 'Wrong Interface',
     solution:
-      'Exact TCS iON replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
+      'Exact Ediquity replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
     icon: 'Monitor',
   },
   {
@@ -185,7 +185,7 @@ export const PAIN_POINTS = [
     icon: 'Calculator',
   },
   {
-    problem: 'No blind mode — real TCS iON hides errors during the test',
+    problem: 'No blind mode — real Ediquity hides errors during the test',
     problemShort: 'No Blind Mode',
     solution:
       'Blind Mode hides all error feedback while typing. Mistakes only revealed at the end — exactly like the real exam. Builds real confidence, not false comfort.',
@@ -241,7 +241,7 @@ export const TESTIMONIALS = [
   },
   {
     quote:
-      'TCS iON replica bilkul same hai. Timer ka placement, font, split-screen — sab. Exam hall mein baithke laga ki pehle bhi de chuka hoon. Game changer.',
+      'Ediquity replica bilkul same hai. Timer ka placement, font, split-screen — sab. Exam hall mein baithke laga ki pehle bhi de chuka hoon. Game changer.',
     name: 'Neha J.',
     role: 'SSC CHSL 2025 Qualified',
     wpm: '38 WPM',
@@ -375,7 +375,7 @@ export const MODE_NAMES: Record<string, string> = {
   practice: 'Practice',
   blind: 'Blind Mode',
   mock: 'Mock Test',
-  tcs_ion_replica: 'TCS iON Replica',
+  tcs_ion_replica: 'Ediquity Replica',
 } as const;
 
 // =============================================================================
@@ -391,7 +391,7 @@ export const FOOTER = {
     { label: 'Practice Mode', href: '/exam/practice' },
     { label: 'Blind Mode', href: '/exam/blind' },
     { label: 'Mock Test', href: '/exam/mock' },
-    { label: 'TCS iON Replica', href: '/exam/tcs-ion' },
+    { label: 'Ediquity Replica', href: '/exam/tcs-ion' },
   ],
   quickLinks: [
     { label: 'Learn Typing', href: '/learn' },
@@ -435,6 +435,137 @@ export const FOOTER = {
   ],
   legal: {
     copyright: '© 2026 Typing Mania by Maths Mania',
-    disclaimer: 'Not affiliated with SSC or TCS iON. This is a practice platform.',
+    disclaimer: 'Not affiliated with SSC or Ediquity. This is a practice platform.',
   },
+} as const;
+
+// =============================================================================
+// ROUTES — SPA routes used across the app
+// =============================================================================
+export const ROUTES = {
+  home: '/',
+  learn: '/learn',
+  dashboard: '/dashboard',
+  coach: '/coach',
+  leaderboard: '/leaderboard',
+  faq: '/faq',
+  about: '/about',
+  contact: '/contact',
+  privacy: '/privacy',
+  terms: '/terms',
+  admin: '/admin',
+  authLogin: '/auth/login',
+  authRegister: '/auth/register',
+  examChsl: '/exam/chsl',
+  examCglDest: '/exam/cgl-dest',
+  examHindi: '/exam/hindi',
+  examPractice: '/exam/practice',
+  examBlind: '/exam/blind',
+  examMock: '/exam/mock',
+  examTcsIon: '/exam/tcs-ion',
+  examLesson: '/exam/lesson',
+} as const;
+
+// =============================================================================
+// TIME CONSTANTS — durations, intervals, TTLs (all in ms unless noted)
+// =============================================================================
+export const TIME = {
+  cacheDashboard: 3 * 60 * 1000,
+  cacheLeaderboard: 2 * 60 * 1000,
+  cacheWeakWords: 5 * 60 * 1000,
+  cacheReactQueryDefault: 60 * 1000,
+  healthCheckInterval: 30 * 1000,
+  healthCheckTimeout: 5000,
+  toastDuration: 3000,
+  errorFlashDuration: 1500,
+  capsBlinkDuration: '0.8s',
+  tickInterval: 1000,
+  debounceLong: 500,
+} as const;
+
+// =============================================================================
+// CSS TOKENS — shared style constants (use instead of raw strings)
+// =============================================================================
+export const CSS = {
+  radii: WOBBLY_RADII,
+  shadows: {
+    sm: 'shadow-hard-sm',
+    md: 'shadow-hard',
+    hover: 'shadow-hard-hover',
+    mdHover: 'hover:shadow-hard',
+    cardPostit: 'card-postit',
+  },
+  colors: {
+    blue: '#2F5BFF',
+    teal: '#4ec5df',
+    green: '#4caf50',
+    orange: '#ff9800',
+    red: '#e53935',
+    bg: '#f5f5f5',
+    text: '#333333',
+    border: '#dcdcdc',
+  },
+  rotations: ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-2', '-rotate-0.5', 'rotate-0.5'],
+} as const;
+
+// =============================================================================
+// STORAGE KEYS — localStorage / sessionStorage keys
+// =============================================================================
+export const STORAGE_KEYS = {
+  token: 'token',
+  authCache: 'auth_cache',
+  dashboard: 'dashboard',
+  capsLock: '__caps',
+  lessonProgress: 'typing_lesson_progress',
+  testResults: 'typing_test_results',
+} as const;
+
+// =============================================================================
+// PAGINATION
+// =============================================================================
+export const PAGINATION = {
+  dashboardPerPage: 5,
+  testHistoryLimit: 20,
+  leaderboardLimit: 100,
+  recentTestsMax: 20,
+  analysisSlowWords: 15,
+} as const;
+
+// =============================================================================
+// SSC THRESHOLDS (user-facing labels)
+// =============================================================================
+export const SSC_LABELS = {
+  chslWpm: 35,
+  chslWpmHindi: 30,
+  chslAccuracy: 95,
+  cglDestAccuracy: 95,
+  cglDestKdph: 8000,
+  passageCompletionMin: 50,
+} as const;
+
+// =============================================================================
+// API ENDPOINTS
+// =============================================================================
+export const API_ENDPOINTS = {
+  dashboard: '/dashboard',
+  authLogin: '/auth/login',
+  authRegister: '/auth/register',
+  authMe: '/auth/me',
+  authRefresh: '/auth/refresh',
+  analyticsOverview: '/analytics/overview',
+  analyticsPredictions: '/analytics/predictions',
+  analyticsRecentScores: '/analytics/recent-scores',
+  testsHistory: '/tests/history',
+  testsStart: '/tests/start',
+  testsSubmit: '/tests/submit',
+  testsDirectSubmit: '/tests/direct-submit',
+  coachFeedback: '/coach/feedback',
+  coachWeakWords: '/coach/weak-words',
+  leaderboard: '/leaderboard',
+  health: '/api/health',
+  passages: '/passages',
+  passagesRandom: '/passages/random',
+  usersProfile: '/users/profile',
+  subscription: '/subscription/status',
+  paymentHistory: '/subscription/payments',
 } as const;

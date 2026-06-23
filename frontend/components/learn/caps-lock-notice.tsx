@@ -1,28 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Keyboard } from 'lucide-react';
+import { CSS, TIME } from '@/lib/config';
+import { getCapsLocked, subscribeCapsLock } from '@/lib/caps-lock-tracker';
 
 export function CapsLockNotice({ expectedChar }: { expectedChar?: string | null }) {
-  const [capsOn, setCapsOn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  const capsOn = useSyncExternalStore(
+    subscribeCapsLock,
+    getCapsLocked,
+    () => null,
+  );
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      setCapsOn(e.getModifierState('CapsLock'));
-    };
-    window.addEventListener('keydown', handler);
-    window.addEventListener('keyup', handler);
-    return () => {
-      window.removeEventListener('keydown', handler);
-      window.removeEventListener('keyup', handler);
-    };
+    setMounted(true);
   }, []);
 
   const needsCaps = expectedChar ? /[A-Z]/.test(expectedChar) : false;
 
-  return needsCaps && !capsOn ? (
+  if (!mounted || !needsCaps) return null;
+
+  const isCapsOff = capsOn === false || capsOn === null;
+
+  return isCapsOff ? (
     <div className="bg-red-50 border-2 border-red-400 p-4 shadow-hard-sm flex flex-col items-center text-center"
-      style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px', animation: 'caps-blink 0.8s ease-in-out infinite' }}>
+      style={{ borderRadius: CSS.radii.sm, animation: `caps-blink ${TIME.capsBlinkDuration} ease-in-out infinite` }}>
       <style>{`@keyframes caps-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
       <div className="w-10 h-10 flex items-center justify-center bg-red-100 border-2 border-red-400 rounded-full shrink-0 mb-2">
         <Keyboard className="w-5 h-5 text-red-700" strokeWidth={3} />

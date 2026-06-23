@@ -1,131 +1,120 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
-import { FullPageLoader } from '@/components/ui/loading-logo';
-import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh, invalidateDashboardCache } from '@/lib/dashboard-cache';
+import { setCachedDashboard } from '@/lib/dashboard-cache';
 import Link from 'next/link';
 import {
-  FileText,
-  Gauge,
-  Target,
-  Zap,
-  TrendingUp,
-  ArrowRight,
-  BarChart3,
-  Brain,
-  Sparkles,
-  Timer,
-  CheckCircle2,
-  XCircle,
-  ChevronLeft,
-  ChevronRight,
-  Trophy,
-  Clock,
-  AlertTriangle,
-  Activity,
-  ArrowUp,
-  ArrowDown,
-  X,
+  FileText, Gauge, Target, Zap, TrendingUp, ArrowRight, BarChart3,
+  Brain, Sparkles, Timer, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
+  Trophy, Clock, AlertTriangle, Activity, ArrowUp, ArrowDown, X,
 } from 'lucide-react';
 import { getLevelFromXP, getLevelIndex, getLevelProgress, LEVEL_NAMES } from '@/lib/utils';
+import { CSS, ROUTES, TIME, PAGINATION } from '@/lib/config';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
+
+function Skeleton() {
+  return (
+    <div className="min-h-screen bg-paper">
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="mb-8 -rotate-1">
+          <div className="h-9 w-48 bg-pencil/10 rounded animate-pulse" />
+          <div className="h-5 w-64 bg-pencil/10 rounded mt-2 animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[1,2,3,4].map(i => (
+            <div key={i} className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm} p-4`}>
+              <div className="h-10 w-10 bg-pencil/10 rounded animate-pulse mb-3 mx-auto" />
+              <div className="h-8 w-16 bg-pencil/10 rounded animate-pulse mx-auto mb-2" />
+              <div className="h-4 w-20 bg-pencil/10 rounded animate-pulse mx-auto" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {[1,2].map(i => (
+            <div key={i} className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm} p-4`}>
+              <div className="h-5 w-32 bg-pencil/10 rounded animate-pulse mb-3" />
+              <div className="h-4 w-48 bg-pencil/10 rounded animate-pulse mb-2" />
+              <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm}`}>
+          <div className="px-6 py-4 border-b-2 border-pencil/10">
+            <div className="h-5 w-28 bg-pencil/10 rounded animate-pulse" />
+          </div>
+          {[1,2,3].map(i => (
+            <div key={i} className="px-6 py-4 border-b border-pencil/10">
+              <div className="flex justify-between mb-2">
+                <div className="h-4 w-32 bg-pencil/10 rounded animate-pulse" />
+                <div className="h-4 w-12 bg-pencil/10 rounded animate-pulse" />
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {[1,2,3,4].map(j => (
+                  <div key={j} className="h-10 bg-pencil/10 rounded animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const router = useRouter();
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [recentTests, setRecentTests] = useState<any[]>([]);
-  const [predictions, setPredictions] = useState<any>(null);
-  const [page, setPage] = useState(0);
+  const queryClient = useQueryClient();
   const [showXPModal, setShowXPModal] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
-  const perPage = 5;
-  const fetched = useRef(false);
+  const [page, setPage] = useState(0);
+  const perPage = PAGINATION.dashboardPerPage;
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push('/auth/login'); return; }
-    if (!isAuthenticated || isLoading || fetched.current) return;
-    fetched.current = true;
+    if (!authLoading && !isAuthenticated) router.push(ROUTES.authLogin);
+  }, [authLoading, isAuthenticated, router]);
 
-    const cached = getCachedDashboard();
-    if (cached) {
-      setAnalytics(cached.overview);
-      setPredictions(cached.predictions);
-      setRecentTests(cached.recent_scores || []);
-      setLoadingData(false);
-      if (isDashboardCacheFresh()) return;
-    }
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    window.addEventListener('dashboard-invalidate', handler);
+    return () => window.removeEventListener('dashboard-invalidate', handler);
+  }, [queryClient]);
 
-    api.request<any>('/dashboard').then((data) => {
-      setCachedDashboard(data);
-      setAnalytics(data.overview);
-      setPredictions(data.predictions);
-      setRecentTests(data.recent_scores || []);
-      setLoadingData(false);
-    }).catch(() => {
-      setLoadingData(false);
-      if (!cached) {
-        setRecentTests([]);
-      }
-    });
-  }, [isAuthenticated, isLoading]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      const result = await api.request<any>('/dashboard');
+      setCachedDashboard(result);
+      return result;
+    },
+    staleTime: TIME.cacheDashboard,
+    retry: 1,
+    enabled: isAuthenticated && !authLoading,
+  });
 
-  if (isLoading || !user) {
-    return <FullPageLoader />;
-  }
+  if (authLoading || !user || isLoading) return <Skeleton />;
 
-  if (loadingData) {
+  if (isError) {
     return (
-      <div className="min-h-screen bg-paper">
-        <main className="max-w-5xl mx-auto px-6 py-8">
-          <div className="mb-8 -rotate-1">
-            <div className="h-9 w-48 bg-pencil/10 rounded animate-pulse" />
-            <div className="h-5 w-64 bg-pencil/10 rounded mt-2 animate-pulse" />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="bg-white border-2 border-pencil/10 shadow-hard-sm p-4">
-                <div className="h-10 w-10 bg-pencil/10 rounded animate-pulse mb-3 mx-auto" />
-                <div className="h-8 w-16 bg-pencil/10 rounded animate-pulse mx-auto mb-2" />
-                <div className="h-4 w-20 bg-pencil/10 rounded animate-pulse mx-auto" />
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {[1,2].map(i => (
-              <div key={i} className="bg-white border-2 border-pencil/10 shadow-hard-sm p-4">
-                <div className="h-5 w-32 bg-pencil/10 rounded animate-pulse mb-3" />
-                <div className="h-4 w-48 bg-pencil/10 rounded animate-pulse mb-2" />
-                <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-          <div className="bg-white border-2 border-pencil/10 shadow-hard-sm">
-            <div className="px-6 py-4 border-b-2 border-pencil/10">
-              <div className="h-5 w-28 bg-pencil/10 rounded animate-pulse" />
-            </div>
-            {[1,2,3].map(i => (
-              <div key={i} className="px-6 py-4 border-b border-pencil/10">
-                <div className="flex justify-between mb-2">
-                  <div className="h-4 w-32 bg-pencil/10 rounded animate-pulse" />
-                  <div className="h-4 w-12 bg-pencil/10 rounded animate-pulse" />
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1,2,3,4].map(j => (
-                    <div key={j} className="h-10 bg-pencil/10 rounded animate-pulse" />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </main>
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className={`text-center max-w-md mx-auto p-8 bg-white border-2 border-accent ${CSS.shadows.sm}`}
+             style={wobbly}>
+          <AlertTriangle className="w-12 h-12 text-accent mx-auto mb-4" strokeWidth={2.5} />
+          <h2 className="text-xl font-bold text-pencil font-marker mb-2">Failed to load dashboard</h2>
+          <p className="text-sm text-pencil/60 font-hand mb-4">Check your connection and try again.</p>
+          <button onClick={() => refetch()} className="btn-hand">Retry</button>
+        </div>
       </div>
     );
   }
+
+  const analytics = data?.overview;
+  const predictions = data?.predictions;
+  const recentTests = data?.recent_scores || [];
 
   return (
     <div className="min-h-screen bg-paper">
@@ -146,16 +135,16 @@ export default function DashboardPage() {
             { value: user.xp, label: getLevelFromXP(user.xp), icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1', isXp: true },
           ].map((stat) => stat.isXp ? (
             <button key={stat.label} onClick={() => setShowXPModal(true)}
-                 className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all duration-100 cursor-pointer w-full"
-                 style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
+                 className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all duration-100 cursor-pointer w-full`}
+                 style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
               <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
               <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
               <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
             </button>
           ) : (
             <div key={stat.label}
-                 className="bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all duration-100"
-                 style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${stat.rotate})` }}>
+                 className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all duration-100`}
+                 style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
               <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
               <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
               <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
@@ -163,19 +152,18 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Performance Summary (replaces old Qualification Prediction) */}
+        {/* Performance Summary */}
         {predictions && (
-          <div className="bg-postit border-2 border-pencil shadow-hard p-6 mb-8 -rotate-[0.3deg] hover:rotate-0 transition-transform relative">
+          <div className={`bg-postit border-2 border-pencil ${CSS.shadows.md} p-6 mb-8 -rotate-[0.3deg] hover:rotate-0 transition-transform relative`}>
             <div className="tack" />
             <div className="flex items-center space-x-3 mb-4">
               <TrendingUp className="w-6 h-6 text-pencil" strokeWidth={3} />
               <h2 className="text-xl font-bold text-pencil font-marker">Performance Summary</h2>
             </div>
 
-            {/* CHSL Progress */}
             {predictions.chsl_wpm_target && (
-              <div className="bg-white border-2 border-pencil p-4 shadow-hard-sm mb-4"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+              <div className={`bg-white border-2 border-pencil p-4 ${CSS.shadows.sm} mb-4`}
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold font-hand text-pencil">SSC CHSL Progress</h3>
                   <div className="flex items-center gap-2 text-xs font-hand">
@@ -196,7 +184,7 @@ export default function DashboardPage() {
                       <div className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${Math.min(100, ((predictions.recent_avg_wpm || 0) / predictions.chsl_wpm_target) * 100)}%`,
-                          background: (predictions.recent_avg_wpm || 0) >= predictions.chsl_wpm_target ? '#4caf50' : '#2F5BFF'
+                          background: (predictions.recent_avg_wpm || 0) >= predictions.chsl_wpm_target ? CSS.colors.green : CSS.colors.blue
                         }} />
                     </div>
                     {predictions.wpm_gap > 0 && (
@@ -218,7 +206,7 @@ export default function DashboardPage() {
                       <div className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${Math.min(100, ((predictions.recent_avg_accuracy || 0) / predictions.chsl_acc_target) * 100)}%`,
-                          background: (predictions.recent_avg_accuracy || 0) >= predictions.chsl_acc_target ? '#4caf50' : '#2F5BFF'
+                          background: (predictions.recent_avg_accuracy || 0) >= predictions.chsl_acc_target ? CSS.colors.green : CSS.colors.blue
                         }} />
                     </div>
                     {predictions.acc_gap > 0 && (
@@ -231,19 +219,14 @@ export default function DashboardPage() {
                 </div>
                 {predictions.wpm_series && predictions.wpm_series.length >= 2 && (
                   <div className="pt-2 border-t border-pencil/10">
-                    <MiniChart
-                      data={predictions.wpm_series}
-                      color="#2F5BFF"
-                      label="WPM"
-                    />
+                    <MiniChart data={predictions.wpm_series} color={CSS.colors.blue} label="WPM" />
                   </div>
                 )}
               </div>
             )}
 
-            {/* CGL DEST Progress */}
-            <div className="bg-white border-2 border-pencil p-4 shadow-hard-sm mb-4"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+            <div className={`bg-white border-2 border-pencil p-4 ${CSS.shadows.sm} mb-4`}
+                 style={{ borderRadius: CSS.radii.sm }}>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold font-hand text-pencil">SSC CGL DEST Progress</h3>
                 <div className="flex items-center gap-2 text-xs font-hand">
@@ -263,31 +246,26 @@ export default function DashboardPage() {
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${Math.min(100, ((predictions.recent_avg_accuracy || 0) / 95) * 100)}%`,
-                      background: (predictions.recent_avg_accuracy || 0) >= 95 ? '#4caf50' : '#e53935'
+                      background: (predictions.recent_avg_accuracy || 0) >= 95 ? CSS.colors.green : CSS.colors.red
                     }} />
                 </div>
               </div>
               {predictions.accuracy_series && predictions.accuracy_series.length >= 2 && (
                 <div className="pt-2 mt-2 border-t border-pencil/10">
-                  <MiniChart
-                    data={predictions.accuracy_series}
-                    color="#e53935"
-                    label="Accuracy %"
-                  />
+                  <MiniChart data={predictions.accuracy_series} color={CSS.colors.red} label="Accuracy %" />
                 </div>
               )}
             </div>
 
-            {/* Bottom row: consistency + trend + recommendation */}
             <div className="grid sm:grid-cols-3 gap-3">
               <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="text-xs text-pencil/50 font-hand">Consistency</div>
                 <div className="text-lg font-bold font-marker text-pencil">{predictions.consistency_score?.toFixed(0) || '-'}%</div>
                 <div className="text-[10px] text-pencil/40 font-hand">{predictions.tests_analyzed || 0} tests analyzed</div>
               </div>
               <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="text-xs text-pencil/50 font-hand">WPM Trend</div>
                 <div className={`text-lg font-bold font-marker flex items-center justify-center gap-1 ${
                   predictions.wpm_trend === 'improving' ? 'text-green-600' :
@@ -300,7 +278,7 @@ export default function DashboardPage() {
                 <div className="text-[10px] text-pencil/40 font-hand">Last {Math.min(predictions.wpm_series?.length || 0, 10)} tests</div>
               </div>
               <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="text-xs text-pencil/50 font-hand">Accuracy Trend</div>
                 <div className={`text-lg font-bold font-marker flex items-center justify-center gap-1 ${
                   predictions.accuracy_trend === 'improving' ? 'text-green-600' :
@@ -316,7 +294,7 @@ export default function DashboardPage() {
 
             {predictions.recommendation && (
               <div className="mt-3 p-3 bg-white border-2 border-pencil/30 text-xs font-hand text-pencil/70 leading-relaxed"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <span className="font-bold text-pencil">Tip: </span>
                 {predictions.recommendation}
               </div>
@@ -327,13 +305,13 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
           {[
-            { href: '/exam/chsl', title: 'SSC CHSL Practice', desc: '10 min, 35 WPM target', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1' },
-            { href: '/exam/mock', title: 'Mock Test', desc: 'Full exam simulation', icon: <Timer className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
+            { href: ROUTES.examChsl, title: 'SSC CHSL Practice', desc: '10 min, 35 WPM target', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1' },
+            { href: ROUTES.examMock, title: 'Mock Test', desc: 'Full exam simulation', icon: <Timer className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
             { href: '/coach', title: 'AI Coach', desc: 'Personalized feedback', icon: <Brain className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-2' },
           ].map((action) => (
             <Link key={action.title} href={action.href}
-                  className="bg-white border-2 border-pencil shadow-hard-sm p-4 hover:shadow-hard transition-all duration-100 group"
-                  style={{ borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px', transform: `rotate(${action.rotate})` }}>
+                  className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 group`}
+                  style={{ borderRadius: CSS.radii.md, transform: `rotate(${action.rotate})` }}>
               <div className="flex items-center space-x-3 mb-2">
                 <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-muted"
                      style={wobbly}>{action.icon}</div>
@@ -348,7 +326,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Tests */}
-        <div className="bg-white border-2 border-pencil shadow-hard-sm">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
           <div className="px-6 py-4 border-b-2 border-pencil flex items-center space-x-3">
             <BarChart3 className="w-5 h-5 text-pencil" strokeWidth={3} />
             <h2 className="text-lg font-bold text-pencil font-marker">Recent Tests</h2>
@@ -453,7 +431,7 @@ export default function DashboardPage() {
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                  style={{ borderRadius: CSS.radii.sm }}
                 >
                   <ChevronLeft className="w-4 h-4" strokeWidth={3} />
                 </button>
@@ -461,7 +439,7 @@ export default function DashboardPage() {
                   onClick={() => setPage(p => p + 1)}
                   disabled={(page + 1) * perPage >= recentTests.length}
                   className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                  style={{ borderRadius: CSS.radii.sm }}
                 >
                   <ChevronRight className="w-4 h-4" strokeWidth={3} />
                 </button>
@@ -469,6 +447,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
         {/* XP Detail Modal */}
         {showXPModal && user && (() => {
           const xp = user.xp || 0;
@@ -482,17 +461,16 @@ export default function DashboardPage() {
           const testXpEstimate = Math.max(0, xp - lessonXpEstimate);
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowXPModal(false)}>
-              <div className="bg-white border-2 border-pencil shadow-hard max-w-lg w-full mx-4 relative overflow-y-auto max-h-[90vh]"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+              <div className={`bg-white border-2 border-pencil ${CSS.shadows.md} max-w-lg w-full mx-4 relative overflow-y-auto max-h-[90vh]`}
+                   style={{ borderRadius: CSS.radii.sm }}
                    onClick={e => e.stopPropagation()}>
                 <div className="p-6">
                   <button onClick={() => setShowXPModal(false)}
                           className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center border-2 border-pencil/30 text-pencil/50 hover:text-pencil hover:border-pencil transition-colors"
-                          style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                          style={{ borderRadius: CSS.radii.sm }}>
                     <X className="w-4 h-4" strokeWidth={3} />
                   </button>
 
-                  {/* Rank Header */}
                   <div className="flex items-center gap-4 mb-5">
                     <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 border-[3px] border-yellow-500 rounded-full shrink-0">
                       <Zap className="w-8 h-8 text-yellow-600" strokeWidth={3} />
@@ -503,7 +481,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Progress to next rank */}
                   {progress.next && (
                     <>
                       <div className="mb-1 flex items-center justify-between text-sm font-hand">
@@ -524,43 +501,40 @@ export default function DashboardPage() {
                     </>
                   )}
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-3 gap-3 mb-5">
                     <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                         style={{ borderRadius: CSS.radii.sm }}>
                       <div className="text-xl font-bold font-marker text-pencil">{totalTests}</div>
                       <div className="text-xs font-hand text-pencil/50">Tests Taken</div>
                     </div>
                     <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                         style={{ borderRadius: CSS.radii.sm }}>
                       <div className="text-xl font-bold font-marker text-pencil">{avgXpPerTest}</div>
                       <div className="text-xs font-hand text-pencil/50">Avg XP / Test</div>
                     </div>
                     <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                         style={{ borderRadius: CSS.radii.sm }}>
                       <div className="text-xl font-bold font-marker text-green-600">+{recentXpTotal}</div>
                       <div className="text-xs font-hand text-pencil/50">Last 10 Tests XP</div>
                     </div>
                   </div>
 
-                  {/* XP Sources */}
                   <div className="mb-5">
                     <h3 className="text-sm font-bold font-hand text-pencil mb-2">XP Sources</h3>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                           style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                           style={{ borderRadius: CSS.radii.sm }}>
                         <span className="text-sm font-hand text-pencil/70">Lessons (max 895 XP)</span>
                         <span className="text-sm font-bold font-mono text-pencil">{Math.min(lessonXpEstimate, xp)}</span>
                       </div>
                       <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                           style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                           style={{ borderRadius: CSS.radii.sm }}>
                         <span className="text-sm font-hand text-pencil/70">Typing Tests</span>
                         <span className="text-sm font-bold font-mono text-pencil">{Math.max(0, testXpEstimate)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* All Ranks */}
                   <div className="border-t-2 border-pencil/10 pt-4">
                     <h3 className="text-sm font-bold font-hand text-pencil mb-3">Rank Progression</h3>
                     <div className="space-y-1.5">
@@ -569,7 +543,7 @@ export default function DashboardPage() {
                         return (
                           <div key={l.name}
                                className={`flex items-center justify-between p-2.5 ${unlocked ? 'bg-yellow-50 border border-yellow-200' : 'bg-paper border border-pencil/10'} ${l.name === rank ? 'ring-2 ring-yellow-400' : ''}`}
-                               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                               style={{ borderRadius: CSS.radii.sm }}>
                             <div className="flex items-center gap-2.5">
                               <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold font-mono rounded-full ${unlocked ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-100 text-gray-300'}`}>
                                 {unlocked ? '✓' : i + 1}

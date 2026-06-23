@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { STORAGE_KEYS } from '@/lib/config';
 import { clearLessonProgress } from '@/lib/lesson-storage';
 import { clearTestResults } from '@/lib/test-storage';
 
@@ -26,7 +27,7 @@ interface AuthState {
   updateUser: (data: Partial<AuthUser>) => void;
 }
 
-const CACHE_KEY = 'auth_cache';
+const CACHE_KEY = STORAGE_KEYS.authCache;
 
 function getCachedUser(): AuthUser | null {
   try {

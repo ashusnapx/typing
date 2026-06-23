@@ -6,9 +6,10 @@ import { useAuthStore } from '@/store/auth-store';
 import { useTypingStore } from '@/store/typing-store';
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { CSS } from '@/lib/config';
 import { User, LogOut, LayoutDashboard, BarChart3, Shield, Menu, X, ChevronRight } from 'lucide-react';
 
-const wobbly = { borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' };
+const wobbly = { borderRadius: CSS.radii.sm };
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore();

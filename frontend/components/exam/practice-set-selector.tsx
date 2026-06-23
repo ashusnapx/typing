@@ -1,6 +1,7 @@
 'use client';
 
 import { PracticeSet } from '@/lib/practice-sets';
+import { CSS } from '@/lib/config';
 import { GraduationCap, ArrowRight, Timer, Target } from 'lucide-react';
 
 interface PracticeSetSelectorProps {
@@ -23,7 +24,7 @@ export default function PracticeSetSelector({ examName, sets, durationMinutes, w
 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-postit border-2 border-pencil mb-4"
-               style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+               style={{ borderRadius: CSS.radii.sm }}>
             <GraduationCap className="w-8 h-8 text-pencil" strokeWidth={3} />
           </div>
           <h1 className="text-3xl font-bold text-pencil font-marker">{examName}</h1>
@@ -40,12 +41,12 @@ export default function PracticeSetSelector({ examName, sets, durationMinutes, w
               key={set.number}
               onClick={() => onSelect(set)}
               className="bg-white border-2 border-pencil/20 p-5 shadow-hard-sm text-left hover:border-pencil/60 hover:shadow-hard-md transition-all group"
-              style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+              style={{ borderRadius: CSS.radii.sm }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-postit border-2 border-pencil/30 text-lg font-bold font-marker text-pencil"
-                       style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                       style={{ borderRadius: CSS.radii.sm }}>
                     {set.number}
                   </div>
                   <div>

@@ -1,5 +1,7 @@
-const CACHE_KEY = 'dashboard';
-const CACHE_TTL = 3 * 60 * 1000;
+import { STORAGE_KEYS, TIME } from '@/lib/config';
+
+const CACHE_KEY = STORAGE_KEYS.dashboard;
+const CACHE_TTL = TIME.cacheDashboard;
 
 interface CacheEntry<T> {
   data: T;
@@ -72,4 +74,7 @@ export function isDashboardCacheFresh(): boolean {
 
 export function invalidateDashboardCache(): void {
   try { localStorage.removeItem(CACHE_KEY); } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dashboard-invalidate'));
+  }
 }

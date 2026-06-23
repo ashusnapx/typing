@@ -28,7 +28,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-bold text-pencil font-marker mb-2">Disclaimer</h2>
             <p className="text-base font-hand text-pencil/70 leading-relaxed">
               {APP.fullName} is a practice platform and is not affiliated with the Staff Selection
-              Commission (SSC) or TCS iON. While our evaluation engine is designed to mirror SSC patterns,
+              Commission (SSC) or Ediquity. While our evaluation engine is designed to mirror SSC patterns,
               we do not guarantee exam results or qualification. Practice results are indicative and
               should be used as a learning tool.
             </p>

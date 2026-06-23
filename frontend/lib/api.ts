@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '@/lib/config';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiClient {
@@ -7,7 +9,7 @@ class ApiClient {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('token');
+      this.token = localStorage.getItem(STORAGE_KEYS.token);
     }
   }
 
@@ -31,8 +33,8 @@ class ApiClient {
   setToken(token: string | null) {
     this.token = token;
     if (typeof window !== 'undefined') {
-      if (token) localStorage.setItem('token', token);
-      else localStorage.removeItem('token');
+      if (token) localStorage.setItem(STORAGE_KEYS.token, token);
+      else localStorage.removeItem(STORAGE_KEYS.token);
     }
   }
 

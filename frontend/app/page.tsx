@@ -53,7 +53,7 @@ export default function HomePage() {
           <p className="mt-6 text-xl md:text-2xl text-pencil/70 font-hand max-w-3xl mx-auto rotate-[0.5deg]">
             Zyada tar typing mocks <strong className="text-pencil">Gross WPM</strong> dikhate hain ya
             interface hi alag hota hai. Maths Mania woh platform hai jo <strong className="text-pencil">exact SSC
-            Net WPM formula</strong> aur <strong className="text-pencil">TCS iON replica</strong> dono deta hai.
+             Net WPM formula</strong> aur <strong className="text-pencil">Ediquity replica</strong> dono deta hai.
             Practice real jaisi, result real jaisa.
           </p>
 
@@ -94,6 +94,64 @@ export default function HomePage() {
               </div>
             );
           })}
+        </section>
+
+        {/* Exam Modes — top of content */}
+        <section className="pb-16">
+          <div className="flex items-center space-x-4 mb-10 -rotate-1">
+            <ScrollText className="w-8 h-8 text-accent" strokeWidth={3} />
+            <h2 className="text-4xl font-bold text-pencil font-marker">Exam Modes</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {EXAM_MODES.map((mode, i) => {
+              const IconComp = SECTION_ICONS[mode.icon] || Target;
+              const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-1', '-rotate-1', 'rotate-2', '-rotate-1'];
+              return (
+                <Link key={mode.id} href={mode.href}
+                      className={`bg-white border-2 border-pencil shadow-hard-sm p-6 ${rotations[i]} hover:rotate-0 transition-all duration-100 hover:shadow-hard group relative`}>
+                  {i === 0 && <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/10 rotate-[-3deg]" />}
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-postit"
+                         style={{ borderRadius: WOBBLY_RADII.sm }}>
+                      <IconComp className="w-5 h-5" strokeWidth={3} />
+                    </div>
+                    <h3 className="text-xl font-bold text-pencil font-marker">{mode.title}</h3>
+                  </div>
+                  <p className="text-base text-pencil/70 font-hand">{mode.description}</p>
+                  <div className="mt-3 flex items-center text-sm font-hand text-pencil/50 group-hover:text-pencil transition-colors">
+                    Start now <ArrowRight className="w-4 h-4 ml-1" strokeWidth={3} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="pb-16">
+          <div className="flex items-center space-x-4 mb-10 rotate-1">
+            <Brain className="w-8 h-8 text-blue-pen" strokeWidth={3} />
+            <h2 className="text-4xl font-bold text-pencil font-marker">Why Typing Mania?</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((feature, i) => {
+              const IconComp = SECTION_ICONS[feature.icon] || Award;
+              const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-1', '-rotate-1', 'rotate-2', '-rotate-1', 'rotate-1', '-rotate-2'];
+              return (
+                <div key={feature.title}
+                     className={`bg-white border-2 border-pencil shadow-hard-sm p-6 ${rotations[i]} hover:rotate-0 transition-all duration-100 hover:shadow-hard`}>
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-muted"
+                         style={{ borderRadius: WOBBLY_RADII.sm }}>
+                      <IconComp className="w-5 h-5" strokeWidth={3} />
+                    </div>
+                    <h3 className="text-lg font-bold text-pencil font-marker">{feature.title}</h3>
+                  </div>
+                  <p className="text-base text-pencil/70 font-hand">{feature.description}</p>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         {/* Pain Points — Problem vs Solution */}
@@ -179,37 +237,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Exam Modes */}
-        <section className="pb-16">
-          <div className="flex items-center space-x-4 mb-10 -rotate-1">
-            <ScrollText className="w-8 h-8 text-accent" strokeWidth={3} />
-            <h2 className="text-4xl font-bold text-pencil font-marker">Exam Modes</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {EXAM_MODES.map((mode, i) => {
-              const IconComp = SECTION_ICONS[mode.icon] || Target;
-              const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-1', '-rotate-1', 'rotate-2', '-rotate-1'];
-              return (
-                <Link key={mode.id} href={mode.href}
-                      className={`bg-white border-2 border-pencil shadow-hard-sm p-6 ${rotations[i]} hover:rotate-0 transition-all duration-100 hover:shadow-hard group relative`}>
-                  {i === 0 && <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/10 rotate-[-3deg]" />}
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-postit"
-                         style={{ borderRadius: WOBBLY_RADII.sm }}>
-                      <IconComp className="w-5 h-5" strokeWidth={3} />
-                    </div>
-                    <h3 className="text-xl font-bold text-pencil font-marker">{mode.title}</h3>
-                  </div>
-                  <p className="text-base text-pencil/70 font-hand">{mode.description}</p>
-                  <div className="mt-3 flex items-center text-sm font-hand text-pencil/50 group-hover:text-pencil transition-colors">
-                    Start now <ArrowRight className="w-4 h-4 ml-1" strokeWidth={3} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
         {/* From Scratch CTA */}
         <section className="pb-16">
           <Link href="/learn"
@@ -232,33 +259,6 @@ export default function HomePage() {
               </div>
             </div>
           </Link>
-        </section>
-
-        {/* Features */}
-        <section className="pb-16">
-          <div className="flex items-center space-x-4 mb-10 rotate-1">
-            <Brain className="w-8 h-8 text-blue-pen" strokeWidth={3} />
-            <h2 className="text-4xl font-bold text-pencil font-marker">Why Typing Mania?</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((feature, i) => {
-              const IconComp = SECTION_ICONS[feature.icon] || Award;
-              const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-1', '-rotate-1', 'rotate-2', '-rotate-1', 'rotate-1', '-rotate-2'];
-              return (
-                <div key={feature.title}
-                     className={`bg-white border-2 border-pencil shadow-hard-sm p-6 ${rotations[i]} hover:rotate-0 transition-all duration-100 hover:shadow-hard`}>
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-muted"
-                         style={{ borderRadius: WOBBLY_RADII.sm }}>
-                      <IconComp className="w-5 h-5" strokeWidth={3} />
-                    </div>
-                    <h3 className="text-lg font-bold text-pencil font-marker">{feature.title}</h3>
-                  </div>
-                  <p className="text-base text-pencil/70 font-hand">{feature.description}</p>
-                </div>
-              );
-            })}
-          </div>
         </section>
 
         {/* SSC Rules */}

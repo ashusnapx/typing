@@ -5,7 +5,7 @@ import { Kalam, Patrick_Hand } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { HealthIndicator } from "@/components/health-indicator";
-import { APP, FOOTER, WOBBLY_RADII } from "@/lib/config";
+import { APP, FOOTER, CSS } from "@/lib/config";
 import { Youtube, Instagram, Send, Github, ExternalLink } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 
@@ -22,22 +22,22 @@ const patrickHand = Patrick_Hand({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://typingmania.com"),
+  metadataBase: new URL(APP.url),
   title: "Typing Mania by Maths Mania - SSC Typing Test Simulator",
   description:
-    "India's Most Accurate SSC Typing Exam Simulator. Learn typing from scratch. Practice SSC CHSL, CGL DEST with exact evaluation logic and TCS iON replica experience.",
+    "India's Most Accurate SSC Typing Exam Simulator. Learn typing from scratch. Practice SSC CHSL, CGL DEST with exact evaluation logic and Ediquity replica experience.",
   keywords:
     "SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing",
   icons: {
-    icon: "/images/logo.png?v=2",
-    apple: "/images/logo.png?v=2",
+    icon: APP.logo,
+    apple: APP.logo,
   },
   openGraph: {
     title: "Typing Mania by Maths Mania - SSC Typing Test Simulator",
     description:
       "India's Most Accurate SSC Typing Exam Simulator. Learn from scratch.",
     type: "website",
-    images: [{ url: "/images/logo.png?v=2", width: 900, height: 900 }],
+    images: [{ url: APP.logo, width: 900, height: 900 }],
   },
 };
 
@@ -68,15 +68,12 @@ export default function RootLayout({
                   className='flex items-center space-x-2 -rotate-1 inline-block hover:rotate-0 transition-transform'
                 >
                   <Image
-                    src='/images/logo.png?v=2'
+                    src={APP.logo}
                     alt='Typing Mania'
                     width={32}
                     height={32}
                     className='w-8 h-8 border border-pencil'
-                    style={{
-                      borderRadius:
-                        "255px 15px 225px 15px / 15px 225px 15px 255px",
-                    }}
+                    style={{ borderRadius: CSS.radii.sm }}
                   />
                   <div>
                     <span className='text-xl font-bold text-pencil font-marker'>
@@ -177,7 +174,7 @@ export default function RootLayout({
                         target='_blank'
                         rel='noopener noreferrer'
                         className='w-8 h-8 flex items-center justify-center border-2 border-pencil text-pencil/60 hover:text-pencil hover:bg-muted transition-all'
-                        style={{ borderRadius: WOBBLY_RADII.sm }}
+                        style={{ borderRadius: CSS.radii.sm }}
                         aria-label={link.label}
                       >
                         <Icon className='w-4 h-4' strokeWidth={3} />

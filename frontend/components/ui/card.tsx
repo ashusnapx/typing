@@ -1,5 +1,6 @@
 import { HTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { CSS, WOBBLY_RADII } from '@/lib/config';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'postit' | 'elevated';
@@ -7,9 +8,9 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'bg-white border-pencil shadow-hard-sm',
-  postit: 'bg-postit border-pencil shadow-hard-sm',
-  elevated: 'bg-white border-pencil shadow-hard',
+  default: `bg-white border-pencil ${CSS.shadows.sm}`,
+  postit: `bg-postit border-pencil ${CSS.shadows.sm}`,
+  elevated: `bg-white border-pencil ${CSS.shadows.md}`,
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
@@ -23,7 +24,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
           className
         )}
         style={{
-          borderRadius: '60px 20px 80px 20px / 20px 60px 20px 80px',
+          borderRadius: CSS.radii.md,
           ...style,
         }}
         {...props}
@@ -33,7 +34,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         )}
         {decoration === 'tack' && (
           <div
-            className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 bg-accent rounded-full border-2 border-pencil shadow-hard-sm"
+            className={`absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 bg-accent rounded-full border-2 border-pencil ${CSS.shadows.sm}`}
           />
         )}
         {children}

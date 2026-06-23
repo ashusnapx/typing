@@ -1,5 +1,6 @@
 import { InputHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { CSS, WOBBLY_RADII } from '@/lib/config';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -22,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             'transition-all duration-100 focus:border-blue-pen focus:outline-none focus:ring-2 focus:ring-blue-pen/20',
             className
           )}
-          style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+          style={{ borderRadius: CSS.radii.sm }}
           {...props}
         />
       </div>

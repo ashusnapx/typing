@@ -9,6 +9,7 @@ import { getExamSpecs, checkQualification } from '@/lib/exam-config';
 import { getModeDisplayName } from '@/lib/utils';
 import { FullPageLoader } from '@/components/ui/loading-logo';
 import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from '@/components/exam/passage-diff';
+import { CSS } from '@/lib/config';
 import {
   CheckCircle2, XCircle, ArrowLeft, Clock, Gauge, Target,
   AlertTriangle, Brain, BarChart3, Zap,
@@ -106,13 +107,13 @@ export default function AnalysisPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
-        <div className="bg-white border-2 border-pencil shadow-hard-sm p-8 max-w-md text-center">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-8 max-w-md text-center`}>
           <AlertTriangle className="w-12 h-12 text-accent mx-auto mb-4" strokeWidth={2.5} />
           <h2 className="text-xl font-bold font-marker text-pencil mb-2">Test Not Found</h2>
           <p className="text-pencil/60 font-hand mb-6">{error}</p>
           <button onClick={() => router.push('/dashboard')}
-            className="px-6 py-2 bg-pencil text-white font-bold font-hand border-2 border-pencil shadow-hard-sm hover:bg-pencil/90 transition-colors"
-            style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+            className={`px-6 py-2 bg-pencil text-white font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-pencil/90 transition-colors`}
+            style={{ borderRadius: CSS.radii.sm }}>
             Back to Dashboard
           </button>
         </div>
@@ -168,7 +169,7 @@ export default function AnalysisPage() {
         </button>
 
         {/* Header Card */}
-        <div className="bg-white border-2 border-pencil shadow-hard-sm mb-6">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} mb-6`}>
           <div className="px-6 py-5 border-b-2 border-pencil/20">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -182,7 +183,7 @@ export default function AnalysisPage() {
                 </p>
               </div>
               <div className={`flex items-center gap-2 px-4 py-2 border-2 ${qualified ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-accent text-accent'}`}
-                style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                style={{ borderRadius: CSS.radii.sm }}>
                 {qualified
                   ? <><CheckCircle2 className="w-5 h-5" strokeWidth={3} /><span className="font-bold font-hand">Qualified</span></>
                   : <><XCircle className="w-5 h-5" strokeWidth={3} /><span className="font-bold font-hand">Not Qualified</span></>}
@@ -208,7 +209,7 @@ export default function AnalysisPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {/* Full/Half Mistakes */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Brain className="w-4 h-4" strokeWidth={3} /> SSC Error Analysis
             </h2>
@@ -229,7 +230,7 @@ export default function AnalysisPage() {
           </div>
 
           {/* Passage Completion */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" strokeWidth={3} /> Passage Completion
             </h2>
@@ -260,7 +261,7 @@ export default function AnalysisPage() {
           </div>
 
           {/* Qualification by Category */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Target className="w-4 h-4" strokeWidth={3} /> Qualification by Category
             </h2>
@@ -295,7 +296,7 @@ export default function AnalysisPage() {
           </div>
 
           {/* Error Breakdown */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" strokeWidth={3} /> Error Breakdown
             </h2>
@@ -318,7 +319,7 @@ export default function AnalysisPage() {
         </div>
 
         {/* Side-by-Side Passage Comparison */}
-        <div className="bg-white border-2 border-pencil shadow-hard-sm mb-6">
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} mb-6`}>
           <div className="px-6 py-4 border-b-2 border-pencil/20 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-pencil" strokeWidth={3} />
             <h2 className="text-base font-bold font-marker text-pencil">Passage Comparison</h2>
@@ -344,7 +345,7 @@ export default function AnalysisPage() {
         {/* Slow Words & Error Words */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* Slow Words */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" strokeWidth={3} /> Slow Words (hesitated before typing)
             </h2>
@@ -367,7 +368,7 @@ export default function AnalysisPage() {
           </div>
 
           {/* Error Words */}
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" strokeWidth={3} /> Words with Errors
             </h2>
@@ -396,31 +397,31 @@ export default function AnalysisPage() {
 
         {/* Consistency & Rhythm */}
         {(testData.consistency_score || testData.typing_rhythm_score) && (
-          <div className="bg-white border-2 border-pencil shadow-hard-sm p-5 mb-6">
+          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5 mb-6`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Zap className="w-4 h-4" strokeWidth={3} /> Pace & Consistency
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {testData.consistency_score && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
                   <div className="text-lg font-bold font-mono">{testData.consistency_score.toFixed(0)}%</div>
                   <div className="text-xs font-hand text-pencil/50">Consistency</div>
                 </div>
               )}
               {testData.typing_rhythm_score && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
                   <div className="text-lg font-bold font-mono">{testData.typing_rhythm_score.toFixed(1)}</div>
                   <div className="text-xs font-hand text-pencil/50">Rhythm Score</div>
                 </div>
               )}
               {testData.pause_count > 0 && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
                   <div className="text-lg font-bold font-mono">{testData.pause_count}</div>
                   <div className="text-xs font-hand text-pencil/50">Pauses</div>
                 </div>
               )}
               {testData.backspace_count > 0 && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
                   <div className="text-lg font-bold font-mono">{testData.backspace_count}</div>
                   <div className="text-xs font-hand text-pencil/50">Backspaces</div>
                 </div>
@@ -432,13 +433,13 @@ export default function AnalysisPage() {
         {/* Action buttons */}
         <div className="flex gap-3 mb-8">
           <button onClick={() => router.push('/dashboard')}
-            className="flex-1 py-2.5 bg-pencil text-white font-bold font-hand border-2 border-pencil shadow-hard-sm hover:bg-pencil/90 transition-colors text-sm"
-            style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+            className={`flex-1 py-2.5 bg-pencil text-white font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-pencil/90 transition-colors text-sm`}
+            style={{ borderRadius: CSS.radii.sm }}>
             Back to Dashboard
           </button>
           <button onClick={() => router.push('/exam')}
-            className="flex-1 py-2.5 bg-white text-pencil font-bold font-hand border-2 border-pencil shadow-hard-sm hover:bg-muted transition-colors text-sm"
-            style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+            className={`flex-1 py-2.5 bg-white text-pencil font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-muted transition-colors text-sm`}
+            style={{ borderRadius: CSS.radii.sm }}>
             Take Another Test
           </button>
         </div>

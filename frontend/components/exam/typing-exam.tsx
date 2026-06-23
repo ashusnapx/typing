@@ -10,11 +10,13 @@ import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
 import { invalidateDashboardCache } from '@/lib/dashboard-cache';
+import { blastConfetti } from '@/lib/confetti';
+import { ROUTES } from '@/lib/config';
 import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from './passage-diff';
 import { TestMode } from '@/types';
 import { getExamSpecs, SSC_EXAM_SPECS, checkQualification, calculateNetWpm, calculateAccuracySsc } from '@/lib/exam-config';
 import { getPracticeSets, PracticeSet } from '@/lib/practice-sets';
-import { LoadingLogo } from '@/components/ui/loading-logo';
+import { LoadingLogo, LogoSpinner } from '@/components/ui/loading-logo';
 import Image from 'next/image';
 import { SSCExamUI } from './ssc-exam-ui';
 import PracticeSetSelector from './practice-set-selector';
@@ -47,7 +49,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) { router.push('/auth/login'); return; }
+    if (!authLoading && !isAuthenticated) { router.push(ROUTES.authLogin); return; }
     if (authLoading) return;
     const sets = getPracticeSets(mode);
     if (sets.length > 0) {
@@ -217,6 +219,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     });
     invalidateDashboardCache();
     setPhase('result');
+    blastConfetti();
   };
 
   if (phase === 'loading') {
@@ -265,16 +268,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         justifyContent: 'center',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="inline-block animate-spin">
-            <Image
-              src="/images/logo.png?v=2"
-              alt=""
-              width={64}
-              height={64}
-              className="w-16 h-16 border-2 border-pencil shadow-hard-sm"
-              style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
-            />
-          </div>
+          <LogoSpinner size="lg" />
           <p style={{ marginTop: 20, fontSize: 18, color: '#666', fontWeight: 500 }}>
             Evaluating your typing test...
           </p>
@@ -508,7 +502,7 @@ function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedC
             style={{ flex: 1, padding: '10px 0', border: `1px solid ${'#2F5BFF'}`, borderRadius: 8, background: '#2F5BFF', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
             Take Another Test
           </button>
-          <button onClick={() => router.push('/dashboard')}
+          <button onClick={() => router.push(ROUTES.dashboard)}
             style={{ flex: 1, padding: '10px 0', border: `1px solid ${BD}`, borderRadius: 8, background: '#fff', color: N, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
             Dashboard
           </button>

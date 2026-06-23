@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs, FULL_MISTAKES, HALF_MISTAKES } from '@/lib/exam-config';
+import { ROUTES } from '@/lib/config';
 import { TestMode } from '@/types';
 import { PracticeSet } from '@/lib/practice-sets';
 
@@ -467,7 +468,7 @@ export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBe
         flexShrink: 0,
       }}>
         <button
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.push(ROUTES.dashboard)}
           style={{
             padding: '8px 24px',
             background: '#d9edf7',

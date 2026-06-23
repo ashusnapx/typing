@@ -10,12 +10,12 @@ const FAQ_ITEMS = [
     a: '8,000 KDPH (Key Depressions Per Hour) is required for SSC CGL DEO posts. This translates to roughly 1 keystroke every 0.45 seconds, or approximately 26-27 net WPM.',
   },
   {
-    q: 'Can I use Ctrl+Z (undo) in TCS iON typing test?',
-    a: 'No, Ctrl+Z and other keyboard shortcuts are disabled in the TCS iON exam interface. Only basic typing keys and backspace work.',
+    q: 'Can I use Ctrl+Z (undo) in Ediquity typing test?',
+    a: 'No, Ctrl+Z and other keyboard shortcuts are disabled in the Ediquity exam interface. Only basic typing keys and backspace work.',
   },
   {
     q: 'What is blind mode in typing test?',
-    a: 'Blind mode hides all error highlights during the test, exactly like real TCS iON exams. Errors are only revealed at the end with the detailed SSC evaluation report.',
+    a: 'Blind mode hides all error highlights during the test, exactly like real Ediquity exams. Errors are only revealed at the end with the detailed SSC evaluation report.',
   },
   {
     q: 'What passage length is used in SSC typing tests?',

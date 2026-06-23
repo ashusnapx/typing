@@ -9,6 +9,8 @@ import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName, normal
 import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
 import { api } from '@/lib/api';
+import { blastConfetti } from '@/lib/confetti';
+import { CSS, ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
 import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
 import KeyboardSVG from '@/components/learn/keyboard-svg';
@@ -16,6 +18,8 @@ import CuteCat from '@/components/learn/cute-cat';
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
+
+import { LogoSpinner } from '@/components/ui/loading-logo';
 import {
   Timer, Target, CheckCircle2, XCircle, RotateCcw,
   BarChart3, Keyboard, GraduationCap, ArrowLeft, ArrowRight, MousePointer2,
@@ -43,10 +47,11 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const [countdown, setCountdown] = useState(3);
   const [result, setResult] = useState<any>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
+  const [finishing, setFinishing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authStore.isLoading && !authStore.isAuthenticated) { router.push('/auth/login'); }
+    if (!authStore.isLoading && !authStore.isAuthenticated) { router.push(ROUTES.authLogin); }
   }, [authStore.isLoading, authStore.isAuthenticated]);
 
   useEffect(() => {
@@ -54,9 +59,11 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   }, [phase]);
 
   const isMouseLesson = lesson.targetWpm === 0 && lesson.keys.some(k => k.includes('click') || k.includes('scroll'));
-  const sampleText = normalizeCase(lesson.sampleText)
-    .replace(/\bSpace\b/g, ' ')
-    .replace(/\bEnter\b/g, '\n');
+  const sampleText = normalizeCase(
+    lesson.sampleText
+      .replace(/\bSpace\b/g, ' ')
+      .replace(/\bEnter\b/g, '\n'),
+  );
 
   const [mouseActions, setMouseActions] = useState<Set<string>>(new Set());
   const [mouseStep, setMouseStep] = useState(0);
@@ -78,10 +85,6 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   useEffect(() => {
     store.startTest('lesson', 'practice' as any, sampleText, lesson.durationSec);
   }, []);
-
-  useEffect(() => {
-    if (store.isComplete && phase === 'typing' && !isMouseLesson) finishLesson();
-  }, [store.isComplete, phase]);
 
   const finishLesson = useCallback(async (extra?: { wpm?: number; acc?: number }) => {
     const totalType = typedContent.length;
@@ -129,6 +132,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     }
 
     setPhase('result');
+    blastConfetti();
   }, [typedContent, originalContent, elapsedSeconds, lesson, authStore]);
 
   const startLesson = () => {
@@ -179,13 +183,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     return (
       <div className="min-h-screen bg-paper">
         <div className="max-w-5xl mx-auto px-6 py-8">
-          <button onClick={() => router.push('/learn')} className="flex items-center space-x-2 text-pencil/50 hover:text-pencil font-hand mb-6 transition-colors">
+          <button onClick={() => router.push(ROUTES.learn)} className="flex items-center space-x-2 text-pencil/50 hover:text-pencil font-hand mb-6 transition-colors">
             <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Back to Lessons
           </button>
 
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-postit border-2 border-pencil mb-4"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               {isMouseLesson
                 ? <MousePointer2 className="w-8 h-8 text-pencil" strokeWidth={3} />
                 : <GraduationCap className="w-8 h-8 text-pencil" strokeWidth={3} />}
@@ -196,12 +200,12 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <div className="bg-postit border-2 border-pencil p-6 shadow-hard-sm"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               <h3 className="font-bold text-pencil font-marker mb-2">Instruction</h3>
               <p className="text-pencil/80 font-hand text-base leading-relaxed">{lesson.instruction}</p>
             </div>
             <div className="bg-white border-2 border-pencil p-4 shadow-hard-sm"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-pencil/40 font-hand uppercase tracking-wider">Lesson Info</span>
               </div>
@@ -232,7 +236,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
           {!isMouseLesson && (
             <div className="bg-white border-2 border-pencil p-6 mb-6 shadow-hard-sm"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               <div className="text-xs text-pencil/40 font-hand mb-3 uppercase tracking-wider">Practice Text Preview</div>
               <p className="font-mono text-sm leading-relaxed text-pencil/70 select-none">
                 {sampleText.substring(0, 200)}{sampleText.length > 200 ? '...' : ''}
@@ -240,8 +244,8 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             </div>
           )}
 
-          {!isMouseLesson && lesson.sampleText && /[A-Z]/.test(lesson.sampleText) && (
-            <div className="mb-6"><CapsLockNotice expectedChar={lesson.sampleText.match(/[A-Z]/)?.[0] || null} /></div>
+          {!isMouseLesson && sampleText && /[A-Z]/.test(sampleText) && (
+            <div className="mb-6"><CapsLockNotice expectedChar={sampleText.match(/[A-Z]/)?.[0] || null} /></div>
           )}
 
           {isHindi && <div className="mb-6"><HindiKeyboardGuide /></div>}
@@ -272,7 +276,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         <div className="max-w-lg w-full card-hand-lg p-8 -rotate-[0.5deg] hover:rotate-0 transition-transform">
           <div className="text-center mb-8">
             <div className={`inline-flex items-center justify-center w-20 h-20 border-[3px] border-pencil mb-4 ${passed ? 'bg-postit' : 'bg-red-50'}`}
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               {passed
                 ? <CheckCircle2 className="w-10 h-10 text-green-600" strokeWidth={3} />
                 : <XCircle className="w-10 h-10 text-accent" strokeWidth={3} />}
@@ -284,20 +288,20 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           <div className={`grid ${isMouseLesson ? 'grid-cols-1' : 'grid-cols-3'} gap-3 mb-6`}>
             {!isMouseLesson && (
               <div className="text-center p-3 border-2 border-pencil bg-postit"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="text-3xl font-bold text-pencil font-marker">{result.net_wpm.toFixed(1)}</div>
                 <div className="text-sm text-pencil/60 font-hand">WPM (goal: {result.goal_wpm})</div>
               </div>
             )}
             {!isMouseLesson && (
               <div className="text-center p-3 border-2 border-pencil bg-green-50"
-                   style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                   style={{ borderRadius: CSS.radii.sm }}>
                 <div className="text-3xl font-bold text-pencil font-marker">{result.accuracy.toFixed(1)}%</div>
                 <div className="text-sm text-pencil/60 font-hand">Accuracy (goal: {result.goal_acc}%)</div>
               </div>
             )}
             <div className="text-center p-3 border-2 border-pencil bg-yellow-50"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               <div className="text-3xl font-bold text-green-600 font-marker">+{result.xp_earned}</div>
               <div className="text-sm text-pencil/60 font-hand">XP Earned</div>
             </div>
@@ -305,14 +309,14 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
           <div className="flex space-x-4">
             {passed && getNextLessonId(lesson.id) && (
-              <button onClick={() => router.push(`/exam/lesson/${getNextLessonId(lesson.id)}`)} className="btn-hand flex-1">
+              <button onClick={() => router.push(`${ROUTES.examLesson}/${getNextLessonId(lesson.id)}`)} className="btn-hand flex-1">
                 <ArrowRight className="w-4 h-4 mr-2" strokeWidth={3} /> Next Lesson
               </button>
             )}
             <button onClick={() => window.location.reload()} className={`btn-hand ${passed ? 'flex-1' : 'flex-1'}`}>
               <RotateCcw className="w-4 h-4 mr-2" strokeWidth={3} /> Retry
             </button>
-            <button onClick={() => router.push('/learn')} className="btn-hand-secondary flex-1">
+            <button onClick={() => router.push(ROUTES.learn)} className="btn-hand-secondary flex-1">
               <BarChart3 className="w-4 h-4 mr-2" strokeWidth={3} /> All Lessons
             </button>
           </div>
@@ -335,7 +339,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-postit border-2 border-pencil p-6 shadow-hard-sm"
-                 style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                 style={{ borderRadius: CSS.radii.sm }}>
               <h3 className="font-bold text-pencil font-marker mb-3 text-lg">Mouse Practice</h3>
               <div className="space-y-3">
                 {MOUSE_STEPS.map((step, i) => {
@@ -348,7 +352,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
                         active ? 'bg-blue-50 border-blue-pen animate-pulse' :
                         'bg-white border-pencil/20'
                       }`}
-                      style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+                      style={{ borderRadius: CSS.radii.sm }}
                     >
                       <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 text-sm font-bold font-marker ${
                         done ? 'bg-green-500 text-white border-green-500' :
@@ -402,7 +406,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     <div className="min-h-screen bg-paper">
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => store.completeTest()} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
+          <button onClick={() => router.push(ROUTES.learn)} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
             <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Exit
           </button>
           <div className="text-sm font-hand text-pencil/40">{levelName} &mdash; {lesson.title}</div>
@@ -412,7 +416,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
               className={`flex items-center space-x-1 px-3 py-1.5 border-2 border-pencil/30 text-sm font-hand transition-colors ${
                 showKeyboard ? 'bg-pencil/10 text-pencil' : 'text-pencil/40 hover:text-pencil'
               }`}
-              style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+              style={{ borderRadius: CSS.radii.sm }}
             >
               <Keyboard className="w-4 h-4" strokeWidth={3} />
               <span>Keys</span>
@@ -454,8 +458,8 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
             <div className="mt-4 flex items-center justify-between text-sm font-hand text-pencil/40">
               <span>{typedContent.length} / {originalContent.length} chars</span>
-              <button onClick={() => store.completeTest()} className="btn-hand-sm">
-                Finish Lesson
+              <button onClick={() => { if (!finishing) { setFinishing(true); finishLesson(); } }} disabled={finishing} className="btn-hand-sm flex items-center gap-2">
+                {finishing ? <LogoSpinner size="sm" /> : 'Finish Lesson'}
               </button>
             </div>
           </div>
@@ -463,12 +467,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           <div className={showKeyboard ? 'lg:col-span-2' : 'lg:col-span-1'}>
             <div className="space-y-4">
               <CapsLockNotice expectedChar={nextChar} />
+
               {showKeyboard && (
                 <KeyboardSVG expectedChar={nextChar} typedHistory={keysPreview} keystrokeEvents={keystrokeEvents} />
               )}
               {phase === 'typing' && (
                 <div className="bg-white border-2 border-pencil/20 p-3 shadow-hard-sm flex flex-col items-center"
-                     style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}>
+                     style={{ borderRadius: CSS.radii.sm }}>
                   <CuteCat mood={catMood} wpm={currentWpm} accuracy={currentAccuracy} />
                 </div>
               )}

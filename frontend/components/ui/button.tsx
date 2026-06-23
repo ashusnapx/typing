@@ -2,6 +2,7 @@
 
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { CSS, WOBBLY_RADII } from '@/lib/config';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'accent';
@@ -26,15 +27,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center border-[3px] font-hand shadow-hard transition-all duration-100',
-          'hover:shadow-hard-hover hover:translate-x-[2px] hover:translate-y-[2px]',
+          'inline-flex items-center justify-center border-[3px] font-hand',
+          CSS.shadows.md + ' transition-all duration-100',
+          CSS.shadows.hover + ' hover:translate-x-[2px] hover:translate-y-[2px]',
           'active:shadow-none active:translate-x-[4px] active:translate-y-[4px]',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           variantStyles[variant],
           sizeStyles[size],
           className
         )}
-        style={{ borderRadius: '255px 15px 225px 15px / 15px 225px 15px 255px' }}
+        style={{ borderRadius: CSS.radii.sm }}
         {...props}
       >
         {children}

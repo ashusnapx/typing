@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import LEVELS, { isLessonUnlocked } from "@/lib/typing-curriculum";
-import { APP, WOBBLY_RADII } from "@/lib/config";
+import { APP, WOBBLY_RADII, ROUTES, CSS } from "@/lib/config";
 import {
   getAllLessonProgress,
   getOverallProgress,
@@ -100,8 +100,8 @@ export default function LearnPage() {
                   width: `${(overall.completed / totalLessons) * 100}%`,
                   background:
                     overall.completed === totalLessons ?
-                      "linear-gradient(90deg, #4caf50, #8bc34a)"
-                    : "linear-gradient(90deg, #2F5BFF, #4ec5df)",
+                      `linear-gradient(90deg, ${CSS.colors.green}, #8bc34a)`
+                    : `linear-gradient(90deg, ${CSS.colors.blue}, ${CSS.colors.teal})`,
                 }}
               />
             </div>
@@ -150,7 +150,7 @@ export default function LearnPage() {
                           className='w-full rounded-t transition-all duration-300'
                           style={{
                             height: h,
-                            background: t.qualified ? "#4caf50" : "#ff9800",
+                            background: t.qualified ? CSS.colors.green : CSS.colors.orange,
                           }}
                         />
                         <div className='text-[8px] text-pencil/30 font-hand leading-none'>
@@ -199,13 +199,13 @@ export default function LearnPage() {
               label: "Final Goal",
               icon: <Award className='w-5 h-5' strokeWidth={3} />,
             },
-          ].map((stat) => (
+          ].map((stat, idx) => (
             <div
               key={stat.label}
               className='bg-white border-2 border-pencil shadow-hard-sm p-4 text-center hover:shadow-hard transition-all'
               style={{
                 borderRadius: WOBBLY_RADII.md,
-                transform: `rotate(${Math.random() > 0.5 ? "-0.5" : "0.5"}deg)`,
+                transform: `rotate(${idx % 2 === 0 ? "-0.5" : "0.5"}deg)`,
               }}
             >
               <div className='flex justify-center mb-2 text-pencil'>
@@ -313,7 +313,7 @@ export default function LearnPage() {
                     {level.lessons.map((lesson, i) => {
                       const lessonOpen = activeLesson === lesson.id;
                       const lessonProg = progress[lesson.id];
-                      const unlocked = lesson.id === 'l0-mouse' || isLessonUnlocked(lesson.id, progress);
+                      const unlocked = isLessonUnlocked(lesson.id, progress);
                       return (
                         <div
                           key={lesson.id}
@@ -449,7 +449,7 @@ export default function LearnPage() {
                               </div>
                               <button
                                 onClick={() =>
-                                  router.push(`/exam/lesson/${lesson.id}`)
+                                  router.push(`${ROUTES.examLesson}/${lesson.id}`)
                                 }
                                 className='btn-hand w-full text-center'
                               >

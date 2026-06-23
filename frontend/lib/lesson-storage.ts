@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '@/lib/config';
+
 export interface LessonProgress {
   lessonId: string;
   bestWpm: number;
@@ -14,10 +16,10 @@ function storageKey(): string {
     if (raw) {
       const payload = raw.split('.')[1];
       const decoded = JSON.parse(atob(payload));
-      return `typing_lesson_progress_${decoded.sub}`;
+      return `${STORAGE_KEYS.lessonProgress}_${decoded.sub}`;
     }
   } catch {}
-  return 'typing_lesson_progress';
+  return STORAGE_KEYS.lessonProgress;
 }
 
 function getAll(): Record<string, LessonProgress> {

@@ -25,12 +25,60 @@ export interface Passage {
   practice_set?: number | null;
 }
 
+function getCacheKey(category?: string, language?: string, practiceSet?: number): string {
+  return `passage_${category || 'none'}_${language || 'english'}_${practiceSet || 'none'}`;
+}
+
+function getCachedPassage(category?: string, language?: string, practiceSet?: number): Passage | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = getCacheKey(category, language, practiceSet);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (Date.now() - cached.ts > 3600000) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return cached.data as Passage;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPassage(passage: Passage, category?: string, language?: string, practiceSet?: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = getCacheKey(category, language, practiceSet);
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: passage }));
+  } catch {}
+}
+
+/** Preload passages for common modes in the background so they're cached before the user starts a test. */
+export function preloadPassages() {
+  if (typeof window === 'undefined') return;
+  const modes = [
+    { category: 'ssc_chsl' as const, lang: 'english' },
+    { category: 'ssc_cgl' as const, lang: 'english' },
+    { category: undefined, lang: 'english' },
+  ];
+  for (const m of modes) {
+    const key = getCacheKey(m.category, m.lang);
+    if (!localStorage.getItem(key)) {
+      getRandomPassage(m.category, undefined, m.lang).catch(() => {});
+    }
+  }
+}
+
 export async function getRandomPassage(
   category?: PassageCategory,
   difficulty?: string,
   language: string = 'english',
   practiceSet?: number,
 ): Promise<Passage | null> {
+  const cached = getCachedPassage(category, language, practiceSet);
+  if (cached) return cached;
+
   const isSscMode = category === 'ssc_chsl' || category === 'ssc_cgl';
 
   let query = supabase
@@ -63,7 +111,9 @@ export async function getRandomPassage(
       if (difficulty) fallbackQuery = fallbackQuery.eq('difficulty', difficulty);
       const { data: fallbackData } = await fallbackQuery;
       if (fallbackData && fallbackData.length > 0) {
-        return fallbackData[Math.floor(Math.random() * fallbackData.length)];
+        const p = fallbackData[Math.floor(Math.random() * fallbackData.length)];
+        setCachedPassage(p, category, language);
+        return p;
       }
     }
     if (difficulty) {
@@ -72,5 +122,7 @@ export async function getRandomPassage(
     return null;
   }
 
-  return data[Math.floor(Math.random() * data.length)];
+  const passage = data[Math.floor(Math.random() * data.length)];
+  setCachedPassage(passage, category, language, practiceSet);
+  return passage;
 }

@@ -1,36 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/auth-store';
-import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { useAdminDashboard, useAdminUsers } from '@/lib/queries';
 import { Shield, Users, Activity, BarChart3, Zap, TrendingUp } from 'lucide-react';
-import { CSS, ROUTES } from '@/lib/config';
+import { CSS } from '@/lib/config';
 
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AdminPage() {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
-  const router = useRouter();
-  const [dashboard, setDashboard] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (!isAuthenticated || (user?.role !== 'admin' && user?.role !== 'super_admin')) {
-        router.push(ROUTES.home);
-      }
-    }
-  }, [isAuthenticated, isLoading, user]);
-
-  useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
-      api.request<any>('/admin/dashboard').then(setDashboard).catch(() => {});
-      api.request<any[]>('/admin/users').then(setUsers).catch(() => {});
-    }
-  }, [isAuthenticated, user]);
-
-  if (isLoading || !user) return null;
+  const { data: dashboard } = useAdminDashboard();
+  const { data: users } = useAdminUsers();
 
   return (
     <div className="min-h-screen bg-paper">
@@ -77,7 +55,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y-2 divide-pencil/20 font-hand">
-                {users.map((u: any) => (
+                {users?.map((u: any) => (
                   <tr key={u.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-3 font-bold text-pencil">{u.full_name}</td>
                     <td className="px-6 py-3 text-pencil/70">{u.email}</td>

@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { supabase, getRandomPassage } from '@/lib/supabase';
+import { useSubmitTest, useDirectSubmit } from '@/lib/queries';
+import { getRandomPassage, preloadPassages } from '@/lib/supabase';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
-import { invalidateDashboardCache } from '@/lib/dashboard-cache';
+
 import { blastConfetti } from '@/lib/confetti';
 import { ROUTES } from '@/lib/config';
 import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from './passage-diff';
@@ -38,9 +39,11 @@ interface TypingExamProps {
 
 export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english', isTCSReplica = false }: TypingExamProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, loadUser } = useAuthStore();
+  const { user, isAuthenticated, loadUser } = useAuthStore();
   const store = useTypingStore();
   const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
+  const submitMutation = useSubmitTest();
+  const directSubmitMutation = useDirectSubmit();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
@@ -48,9 +51,9 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
   const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
 
+  useEffect(() => { preloadPassages(); }, []);
+
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) { router.push(ROUTES.authLogin); return; }
-    if (authLoading) return;
     const sets = getPracticeSets(mode);
     if (sets.length > 0) {
       setPhase('select-set');
@@ -58,7 +61,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     } else {
       initTest();
     }
-  }, [authLoading]);
+  }, [mode]);
 
   useEffect(() => {
     if (store.isComplete && !showResult && phase === 'typing') submitTest();
@@ -90,7 +93,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
             store.startTest(test.test_id, mode, passageData.content, durationSeconds);
             started = true;
           } catch {
-            if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+            if (attempt === 0) await new Promise(r => setTimeout(r, 50));
           }
         }
         if (!started) {
@@ -119,9 +122,12 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     setPhase('submitting');
     setShowResult(true);
     try {
-      const resultData = await api.submitTest(
-        store.testId || 'local', store.typedContent, store.keystrokeEvents, store.elapsedSeconds
-      );
+      const resultData = await submitMutation.mutateAsync({
+        testId: store.testId || 'local',
+        typed_content: store.typedContent,
+        keystroke_events: store.keystrokeEvents,
+        time_taken_seconds: store.elapsedSeconds,
+      });
       setResult(resultData);
       saveTestResult({
         wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
@@ -148,7 +154,6 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         xp_earned: resultData.xp_earned || 0,
       }, resultData.test_id);
       loadUser();
-      invalidateDashboardCache();
       setPhase('result');
       return;
     } catch {
@@ -157,9 +162,14 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
 
     if (store.testId === 'local' && passage && user) {
       try {
-        const resultData = await api.directSubmit(
-          mode, passage.id, durationSeconds, store.typedContent, store.keystrokeEvents, store.elapsedSeconds
-        );
+        const resultData = await directSubmitMutation.mutateAsync({
+          mode,
+          passage_id: passage.id,
+          duration_seconds: durationSeconds,
+          typed_content: store.typedContent,
+          keystroke_events: store.keystrokeEvents,
+          time_taken_seconds: store.elapsedSeconds,
+        });
         setResult(resultData);
         saveTestResult({
           wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
@@ -186,7 +196,6 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
           xp_earned: resultData.xp_earned || 0,
         }, resultData.test_id);
         loadUser();
-        invalidateDashboardCache();
         setPhase('result');
         return;
       } catch {
@@ -217,7 +226,6 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       typed_content: store.typedContent,
       original_content: store.originalContent,
     });
-    invalidateDashboardCache();
     setPhase('result');
     blastConfetti();
   };

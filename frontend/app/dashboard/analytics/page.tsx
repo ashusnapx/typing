@@ -1,11 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
-import { api } from '@/lib/api';
+import { useDashboard } from '@/lib/queries';
 import { FullPageLoader } from '@/components/ui/loading-logo';
-import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh } from '@/lib/dashboard-cache';
 import Link from 'next/link';
 import {
   FileText,
@@ -26,33 +23,12 @@ import { CSS, ROUTES } from '@/lib/config';
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AnalyticsPage() {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
-  const router = useRouter();
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [recentTests, setRecentTests] = useState<any[]>([]);
-  const [predictions, setPredictions] = useState<any>(null);
-  const fetched = useRef(false);
+  const { user } = useAuthStore();
+  const { data: dashboard, isLoading } = useDashboard();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push(ROUTES.authLogin); return; }
-    if (!isAuthenticated || isLoading || fetched.current) return;
-    fetched.current = true;
-
-    const cached = getCachedDashboard();
-    if (cached) {
-      setAnalytics(cached.overview);
-      setPredictions(cached.predictions);
-      setRecentTests(cached.recent_scores || []);
-      if (isDashboardCacheFresh()) return;
-    }
-
-    api.request<any>('/dashboard').then((data) => {
-      setCachedDashboard(data);
-      setAnalytics(data.overview);
-      setPredictions(data.predictions);
-      setRecentTests(data.recent_scores || []);
-    }).catch(() => {});
-  }, [isAuthenticated, isLoading]);
+  const analytics = dashboard?.overview;
+  const predictions = dashboard?.predictions;
+  const recentTests = dashboard?.recent_scores || [];
 
   if (isLoading || !user) {
     return <FullPageLoader />;

@@ -1,30 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { cacheGet, cacheSet } from '@/lib/dashboard-cache';
+import { useState } from 'react';
+import { useLeaderboard } from '@/lib/queries';
 import { Trophy, Medal, Gauge, Target, FileText, Zap } from 'lucide-react';
-import { CSS, TIME, ROUTES, LEADERBOARD_SCOPES } from '@/lib/config';
+import { CSS, LEADERBOARD_SCOPES } from '@/lib/config';
 
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState<any>(null);
   const [scope, setScope] = useState('global');
-
-  useEffect(() => {
-    const cacheKey = `leaderboard-${scope}`;
-    const cached = cacheGet<any>(cacheKey);
-    if (cached) {
-      setLeaderboard(cached);
-    }
-    if (!cached) {
-      api.getLeaderboard(scope).then((data) => {
-        setLeaderboard(data);
-        cacheSet(cacheKey, data, TIME.cacheLeaderboard);
-      }).catch(() => {});
-    }
-  }, [scope]);
+  const { data: leaderboard } = useLeaderboard(scope);
 
   return (
     <div className="min-h-screen bg-paper">

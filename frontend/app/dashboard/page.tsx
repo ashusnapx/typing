@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
-import { setCachedDashboard } from '@/lib/dashboard-cache';
+
 import Link from 'next/link';
 import {
   FileText, Gauge, Target, Zap, TrendingUp, ArrowRight, BarChart3,
@@ -67,16 +66,11 @@ function Skeleton() {
 }
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
-  const router = useRouter();
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [showXPModal, setShowXPModal] = useState(false);
   const [page, setPage] = useState(0);
   const perPage = PAGINATION.dashboardPerPage;
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.push(ROUTES.authLogin);
-  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     const handler = () => queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -86,17 +80,12 @@ export default function DashboardPage() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: async () => {
-      const result = await api.request<any>('/dashboard');
-      setCachedDashboard(result);
-      return result;
-    },
+    queryFn: () => api.request<any>('/dashboard'),
     staleTime: TIME.cacheDashboard,
     retry: 1,
-    enabled: isAuthenticated && !authLoading,
   });
 
-  if (authLoading || !user || isLoading) return <Skeleton />;
+  if (!user || isLoading) return <Skeleton />;
 
   if (isError) {
     return (

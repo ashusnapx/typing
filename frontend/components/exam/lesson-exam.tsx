@@ -51,10 +51,6 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authStore.isLoading && !authStore.isAuthenticated) { router.push(ROUTES.authLogin); }
-  }, [authStore.isLoading, authStore.isAuthenticated]);
-
-  useEffect(() => {
     store.setNavHidden(phase === 'typing' || phase === 'countdown');
   }, [phase]);
 

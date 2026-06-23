@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth-store';
-import { api } from '@/lib/api';
-import { getTestResults } from '@/lib/test-storage';
-import { getExamSpecs, checkQualification } from '@/lib/exam-config';
+import { useTestResult, useTestReplay } from '@/lib/queries';
+import { getExamSpecs } from '@/lib/exam-config';
 import { getModeDisplayName } from '@/lib/utils';
 import { FullPageLoader } from '@/components/ui/loading-logo';
-import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from '@/components/exam/passage-diff';
+import PassageDiffView, { getWordTiming, formatMs } from '@/components/exam/passage-diff';
 import { CSS } from '@/lib/config';
 import {
   CheckCircle2, XCircle, ArrowLeft, Clock, Gauge, Target,
@@ -26,91 +24,34 @@ interface WordAnalysis {
   pauseBeforeMs: number;
 }
 
-// computeWordTiming, levenshtein, formatMs now imported from @/components/exam/passage-diff
-
 export default function AnalysisPage() {
   const params = useParams();
   const router = useRouter();
   const testId = params.testId as string;
-  const { isAuthenticated, isLoading } = useAuthStore();
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [testData, setTestData] = useState<any>(null);
-  const [replay, setReplay] = useState<any>(null);
-  const [wordAnalyses, setWordAnalyses] = useState<WordAnalysis[]>([]);
-  const [originalContent, setOriginalContent] = useState('');
-  const [typedContent, setTypedContent] = useState('');
-  const [source, setSource] = useState<'api' | 'local'>('api');
+  const { data: testData, isLoading: testLoading, error: testError } = useTestResult(testId);
+  const { data: replay } = useTestReplay(testId);
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) { router.push('/auth/login'); return; }
+  const originalContent = testData?.original_content || replay?.original_content || '';
+  const typedContent = testData?.typed_content || replay?.typed_content || '';
 
-    loadData();
-  }, [isLoading, isAuthenticated]);
-
-  async function loadData() {
-    setLoading(true);
-    setError('');
-
-    // Try API first
-    try {
-      const result = await api.getTestResult(testId);
-      setTestData(result);
-      setOriginalContent(result.original_content || ''); // may not be in response
-      setTypedContent(result.typed_content || '');
-      setSource('api');
-
-      // Fetch replay for keystroke events
-      try {
-        const replayData = await api.getTestReplay(testId);
-        setReplay(replayData);
-        if (replayData.original_content) setOriginalContent(replayData.original_content);
-        if (replayData.typed_content) setTypedContent(replayData.typed_content);
-      } catch { /* replay not available */ }
-
-      setLoading(false);
-      return;
-    } catch { /* try local */ }
-
-    // Try localStorage
-    const localTests = getTestResults();
-    const localTest = localTests.find(t => t.id === testId);
-    if (localTest) {
-      setTestData({
-        ...localTest,
-        net_wpm: localTest.wpm,
-        accuracy: localTest.accuracy,
-        is_qualified: localTest.qualified,
-      });
-      setOriginalContent(localTest.original_content || '');
-      setTypedContent(localTest.typed_content || '');
-      setSource('local');
-      setLoading(false);
-      return;
-    }
-
-    setError('Test not found. It may have been deleted or the link is invalid.');
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    if (!originalContent || !typedContent) return;
+  const wordAnalyses: WordAnalysis[] = useMemo(() => {
+    if (!originalContent || !typedContent) return [];
     const replayEvents = replay?.events;
-    const analyses = getWordTiming(originalContent, typedContent, replayEvents);
-    setWordAnalyses(analyses);
+    return getWordTiming(originalContent, typedContent, replayEvents);
   }, [originalContent, typedContent, replay]);
 
-  if (isLoading || loading) return <FullPageLoader />;
+  if (testLoading) return <FullPageLoader />;
 
-  if (error) {
+  if (testError) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-8 max-w-md text-center`}>
           <AlertTriangle className="w-12 h-12 text-accent mx-auto mb-4" strokeWidth={2.5} />
           <h2 className="text-xl font-bold font-marker text-pencil mb-2">Test Not Found</h2>
-          <p className="text-pencil/60 font-hand mb-6">{error}</p>
+          <p className="text-pencil/60 font-hand mb-6">
+            {testError instanceof Error ? testError.message : 'Test not found. It may have been deleted or the link is invalid.'}
+          </p>
           <button onClick={() => router.push('/dashboard')}
             className={`px-6 py-2 bg-pencil text-white font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-pencil/90 transition-colors`}
             style={{ borderRadius: CSS.radii.sm }}>
@@ -179,7 +120,6 @@ export default function AnalysisPage() {
                 <p className="text-sm font-hand text-pencil/50 mt-1">
                   {dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
                   {testData.time_taken_seconds ? `  •  ${Math.round(testData.time_taken_seconds)}s` : ''}
-                  {source === 'local' ? '  •  Saved Locally' : ''}
                 </p>
               </div>
               <div className={`flex items-center gap-2 px-4 py-2 border-2 ${qualified ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-accent text-accent'}`}

@@ -1,12 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useAuthStore } from '@/store/auth-store';
-import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { useState } from 'react';
+import { CSS } from '@/lib/config';
+import { useDashboard, useWeakWords, useAIFeedback } from '@/lib/queries';
 import { FullPageLoader } from '@/components/ui/loading-logo';
-import { CSS, ROUTES, TIME } from '@/lib/config';
-import { getCachedDashboard, setCachedDashboard, isDashboardCacheFresh, cacheGet, cacheSet } from '@/lib/dashboard-cache';
 import {
   Brain,
   Target,
@@ -24,58 +21,15 @@ import {
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function AICoachPage() {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
-  const router = useRouter();
-  const [feedback, setFeedback] = useState<any>(null);
-  const [weakWords, setWeakWords] = useState<string[]>([]);
-  const [recentTests, setRecentTests] = useState<any[]>([]);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
-  const fetched = useRef(false);
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push(ROUTES.authLogin); }
-  }, [isAuthenticated, isLoading]);
+  const { data: dashboardData, isLoading: dashboardLoading } = useDashboard();
+  const { data: weakWords = [] } = useWeakWords();
+  const { data: feedback } = useAIFeedback(selectedTestId ?? '');
 
-  useEffect(() => {
-    if (!isAuthenticated || fetched.current) return;
-    fetched.current = true;
+  const recentTests = dashboardData?.recent_scores || [];
 
-    // Recent scores via dashboard cache
-    const cached = getCachedDashboard();
-    if (cached) {
-      setRecentTests(cached.recent_scores || []);
-    }
-    if (!cached || !isDashboardCacheFresh()) {
-      api.request<any>(ROUTES.dashboard).then((data) => {
-        setCachedDashboard(data);
-        setRecentTests(data.recent_scores || []);
-      }).catch(() => {});
-    }
-
-    // Weak words with separate 5-min cache (keyed by user)
-    const weakKey = user ? `weak-words-${user.id}` : 'weak-words';
-    const cachedWeak = cacheGet<string[]>(weakKey);
-    if (cachedWeak) {
-      setWeakWords(cachedWeak);
-    } else {
-      api.getWeakWords().then((words) => {
-        setWeakWords(words);
-        cacheSet(weakKey, words, TIME.cacheWeakWords);
-      }).catch(() => {});
-    }
-  }, [isAuthenticated]);
-
-  const loadFeedback = async (testId: string) => {
-    setSelectedTestId(testId);
-    try {
-      const data = await api.getAIFeedback(testId);
-      setFeedback(data);
-    } catch (err) {
-      console.error('Failed to load feedback', err);
-    }
-  };
-
-  if (isLoading || !user) {
+  if (dashboardLoading) {
     return <FullPageLoader />;
   }
 
@@ -99,7 +53,7 @@ export default function AICoachPage() {
                 {recentTests.map((test: any) => (
                   <button
                     key={test.id}
-                    onClick={() => loadFeedback(test.id)}
+                    onClick={() => setSelectedTestId(test.id)}
                     className={`w-full text-left p-3 border-2 border-pencil transition-all duration-100 font-hand ${
                       selectedTestId === test.id
                         ? 'bg-postit shadow-hard-sm'

@@ -1,5 +1,7 @@
 import { TypingExam } from '@/components/exam/typing-exam';
 
+export const dynamic = 'force-dynamic';
+
 export default function SSCCHSLPage() {
   return (
     <TypingExam

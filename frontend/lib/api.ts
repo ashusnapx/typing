@@ -1,19 +1,15 @@
-import { trpcClient } from './trpc-client';
+import { trpcClient, getToken as getSupabaseToken, setSupabaseToken } from './trpc-client';
 import { TRPCClientError } from '@trpc/client';
 import { useTypingStore } from '@/store/typing-store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const ENABLE_TRPC = process.env.NEXT_PUBLIC_ENABLE_TRPC !== 'false';
 
 class ApiClient {
-  private token: string | null = null;
   private refreshing: Promise<boolean> | null = null;
   private pending: Map<string, Promise<any>> = new Map();
 
-  constructor() {
-    if (typeof window !== 'undefined') {
-      this.token = null;
-    }
-  }
+  constructor() {}
 
   private dedupKey(endpoint: string, options: RequestInit = {}): string {
     return `${options.method || 'GET'}:${endpoint}:${options.body || ''}`;
@@ -33,18 +29,18 @@ class ApiClient {
   }
 
   setToken(token: string | null) {
-    this.token = token;
+    setSupabaseToken(token);
   }
 
   getToken(): string | null {
-    return this.token;
+    return getSupabaseToken();
   }
 
   private async _t<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
     } catch (err) {
-      if (!this.token) throw err;
+      if (!this.getToken()) throw err;
 
       const isAuthError =
         (err instanceof TRPCClientError && err.data?.code === 'UNAUTHORIZED') ||
@@ -79,7 +75,7 @@ class ApiClient {
       const { refreshTokenFromSession } = await import('@/lib/trpc-client');
       const token = await refreshTokenFromSession();
       if (token) {
-        this.token = token;
+        this.setToken(token);
         return true;
       }
       return false;
@@ -104,8 +100,8 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    if (this.getToken()) {
+      headers['Authorization'] = `Bearer ${this.getToken()}`;
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -114,10 +110,10 @@ class ApiClient {
       credentials: 'include',
     });
 
-    if (response.status === 401 && this.token) {
+    if (response.status === 401 && this.getToken()) {
       const refreshed = await this.refreshToken();
       if (refreshed) {
-        headers['Authorization'] = `Bearer ${this.token}`;
+        headers['Authorization'] = `Bearer ${this.getToken()}`;
         const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
           ...options,
           headers,
@@ -139,7 +135,7 @@ class ApiClient {
 
   // Auth
   async getMe() {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.auth.getProfile.query());
       return {
         id: data.id,
@@ -180,7 +176,7 @@ class ApiClient {
   }
 
   async submitTest(testId: string, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const state = useTypingStore.getState();
       const mode = state.mode || 'practice';
       const durationSeconds = state.totalDuration || 600;
@@ -245,7 +241,7 @@ class ApiClient {
   }
 
   async directSubmit(mode: string, passage_id: string, duration_seconds: number, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const state = useTypingStore.getState();
       const originalContent = state.originalContent || '';
 
@@ -306,7 +302,7 @@ class ApiClient {
   }
 
   async getTestHistory(limit = 20, offset = 0) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.tests.history.query({ limit, offset }));
       return data.map((t) => ({
         id: t.id,
@@ -325,7 +321,7 @@ class ApiClient {
   }
 
   async getTestResult(testId: string) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const t = await this._t(() => trpcClient.tests.result.query({ testId }));
       return {
         test_id: t.testId,
@@ -361,7 +357,7 @@ class ApiClient {
   }
 
   async getTestReplay(testId: string) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.tests.replay.query({ testId }));
       return {
         events: data.events,
@@ -375,7 +371,7 @@ class ApiClient {
 
   // Dashboard
   async getDashboard() {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       return this._t(() => trpcClient.user.dashboard.query());
     }
     return this.request<any>('/dashboard');
@@ -383,7 +379,7 @@ class ApiClient {
 
   // Analytics
   async getAnalyticsOverview() {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.overview;
     }
@@ -391,7 +387,7 @@ class ApiClient {
   }
 
   async getPredictions() {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.predictions;
     }
@@ -399,7 +395,7 @@ class ApiClient {
   }
 
   async getRecentScores() {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.recent_scores;
     }
@@ -408,7 +404,7 @@ class ApiClient {
 
   // Leaderboard
   async getLeaderboard(scope = 'global', limit = 100) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.leaderboard.getRankings.query({ scope, limit }));
       return {
         entries: data.map((item) => ({
@@ -427,25 +423,52 @@ class ApiClient {
 
   // AI Coach
   async getAIFeedback(testId: string) {
+    if (ENABLE_TRPC) {
+      return this._t(() => trpcClient.aiCoach.feedback.query({ testId }));
+    }
     return this.request<any>(`/coach/feedback/${testId}`);
   }
 
   async getWeakWords() {
+    if (ENABLE_TRPC) {
+      const data = await this._t(() => trpcClient.analytics.overview.query());
+      return ((data as any).weakWords as string[]) || [];
+    }
     return this.request<string[]>('/coach/weak-words');
   }
 
   // Subscription
   async getSubscriptionStatus() {
+    if (ENABLE_TRPC) {
+      return this._t(() => trpcClient.subscription.current.query());
+    }
     return this.request<any>('/subscription/status');
   }
 
   async getPaymentHistory() {
+    if (ENABLE_TRPC) {
+      const data = await this._t(() => trpcClient.subscription.paymentHistory.query());
+      return data.map(p => ({
+        id: p.id,
+        user_id: p.userId,
+        subscription_id: p.subscriptionId,
+        amount: p.amount,
+        currency: p.currency,
+        provider: p.provider,
+        provider_payment_id: p.providerPaymentId,
+        provider_order_id: p.providerOrderId,
+        status: p.status,
+        gst_invoice_number: p.gstInvoiceNumber,
+        gst_amount: p.gstAmount,
+        created_at: p.createdAt,
+      }));
+    }
     return this.request<any[]>('/subscription/payments');
   }
 
   // Profile
   async updateProfile(data: any) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+    if (ENABLE_TRPC) {
       const updated = await this._t(() => trpcClient.user.updateProfile.mutate({
         full_name: data.full_name,
         email: data.email,

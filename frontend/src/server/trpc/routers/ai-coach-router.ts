@@ -4,7 +4,7 @@ import { aiCoach } from '../../services/ai-coach';
 import { qualificationPredictor } from '../../services/qualification-predictor';
 import { typingTests } from '../../db/schema/typing-tests';
 import { db } from '../../db/client';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export const aiCoachRouter = router({
   feedback: protectedProcedure
@@ -14,8 +14,10 @@ export const aiCoachRouter = router({
         .select()
         .from(typingTests)
         .where(
-          eq(typingTests.id, input.testId) &&
-          eq(typingTests.userId, ctx.user.id)
+          and(
+            eq(typingTests.id, input.testId),
+            eq(typingTests.userId, ctx.user.id)
+          )
         )
         .limit(1);
 

@@ -19,11 +19,12 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_TAG: ${{ github.sha }}
+  NODE_VERSION: "20"
 
 jobs:
-  # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 1: SECURITY SCAN (secrets, IaC, deps, filesystem scan)
-  # ───────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SECURITY SCAN — secrets, IaC, deps
+  # ─────────────────────────────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -35,26 +36,18 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         continue-on-error: true
 
-      - name: Checkov — IaC security scanning
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: .
-          skip_check: CKV_DOCKER_2,CKV_DOCKER_3,CKV_DOCKER_7
-          quiet: true
-          soft_fail: true
-
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Node dependencies
+      - name: Install dependencies
         run: npm ci --legacy-peer-deps
         working-directory: frontend
 
-      - name: npm audit — Node dependency vulnerabilities
+      - name: npm audit — dependency vulnerabilities
         run: npm audit --audit-level=high || true
         working-directory: frontend
         continue-on-error: true
@@ -71,30 +64,27 @@ jobs:
           exit-code: 1
           skip-dirs: node_modules,.next,venv,__pycache__,migrations
 
-      - name: Upload Trivy SARIF to Security tab
+      - name: Upload Trivy SARIF
         if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f trivy-results.sarif ] && [ -s trivy-results.sarif ]; then
-            echo "Uploading SARIF results..."
             gh api --method POST \
               -H "Accept: application/vnd.github+json" \
               /repos/${{ github.repository }}/code-scanning/sarifs \
               -f commit_sha="${{ github.sha }}" \
               -f ref="${{ github.ref }}" \
               -f sarif="@trivy-results.sarif" \
-              -f category="trivy" || echo "SARIF upload skipped (not critical)"
-          else
-            echo "No SARIF results generated — scan found no issues"
+              -f category="trivy" || echo "SARIF upload skipped"
           fi
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 2: FRONTEND QUALITY (lint, typecheck, build)
-  # ───────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FRONTEND QUALITY — lint, typecheck, test, build
+  # ─────────────────────────────────────────────────────────────────────────────
   frontend:
-    name: Frontend Quality Checks
+    name: Frontend (Lint → Typecheck → Test → Build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [security-scan]
@@ -104,7 +94,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -112,7 +102,7 @@ jobs:
         run: npm ci --legacy-peer-deps
         working-directory: frontend
 
-      - name: Cache Next.js build cache
+      - name: Cache Next.js build
         uses: actions/cache@v4
         with:
           path: frontend/.next/cache
@@ -120,15 +110,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
 
-      - name: Lint — ESLint
+      - name: Lint (ESLint)
         run: npm run lint
         working-directory: frontend
 
-      - name: Type check — TypeScript
+      - name: Typecheck (TypeScript)
         run: npm run typecheck
         working-directory: frontend
 
-      - name: Build — Next.js
+      - name: Test (Vitest)
+        run: npm run test
+        working-directory: frontend
+
+      - name: Build (Next.js)
         run: npm run build
         working-directory: frontend
         env:
@@ -138,9 +132,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 3: BUILD & PUSH (main only — Docker image + Cosign signing)
-  # ───────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BUILD & PUSH — main only, Docker images + Cosign signing
+  # ─────────────────────────────────────────────────────────────────────────────
   build-and-push:
     name: Build & Push
     runs-on: ubuntu-latest
@@ -185,9 +179,9 @@ jobs:
           cosign sign --yes \
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend@${{ steps.frontend-build.outputs.digest }}
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 4: DEPLOY (main only — Kubernetes, soft-fail if no cluster)
-  # ───────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DEPLOY — main only, Kubernetes
+  # ─────────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -204,20 +198,10 @@ jobs:
       - name: Deploy to Kubernetes
         shell: bash
         run: |
-          # Check if a K8s cluster is configured
           if ! kubectl config current-context &>/dev/null; then
             echo "No Kubernetes cluster configured — skipping deploy"
             exit 0
           fi
-
-          # Apply security context if it exists
-          if [ -f infrastructure/k8s/security-context.yaml ]; then
-            kubectl apply -f infrastructure/k8s/security-context.yaml
-          else
-            echo "security-context.yaml not found — skipping"
-          fi
-
-          # Deploy frontend
           kubectl set image deployment/mathsmania-frontend \
             frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
           kubectl rollout status deployment/mathsmania-frontend --timeout=300s

@@ -5,7 +5,7 @@ import { typingTests } from '../../db/schema/typing-tests';
 import { userAnalytics } from '../../db/schema/user-analytics';
 import { errorPatterns } from '../../db/schema/error-patterns';
 import { passages } from '../../db/schema/passages';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, and } from 'drizzle-orm';
 
 export const dashboardRouter = router({
   stats: protectedProcedure
@@ -74,8 +74,10 @@ export const dashboardRouter = router({
         })
         .from(typingTests)
         .where(
-          eq(typingTests.userId, ctx.user.id) &&
-          sql`${typingTests.createdAt} >= ${sevenDaysAgo}`
+          and(
+            eq(typingTests.userId, ctx.user.id),
+            sql`${typingTests.createdAt} >= ${sevenDaysAgo}`
+          )
         );
 
       const dayMap = new Map<string, { tests: number; duration: number }>();

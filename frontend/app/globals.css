@@ -144,6 +144,24 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .bg-ruled-paper {
+    background-color: #fdfbf7;
+    background-image:
+      repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        #d4d0c8 27px,
+        #d4d0c8 28px
+      ),
+      linear-gradient(
+        to right,
+        #ff4d4d 2px,
+        transparent 2px
+      );
+    background-size: 100% 28px, 48px 100%;
+    background-position: 0 0, 44px 0;
+  }
 }
 
 @font-face {

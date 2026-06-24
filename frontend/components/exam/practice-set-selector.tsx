@@ -1,11 +1,8 @@
 'use client';
 
 import { PracticeSet } from '@/lib/practice-sets';
-import { ArrowLeft, Timer, Target } from 'lucide-react';
-
-const NAVY = '#003366';
-const BORDER = '#dcdcdc';
-const TEXT = '#222222';
+import { ArrowLeft, Timer, Target, BookOpen } from 'lucide-react';
+import { WOBBLY_RADII } from '@/lib/config';
 
 interface PracticeSetSelectorProps {
   examName: string;
@@ -18,93 +15,70 @@ interface PracticeSetSelectorProps {
 
 export default function PracticeSetSelector({ examName, sets, durationMinutes, wpmTarget, onSelect, onBack }: PracticeSetSelectorProps) {
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Poppins, sans-serif', color: TEXT }}>
-      {/* Header */}
-      <div style={{
-        height: 64, background: NAVY, display: 'flex', alignItems: 'center',
-        padding: '0 32px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>EDUQUITY</div>
-          <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.3)' }} />
-          <div style={{ color: '#fff', fontSize: 15, fontWeight: 500, opacity: 0.9 }}>{examName}</div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
+    <div className="min-h-screen bg-paper">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Back */}
         <button
           onClick={onBack}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 14, color: '#666', background: 'none', border: 'none',
-            cursor: 'pointer', padding: 0, marginBottom: 24,
-          }}
+          className="inline-flex items-center gap-1.5 text-sm font-hand text-pencil/50 hover:text-pencil transition-colors mb-6"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft className="w-4 h-4" strokeWidth={3} />
           Back to Exams
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>Select Practice Set</h1>
-          <p style={{ fontSize: 15, color: '#666', margin: 0 }}>Choose a set to begin the {examName} typing test</p>
-          <div style={{
-            display: 'flex', justifyContent: 'center', gap: 24, marginTop: 8,
-            fontSize: 13, color: '#888',
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Timer size={14} /> {durationMinutes} min
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-postit"
+              style={{ borderRadius: WOBBLY_RADII.sm }}>
+              <BookOpen className="w-5 h-5 text-pencil" strokeWidth={3} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-pencil font-marker">Select Practice Set</h1>
+              <p className="text-sm text-pencil/60 font-hand">Choose a set to begin the {examName} typing test</p>
+            </div>
+          </div>
+          <div className="flex justify-center gap-6 text-xs font-hand text-pencil/50">
+            <span className="flex items-center gap-1.5">
+              <Timer className="w-3.5 h-3.5" strokeWidth={2.5} /> {durationMinutes} min
             </span>
             {wpmTarget ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Target size={14} /> {wpmTarget} WPM target
+              <span className="flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5" strokeWidth={2.5} /> {wpmTarget} WPM target
               </span>
             ) : null}
           </div>
         </div>
 
         {/* Sets Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
-          {sets.map((set) => (
+        <div className="flex flex-col gap-3">
+          {sets.map((set, idx) => (
             <button
               key={set.number}
               onClick={() => onSelect(set)}
+              className="bg-white border-2 border-pencil p-4 hover:shadow-hard transition-all text-left cursor-pointer group flex items-center gap-4"
               style={{
-                display: 'block', textAlign: 'left', width: '100%',
-                background: '#fff', border: `1px solid ${BORDER}`,
-                borderRadius: 8, padding: 24,
-                cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = NAVY;
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,51,102,0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = BORDER;
-                e.currentTarget.style.boxShadow = 'none';
+                borderRadius: WOBBLY_RADII.md,
+                transform: `rotate(${idx % 2 === 0 ? '-0.3' : '0.3'}deg)`,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 8, background: NAVY,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: 18, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {set.number}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 600, color: TEXT, marginBottom: 2 }}>{set.title}</div>
-                    <div style={{ fontSize: 14, color: '#888' }}>{set.description}</div>
-                  </div>
-                </div>
-                <div style={{ color: '#ccc', fontSize: 20 }}>→</div>
+              {/* Set number badge */}
+              <div className="w-12 h-12 shrink-0 flex items-center justify-center border-2 border-pencil bg-accent text-white font-marker text-lg"
+                style={{ borderRadius: WOBBLY_RADII.sm }}>
+                {set.number}
               </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="font-marker text-base text-pencil mb-0.5">{set.title}</div>
+                <div className="font-hand text-sm text-pencil/60">{set.description}</div>
+              </div>
+
+              <ArrowLeft className="w-5 h-5 text-pencil/30 rotate-180 group-hover:text-pencil/60 transition-colors shrink-0" strokeWidth={3} />
             </button>
           ))}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

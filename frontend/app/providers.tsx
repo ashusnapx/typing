@@ -1,15 +1,6 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import dynamic from 'next/dynamic';
-
-const ReactQueryDevtools = dynamic(
-  () =>
-    import('@tanstack/react-query-devtools').then(
-      (mod) => mod.ReactQueryDevtools
-    ),
-  { ssr: false }
-);
 import { Toaster } from 'react-hot-toast';
 import { useRef, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -36,7 +27,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isPublic && !isLoading && !isAuthenticated) {
-      router.replace('/');
+      router.replace('/auth/login');
     }
   }, [isPublic, isLoading, isAuthenticated, router]);
 
@@ -92,9 +83,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       />
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
-      )}
     </QueryClientProvider>
   );
 }

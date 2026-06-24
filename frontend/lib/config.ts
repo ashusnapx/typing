@@ -214,39 +214,7 @@ export const PAIN_POINTS = [
   },
 ] as const;
 
-// =============================================================================
-// TESTIMONIALS — Social proof (aspirant stories)
-// =============================================================================
-export const TESTIMONIALS = [
-  {
-    quote:
-      'Pehle 3 mock platforms pe 40+ WPM aata tha but real exam mein fail ho gaya. Maths Mania pe pata chala ki Gross WPM dikha rahe the. Yahan real SSC formula hai.',
-    name: 'Rahul S.',
-    role: 'SSC CHSL 2025 Qualified',
-    wpm: '42 WPM',
-  },
-  {
-    quote:
-      'Main toh typing bilkul nahi aati thi. 10 levels ka course hai — home row se start kiya, 2 mahine mein 35 WPM hit kiya. Aj exam clear kiya!',
-    name: 'Priya M.',
-    role: 'SSC CHSL 2025 Qualified',
-    wpm: '36 WPM',
-  },
-  {
-    quote:
-      'AI Coach ne bataya ki main left hand pe zyada dependent hoon aur number row weak hai. Usne khusus drills di. 2 hafte mein accuracy 88% se 96% ho gayi.',
-    name: 'Amit K.',
-    role: 'SSC CGL DEST Qualified',
-    wpm: '40 WPM',
-  },
-  {
-    quote:
-      'Ediquity replica bilkul same hai. Timer ka placement, font, split-screen — sab. Exam hall mein baithke laga ki pehle bhi de chuka hoon. Game changer.',
-    name: 'Neha J.',
-    role: 'SSC CHSL 2025 Qualified',
-    wpm: '38 WPM',
-  },
-] as const;
+
 
 // =============================================================================
 // HERO STATS

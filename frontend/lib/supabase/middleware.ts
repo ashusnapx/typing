@@ -3,9 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_ROUTES = [
   '/', '/auth/login', '/auth/register', '/auth/callback',
-  '/api/trpc', '/api/inngest', '/health',
+  '/api/trpc', '/api/inngest',
   '/exam', '/learn', '/about', '/faq', '/contact', '/privacy', '/terms',
-  '/blog', '/coach',
+  '/blog', '/coach', '/dashboard', '/leaderboard',
 ];
 
 export async function updateSession(request: NextRequest) {

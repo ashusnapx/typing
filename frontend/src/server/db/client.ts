@@ -16,11 +16,13 @@ function getConnectionString(): string {
     : rawUrl;
 }
 
+const POOL_MAX = parseInt(process.env.DATABASE_POOL_MAX || '50', 10);
+
 export function getPool(): Pool {
   if (!poolInstance) {
     poolInstance = new Pool({
       connectionString: getConnectionString(),
-      max: 20,
+      max: POOL_MAX,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });

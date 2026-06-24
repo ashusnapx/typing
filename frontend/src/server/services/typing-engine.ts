@@ -63,8 +63,32 @@ export class TypingEngine {
   private static readonly RIGHT_HAND_KEYS = new Set('yuiophjklnm');
   private static readonly NUMBER_ROW_KEYS = new Set('1234567890');
   private static readonly SHIFT_KEYS = new Set('~!@#$%^&*()_+{}|:"<>?QWERTYUIOPASDFGHJKLZXCVBNM');
+  private static readonly SESSION_TTL_MS = 30 * 60 * 1000;
 
   private sessions: Map<string, SessionData> = new Map();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    this.cleanupTimer = setInterval(() => this.evictStale(), 60_000);
+    this.cleanupTimer.unref();
+  }
+
+  dispose(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.sessions.clear();
+  }
+
+  private evictStale(): void {
+    const now = Date.now();
+    for (const [id, session] of this.sessions) {
+      if (now - session.startTime > TypingEngine.SESSION_TTL_MS) {
+        this.sessions.delete(id);
+      }
+    }
+  }
 
   createSession(testId: string, originalContent: string, durationSeconds: number): string {
     this.sessions.set(testId, {

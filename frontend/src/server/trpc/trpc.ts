@@ -2,8 +2,34 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { Context } from './context';
 import { logStorage } from '../observability/logger';
 import { traceSpan } from '../observability/tracing';
+import { redis } from '../redis/client';
 
 const t = initTRPC.context<Context>().create();
+
+const RATE_LIMIT_WINDOW = 60;
+const RATE_LIMIT_AUTHED = 100;
+const RATE_LIMIT_ANON = 20;
+
+async function checkRateLimit(ctx: Context): Promise<void> {
+  const key = ctx.user?.id
+    ? `ratelimit:user:${ctx.user.id}`
+    : `ratelimit:ip:${ctx.requestId}`;
+  try {
+    const current = await redis.incr(key);
+    if (current === 1) {
+      await redis.expire(key, RATE_LIMIT_WINDOW);
+    }
+    const limit = ctx.user?.id ? RATE_LIMIT_AUTHED : RATE_LIMIT_ANON;
+    if (current > limit) {
+      throw new TRPCError({
+        code: 'TOO_MANY_REQUESTS',
+        message: `Rate limit exceeded. ${limit} requests per ${RATE_LIMIT_WINDOW}s.`,
+      });
+    }
+  } catch (err) {
+    if (err instanceof TRPCError) throw err;
+  }
+}
 
 // Middleware: Logging & Performance Timing
 const loggingMiddleware = t.middleware(async ({ path, type, next, ctx }) => {
@@ -19,6 +45,12 @@ const loggingMiddleware = t.middleware(async ({ path, type, next, ctx }) => {
       });
     }
   );
+});
+
+// Middleware: Rate limiting
+const rateLimitMiddleware = t.middleware(async ({ next, ctx }) => {
+  await checkRateLimit(ctx);
+  return next();
 });
 
 // Middleware: Protected procedurals
@@ -39,6 +71,6 @@ const isAuthed = t.middleware(({ next, ctx }) => {
 });
 
 export const router = t.router;
-export const publicProcedure = t.procedure.use(loggingMiddleware);
-export const protectedProcedure = t.procedure.use(loggingMiddleware).use(isAuthed);
+export const publicProcedure = t.procedure.use(loggingMiddleware).use(rateLimitMiddleware);
+export const protectedProcedure = t.procedure.use(loggingMiddleware).use(rateLimitMiddleware).use(isAuthed);
 export const middleware = t.middleware;

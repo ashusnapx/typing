@@ -6,23 +6,26 @@ import { userAnalytics } from '../../db/schema/user-analytics';
 import { errorPatterns } from '../../db/schema/error-patterns';
 import { passages } from '../../db/schema/passages';
 import { eq, desc, sql, and } from 'drizzle-orm';
+import { responseCache } from '../../services/response-cache';
 
 export const dashboardRouter = router({
   stats: protectedProcedure
     .input(z.void())
     .query(async ({ ctx }) => {
-      const allTests = await db
-        .select({
-          netWpm: typingTests.netWpm,
-          accuracy: typingTests.accuracy,
-          grossWpm: typingTests.grossWpm,
-          mode: typingTests.mode,
-          durationSeconds: typingTests.durationSeconds,
-          createdAt: typingTests.createdAt,
-        })
-        .from(typingTests)
-        .where(eq(typingTests.userId, ctx.user.id))
-        .orderBy(desc(typingTests.createdAt));
+      const cacheKey = responseCache.makeCacheKey('dashboard', 'stats', ctx.user.id);
+      return responseCache.getOrCompute(cacheKey, 30, async () => {
+        const allTests = await db
+          .select({
+            netWpm: typingTests.netWpm,
+            accuracy: typingTests.accuracy,
+            grossWpm: typingTests.grossWpm,
+            mode: typingTests.mode,
+            durationSeconds: typingTests.durationSeconds,
+            createdAt: typingTests.createdAt,
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id))
+          .orderBy(desc(typingTests.createdAt));
 
       const totalTests = allTests.length;
       const avgWpm = totalTests > 0
@@ -60,6 +63,7 @@ export const dashboardRouter = router({
           mode: t.mode,
         })),
       };
+    });
     }),
 
   weeklyActivity: protectedProcedure

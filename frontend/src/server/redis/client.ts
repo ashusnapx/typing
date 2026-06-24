@@ -14,12 +14,21 @@ function createRedisClient(): Redis {
     redisUrl = redisUrl.replace('127.0.0.1', 'redis');
   }
 
+  const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES || '10', 10);
+  const connectTimeout = parseInt(process.env.REDIS_CONNECT_TIMEOUT || '10000', 10);
+
   const client = new Redis(redisUrl, {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: maxRetries,
+    connectionName: 'typingmania',
+    lazyConnect: true,
+    keepAlive: 10000,
+    connectTimeout,
     retryStrategy(times) {
-      const delay = Math.min(times * 100, 2000);
+      if (times > maxRetries) return null;
+      const delay = Math.min(times * 200, 3000);
       return delay;
     },
+    enableReadyCheck: true,
   });
 
   client.on('error', (err) => {

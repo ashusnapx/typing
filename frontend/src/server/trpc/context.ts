@@ -5,6 +5,8 @@ import { users } from '../db/schema/users';
 import { eq } from 'drizzle-orm';
 import { logger } from '../observability/logger';
 
+const USER_CACHE_TTL = 60; // seconds
+
 export interface UserSession {
   id: string;
   email: string;
@@ -42,85 +44,89 @@ export async function createContext(opts: FetchCreateContextFnOptions) {
   }
 
   if (token) {
-    console.log('[context] Token found, length:', token.length);
     try {
       const payload = decodeJwtPayload(token);
       const decodedSub = payload?.sub || null;
       const decodedEmail = payload?.email || null;
       const decodedMeta = payload?.user_metadata || {};
-      console.log('[context] JWT decoded:', { sub: decodedSub, email: decodedEmail, payloadKeys: payload ? Object.keys(payload) : null });
 
       if (!decodedSub || !decodedEmail) {
-        console.error('[context] JWT missing sub or email claim');
         logger.warn('JWT missing sub or email claim', { hasSub: !!decodedSub, hasEmail: !!decodedEmail });
       } else {
-        console.log('[context] Looking up user by email:', decodedEmail);
-        const [existingUser] = await db
-          .select({
-            id: users.id,
-            email: users.email,
-            fullName: users.fullName,
-            role: users.role,
-          })
-          .from(users)
-          .where(eq(users.email, decodedEmail))
-          .limit(1);
+        // Try Redis cache first
+        const cacheKey = `user:email:${decodedEmail}`;
+        let cached: UserSession | null = null;
+        try {
+          const raw = await redis.get(cacheKey);
+          if (raw) cached = JSON.parse(raw);
+        } catch { /* Redis unavailable — fall through to DB */ }
 
-        if (existingUser) {
-          console.log('[context] Found existing user:', existingUser.id, existingUser.email);
-          user = {
-            id: existingUser.id,
-            email: existingUser.email,
-            fullName: existingUser.fullName,
-            role: existingUser.role,
-          };
-          session = { userId: existingUser.id };
+        if (cached) {
+          user = cached;
+          session = { userId: cached.id };
         } else {
-          console.log('[context] No user found, creating new user with id:', decodedSub);
-          const displayName = decodedMeta.full_name || decodedMeta.name || decodedEmail.split('@')[0] || 'User';
-          const now = new Date();
-          try {
-            const [newUser] = await db
-              .insert(users)
-              .values({
-                id: decodedSub,
-                email: decodedEmail,
-                fullName: displayName,
-                role: 'student',
-                isVerified: true,
-                isActive: true,
-                xp: 0,
-                level: 1,
-                streakDays: 0,
-                totalTestsTaken: 0,
-                totalTimeSpentSeconds: 0,
-                isPremium: false,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .returning();
+          const [existingUser] = await db
+            .select({
+              id: users.id,
+              email: users.email,
+              fullName: users.fullName,
+              role: users.role,
+            })
+            .from(users)
+            .where(eq(users.email, decodedEmail))
+            .limit(1);
 
-            console.log('[context] Created new user:', newUser.id, newUser.email);
+          if (existingUser) {
             user = {
-              id: newUser.id,
-              email: newUser.email,
-              fullName: newUser.fullName,
-              role: newUser.role,
+              id: existingUser.id,
+              email: existingUser.email,
+              fullName: existingUser.fullName,
+              role: existingUser.role,
             };
-            session = { userId: newUser.id };
-          } catch (insertErr: any) {
-            console.error('[context] User insert failed:', insertErr?.message || insertErr);
-            console.error('[context] Full insert error:', JSON.stringify(insertErr, null, 2));
-            throw insertErr;
+            session = { userId: existingUser.id };
+            // Cache for next request
+            try { await redis.setex(cacheKey, USER_CACHE_TTL, JSON.stringify(user)); } catch {}
+          } else {
+            const displayName = decodedMeta.full_name || decodedMeta.name || decodedEmail.split('@')[0] || 'User';
+            const now = new Date();
+            try {
+              const [newUser] = await db
+                .insert(users)
+                .values({
+                  id: decodedSub,
+                  email: decodedEmail,
+                  fullName: displayName,
+                  role: 'student',
+                  isVerified: true,
+                  isActive: true,
+                  xp: 0,
+                  level: 1,
+                  streakDays: 0,
+                  totalTestsTaken: 0,
+                  totalTimeSpentSeconds: 0,
+                  isPremium: false,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+                .returning();
+
+              user = {
+                id: newUser.id,
+                email: newUser.email,
+                fullName: newUser.fullName,
+                role: newUser.role,
+              };
+              session = { userId: newUser.id };
+            } catch (insertErr: any) {
+              logger.error('User insert failed', { error: insertErr?.message });
+              throw insertErr;
+            }
           }
         }
       }
     } catch (err) {
-      console.error('[context] Auth verification error:', err);
-      logger.error('Supabase auth verification failed in createContext:', err);
+      logger.error('Auth verification error in createContext', err);
     }
-  } else {
-    console.warn('[context] No token found in Authorization header or cookies');
   }
 
   return {

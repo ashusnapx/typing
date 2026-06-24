@@ -2,16 +2,36 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_ROUTES = [
-  '/', '/auth/login', '/auth/register', '/auth/callback',
+  '/', '/auth/callback',
   '/api/trpc', '/api/inngest',
   '/exam', '/learn', '/about', '/faq', '/contact', '/privacy', '/terms',
   '/blog', '/coach', '/dashboard', '/leaderboard',
 ];
 
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTES.some(route =>
+    pathname === route || pathname.startsWith(route + '/')
+  );
+}
+
+function isAuthPage(pathname: string): boolean {
+  return pathname === '/auth/login' || pathname === '/auth/register';
+}
+
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const { pathname } = request.nextUrl;
+
+  // Skip auth check entirely for static assets
+  if (pathname.startsWith('/_next')) {
+    return NextResponse.next({ request });
+  }
+
+  // Public routes (except login/register) — skip Supabase call entirely
+  if (isPublicRoute(pathname) && !isAuthPage(pathname)) {
+    return NextResponse.next({ request });
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,9 +43,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -37,17 +55,15 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getUser()
   const user = data?.user
 
-  const isPublicRoute = PUBLIC_ROUTES.some(route =>
-    request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
-  )
-
-  if (!user && !isPublicRoute && !request.nextUrl.pathname.startsWith('/_next')) {
+  // Protected route + no user → redirect to login
+  if (!user && !isPublicRoute(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && (request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/register')) {
+  // Already logged in on auth pages → redirect to dashboard
+  if (user && isAuthPage(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

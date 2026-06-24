@@ -1,18 +1,19 @@
 import { inngest } from './client';
-import { db } from '../db/client';
+import { db, getDb } from '../db/client';
 import { users } from '../db/schema/users';
 import { sessions } from '../db/schema/sessions';
 import { typingTests } from '../db/schema/typing-tests';
 import { LeaderboardService } from '../redis/leaderboard-service';
 import { createNextMonthPartitions, archiveOldPartitions } from '../db/partitions';
-import { eq, lt, desc } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { redis } from '../redis/client';
+
+const BATCH_SIZE = 500;
 
 // 1. Daily Analytics & Cleanup
 export const dailyCleanup = inngest.createFunction(
-  { id: 'daily-cleanup-job', triggers: [{ cron: '0 0 * * *' }] }, // Runs every day at midnight
+  { id: 'daily-cleanup-job', triggers: [{ cron: '0 0 * * *' }] },
   async ({ step }: { step: any }) => {
-    // Delete expired sessions from database
     await step.run('cleanup-expired-sessions', async () => {
       const now = new Date();
       await db.delete(sessions).where(lt(sessions.expiresAt, now));
@@ -23,39 +24,62 @@ export const dailyCleanup = inngest.createFunction(
 
 // 2. Hourly Leaderboard Repair & Reconciliation
 export const hourlyLeaderboardRepair = inngest.createFunction(
-  { id: 'hourly-leaderboard-repair-job', triggers: [{ cron: '0 * * * *' }] }, // Runs every hour
+  { id: 'hourly-leaderboard-repair-job', triggers: [{ cron: '0 * * * *' }] },
   async ({ step }: { step: any }) => {
     await step.run('reconcile-redis-rankings', async () => {
-      // Re-fill Redis global rankings with best tests from database
-      const allUsers = await db
-        .select({
-          id: users.id,
-          state: users.state,
-          district: users.district,
-        })
-        .from(users);
+      let offset = 0;
+      let total = 0;
 
-      for (const user of allUsers) {
-        const [bestTest] = await db
-          .select()
-          .from(typingTests)
-          .where(eq(typingTests.userId, user.id))
-          .orderBy(desc(typingTests.netWpm))
-          .limit(1);
+      while (true) {
+        const batch = await getDb()
+          .select({
+            id: users.id,
+            state: users.state,
+            district: users.district,
+          })
+          .from(users)
+          .limit(BATCH_SIZE)
+          .offset(offset);
 
-        if (bestTest) {
-          // Re-insert into ZSET to ensure consistency
-          await LeaderboardService.updateScore({
-            userId: user.id,
-            wpm: bestTest.netWpm || 0,
-            accuracy: bestTest.accuracy || 0,
-            errors: bestTest.totalErrors || 0,
-            state: user.state || undefined,
-            district: user.district || undefined,
-          });
+        if (batch.length === 0) break;
+        offset += batch.length;
+
+        const userIds = batch.map(u => u.id);
+
+        // Single batch query: best test per user using DISTINCT ON
+        const bestTests = await getDb().execute(
+          sql`
+            SELECT DISTINCT ON (tt.user_id)
+              tt.user_id, tt.net_wpm, tt.accuracy, tt.total_errors
+            FROM typing_tests tt
+            WHERE tt.user_id = ANY(${userIds})
+            ORDER BY tt.user_id, tt.net_wpm DESC
+          `
+        );
+
+        const rows = bestTests.rows as Array<{
+          user_id: string; net_wpm: number; accuracy: number; total_errors: number;
+        }>;
+        const bestMap = new Map(rows.map(r => [r.user_id, r]));
+
+        for (const user of batch) {
+          const best = bestMap.get(user.id);
+          if (best) {
+            await LeaderboardService.updateScore({
+              userId: user.id,
+              wpm: best.net_wpm || 0,
+              accuracy: best.accuracy || 0,
+              errors: best.total_errors || 0,
+              state: user.state || undefined,
+              district: user.district || undefined,
+            });
+          }
         }
+
+        total += batch.length;
       }
-      return { success: true, count: allUsers.length };
+
+      return { success: true, count: total };
     });
   }
 );

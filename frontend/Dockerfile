@@ -10,6 +10,10 @@ FROM base AS builder
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-test-publishable-key}
+ENV DATABASE_URL=postgresql://test:test@localhost:5432/typing_test
+ENV REDIS_URL=redis://localhost:6379/0
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -33,7 +37,7 @@ RUN mkdir -p /app/.next/cache /app/.next/server /app/.next/trace && \
 
 USER nextjs
 ENV HOME=/home/nextjs
-ENV PORT 8080
+ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 EXPOSE 3000

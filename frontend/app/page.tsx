@@ -78,6 +78,7 @@ const TYPEWRITER_WORDS = [
   "SSC MTS",
   "SSC JE",
   "SSC STENO",
+  "ANY TYPING EXAM",
 ];
 
 function TypewriterHeading() {
@@ -139,11 +140,11 @@ function FloatingChars() {
         "^",
       ].map((c, i) => ({
         char: c,
-        x: 5 + Math.sin(i * 1.7) * 45,
-        y: 8 + Math.cos(i * 2.3) * 35,
+        x: Number((5 + Math.sin(i * 1.7) * 45).toFixed(4)),
+        y: Number((8 + Math.cos(i * 2.3) * 35).toFixed(4)),
         size: 11 + (i % 3) * 5,
         delay: i * 0.4,
-        opacity: 0.04 + (i % 4) * 0.015,
+        opacity: Number((0.04 + (i % 4) * 0.015).toFixed(4)),
       })),
     [],
   );
@@ -400,7 +401,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, ...smoothEase }}
               >
-                Practice for { " "}
+                Practice for&nbsp;
               </motion.span>
               <motion.span
                 className='text-accent inline-block'
@@ -463,7 +464,7 @@ export default function HomePage() {
               </Link>
             </motion.div>
 
-            <motion.p
+            {/* <motion.p
               className='mt-4 text-sm text-pencil/40 font-hand'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -471,7 +472,7 @@ export default function HomePage() {
             >
               No registration required &bull; 100% Free &bull; Exact SSC
               Evaluation
-            </motion.p>
+            </motion.p> */}
           </motion.div>
         </section>
 

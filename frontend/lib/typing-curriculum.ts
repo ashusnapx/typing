@@ -475,9 +475,9 @@ export const LEVELS: Level[] = [
   // ─── Level 7: Numbers & Symbols ───────────────────────────────────────────
   {
     id: 7,
-    name: "Numbers & Symbols",
-    subtitle: "Numeric and punctuation mastery",
-    description: "Numbers (1-0) aur common symbols/punctuation ki practice karein jo official typing tests ke liye zaroori hain.",
+    name: "Numbers, Symbols & Shift",
+    subtitle: "Complete keyboard coverage",
+    description: "Numbers (0-9), saari punctuation marks, brackets, special characters, aur Shift key (uppercase) ki comprehensive practice — koi bhi key chhootni nahi chahiye.",
     icon: "Hash",
     lessons: [
       {
@@ -515,18 +515,18 @@ export const LEVELS: Level[] = [
       {
         id: "l7-symbols",
         title: "Common Symbols and Punctuation",
-        instruction: "Shift key ke sath common symbols aur punctuation type karein: hyphen (-), equal (=), question (?).",
-        keys: ["-", "=", "?", "/", "!"],
-        sampleText: "is it? a-z text. 1+1=2. yes! what? no-go. up/down",
+        instruction: "Shift key ke sath aur bhi symbols type karein: colon (:), apostrophe ('), quotes (\"), underscore (_), plus (+), caret (^), asterisk (*).",
+        keys: ["-", "=", "?", "/", "!", ":", "'", "\"", "_", "+", "^", "*"],
+        sampleText: "name: 'India' + $100. 100%_pass? a^b*c. date: 01/01/2026!",
         targetWpm: 18,
         minAccuracy: 88,
         durationSec: 150,
         xpReward: 30,
-        fingerZones: ['rp', 'lp', 'thumb'],
-        newKeys: ['-', '=', '?', '/', '!'],
+        fingerZones: ['rp', 'lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'thumb'],
+        newKeys: [':', "'", '"', '_', '+', '^', '*'],
         drillType: 'sentences',
-        psychTip: "Shift key dabane ke liye left shift right pinky ke keys ke liye aur right shift left hand ke keys ke liye use karein.",
-        warmupText: "is it? 1+1=2"
+        psychTip: "Colon (:) right pinky se Shift+semicolon dabayein. Apostrophe (') bina Shift ke right pinky. Underscore (_) Shift+minus.",
+        warmupText: "name: 'text' _under +plus"
       },
       {
         id: "l7-ssc-symbols",
@@ -543,6 +543,38 @@ export const LEVELS: Level[] = [
         drillType: 'sentences',
         psychTip: "Special formats me keyboard par glance le sakte hain agar muscle memory weak lag rahi ho.",
         warmupText: "date 24/06/2026 18%"
+      },
+      {
+        id: "l7-brackets",
+        title: "Brackets, Braces and Special Keys",
+        instruction: "Square brackets [], curly braces {}, backslash (\\), pipe (|), angle brackets <>, aur tilde (~) type karein.",
+        keys: ["[", "]", "{", "}", "\\", "|", "<", ">", "~"],
+        sampleText: "file [data] {name} path\\to\\file. a<b | c>d. ~tilde~ [nested {brackets}]",
+        targetWpm: 18,
+        minAccuracy: 88,
+        durationSec: 150,
+        xpReward: 35,
+        fingerZones: ['lp', 'rp', 'li', 'ri', 'rm', 'rr', 'thumb'],
+        newKeys: ['[', ']', '{', '}', '\\', '|', '<', '>', '~'],
+        drillType: 'sentences',
+        psychTip: "Square brackets left pinky se, curly braces Shift+dono se. Backslash (\\) right pinky ke upar, Shift se pipe (|).",
+        warmupText: "[data] {name} file\\path"
+      },
+      {
+        id: "l7-shift-uppercase",
+        title: "Shift Key and Uppercase Letters",
+        instruction: "Shift key daba kar uppercase letters (A-Z) type karein. Proper nouns, sentence starts, aur abbreviations me ye zaroori hai.",
+        keys: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+        sampleText: "The Government of India Act was passed in 1935. Mr. Sharma and Dr. Patel attended the SSC CHSL Exam in New Delhi on Monday.",
+        targetWpm: 20,
+        minAccuracy: 88,
+        durationSec: 150,
+        xpReward: 35,
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
+        newKeys: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
+        drillType: 'sentences',
+        psychTip: "Left Shift right-hand keys ke liye, Right Shift left-hand keys ke liye. Dono haath ka coordination zaroori hai — ek haath Shift dabaaye, dusra letter hit kare.",
+        warmupText: "The India Act SSC CHSL"
       }
     ]
   },
@@ -934,16 +966,8 @@ export function getNextLessonId(currentId: string): string | null {
   return all[idx + 1].id;
 }
 
-export function isLessonUnlocked(lessonId: string, progress: Record<string, any>): boolean {
-  // Strict sequential unlocking: a lesson is unlocked if it's the first lesson,
-  // or if the previous lesson is qualified.
-  const flat = getFlatLessons();
-  const idx = flat.findIndex((l) => l.id === lessonId);
-  if (idx <= 0) return true; // first lesson is always unlocked
-
-  const prevLesson = flat[idx - 1];
-  const prevProgress = progress[prevLesson.id];
-  return prevProgress ? prevProgress.qualified : false;
+export function isLessonUnlocked(_lessonId: string, _progress: Record<string, any>): boolean {
+  return true;
 }
 
 export const LEVEL_NAMES = [

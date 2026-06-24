@@ -6,17 +6,6 @@ metadata:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: backend-pdb
-  namespace: mathsmania
-spec:
-  minAvailable: 3
-  selector:
-    matchLabels:
-      app: mathsmania-backend
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
   name: frontend-pdb
   namespace: mathsmania
 spec:

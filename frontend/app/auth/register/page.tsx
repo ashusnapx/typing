@@ -12,14 +12,23 @@ import { LoadingOverlay, LogoSpinner } from '@/components/ui/loading-logo';
 import { CSS, ROUTES } from '@/lib/config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { registerSchema, type RegisterFormData } from '@/lib/schemas';
+import { z } from 'zod';
+
+const signupSchema = z.object({
+  full_name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
 
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
   const registerUser = useAuthStore((s) => s.register);
   const router = useRouter();
 
@@ -28,30 +37,66 @@ export default function RegisterPage() {
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       full_name: '',
       email: '',
       password: '',
-      confirmPassword: '',
     },
   });
 
   const passwordValue = watch('password', '');
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: SignupFormData) => {
     setLoading(true);
     try {
       await registerUser(data.email, data.password, data.full_name);
-      toast.success('Account created successfully');
+      toast.success('Account created successfully!');
       router.push(ROUTES.dashboard);
     } catch (err: any) {
-      toast.error(err.message || 'Registration failed');
+      const msg = err.message || 'Registration failed';
+
+      if (msg === 'confirmation_email_sent') {
+        setConfirmationEmail(data.email);
+        setConfirmationSent(true);
+        toast.success(
+          'Account created! Please check your email for a confirmation link before signing in.',
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border-2 border-pencil shadow-hard p-8 rotate-[0.5deg] hover:rotate-0 transition-transform text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 border-2 border-pencil bg-paper mb-4"
+               style={wobbly}>
+            <Mail className="w-8 h-8 text-pencil" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-2xl font-bold text-pencil font-marker mb-3">Check Your Email</h1>
+          <p className="text-base text-pencil/60 font-hand mb-2">
+            We&apos;ve sent a confirmation link to <strong className="text-pencil">{confirmationEmail}</strong>.
+          </p>
+          <p className="text-base text-pencil/60 font-hand mb-6">
+            Click the link to activate your account, then sign in.
+          </p>
+          <Link
+            href={ROUTES.authLogin}
+            className="btn-hand inline-block text-lg px-8 py-3"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
@@ -128,7 +173,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   {...register('password')}
                   className={`input-hand pr-12 ${errors.password ? 'border-red-400 focus:border-red-500' : ''}`}
-                  placeholder="6-128 characters"
+                  placeholder="At least 6 characters"
                   required
                   autoComplete="new-password"
                   disabled={loading}
@@ -149,38 +194,6 @@ export default function RegisterPage() {
                 <p id="reg-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.password.message}</p>
               )}
               <PasswordStrength password={passwordValue} />
-            </div>
-
-            <div>
-              <label htmlFor="reg-confirm-password" className="block text-base font-bold text-pencil font-hand mb-1">
-                <Lock className="w-4 h-4 inline mr-1" strokeWidth={3} /> Confirm Password
-              </label>
-              <div className="relative">
-                <input
-                  id="reg-confirm-password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  {...register('confirmPassword')}
-                  className={`input-hand pr-12 ${errors.confirmPassword ? 'border-red-400 focus:border-red-500' : ''}`}
-                  placeholder="Re-enter your password"
-                  required
-                  autoComplete="new-password"
-                  disabled={loading}
-                  aria-invalid={!!errors.confirmPassword}
-                  aria-describedby={errors.confirmPassword ? 'reg-confirm-password-error' : undefined}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-pencil/50 hover:text-pencil transition-colors"
-                  tabIndex={-1}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" strokeWidth={2.5} /> : <Eye className="w-5 h-5" strokeWidth={2.5} />}
-                </button>
-              </div>
-              {errors.confirmPassword && (
-                <p id="reg-confirm-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.confirmPassword.message}</p>
-              )}
             </div>
 
             <button type="submit" disabled={loading} className="btn-hand w-full text-xl py-4 flex items-center justify-center gap-2">

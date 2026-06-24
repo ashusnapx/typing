@@ -27,10 +27,19 @@ export const PRACTICE_SETS: Record<string, PracticeSet[]> = {
     { number: 4, title: 'General Awareness Set 4', description: 'General knowledge and current affairs passages', difficulty: 'medium' },
     { number: 5, title: 'General Awareness Set 5', description: 'General knowledge and current affairs passages', difficulty: 'medium' },
   ],
+  practice: [
+    { number: 1, title: 'Basic Typing Drills', description: 'Simple sentences to build typing muscle memory and speed', difficulty: 'easy' },
+    { number: 2, title: 'General Awareness', description: 'Medium-length passages on general topics', difficulty: 'medium' },
+    { number: 3, title: 'Corporate Communication', description: 'Business emails, memos, and official correspondence', difficulty: 'medium' },
+    { number: 4, title: 'Editorial Analysis', description: 'Newspaper editorials and opinion pieces', difficulty: 'medium' },
+    { number: 5, title: 'Technical Documentation', description: 'Complex technical passages with specialized terminology', difficulty: 'hard' },
+    { number: 6, title: 'Legal & Parliamentary Texts', description: 'High-difficulty legal and parliamentary prose', difficulty: 'hard' },
+  ],
 };
 
 export function getPracticeSets(mode: string): PracticeSet[] {
   if (mode === 'ssc_chsl') return PRACTICE_SETS.ssc_chsl;
   if (mode === 'ssc_cgl_dest') return PRACTICE_SETS.ssc_cgl;
+  if (mode === 'practice') return PRACTICE_SETS.practice;
   return [];
 }

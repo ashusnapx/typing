@@ -19,10 +19,20 @@ spec:
         ports:
         - containerPort: 3000
         env:
-        - name: NEXT_PUBLIC_API_URL
-          value: "https://api.mathsmania.com/api/v1"
-        - name: NEXT_PUBLIC_WS_URL
-          value: "wss://ws.mathsmania.com"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: mathsmania-secrets
+              key: database-url
+        - name: REDIS_URL
+          value: "redis://redis-cluster:6379/0"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mathsmania-secrets
+              key: jwt-secret
+        - name: PORT
+          value: "3000"
         resources:
           requests:
             cpu: "250m"

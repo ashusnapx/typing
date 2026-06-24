@@ -563,7 +563,7 @@ export default function LearnPage() {
           levels={LEVELS}
           progress={progress}
           activeLevelId={activeLevelId}
-          onToggleLevel={setActiveLevelId}
+          onToggleLevel={(id) => setActiveLevelId(prev => prev === id ? null : id)}
           onStartLesson={handleStartLesson}
         />
 

@@ -123,19 +123,16 @@ Maths Mania is a production-grade typing test platform that exactly replicates t
 | Animations | Framer Motion |
 | Auth | Custom JWT + httpOnly refresh cookies |
 
-### Backend
+### API Server & Services
 | Layer | Technology |
 |-------|-----------|
-| Framework | FastAPI (Python 3.11+) |
-| ORM | SQLAlchemy 2.0 (async) |
-| Validation | Pydantic v2 |
-| Auth | PyJWT (HS256) |
-| Password Hashing | bcrypt (rounds=12) |
+| Framework | Next.js 15 (tRPC App Router) |
+| ORM | Drizzle ORM |
+| Database | PostgreSQL 16 + pgvector |
 | Security Store | Redis + in-memory fallback |
 | Cache | Redis cluster + in-memory LRU (500 entries) |
 | Message Queue | Apache Kafka |
 | AI/ML | LangGraph, Voyage AI |
-| Task Queue | Celery + Redis broker |
 
 ### Infrastructure
 | Layer | Technology |
@@ -159,44 +156,31 @@ cd typing
 # Start development environment
 docker-compose up -d
 
-# Backend at http://localhost:8000
-# Frontend at http://localhost:3000
+# Application at http://localhost:3000
 ```
 
 ## Manual Setup
 
-### Backend
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your settings
-uvicorn app.main:app --reload --port 8000
-```
-
-### Frontend
+### Frontend & API Server
 
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local
-# Edit .env.local with your settings
+cp .env.example .env.local
+# Edit .env.local with your settings (Supabase, Postgres, Redis)
 npm run dev
 ```
 
-### Database
+### Database & Cache
 
 ```bash
-# Using Docker for PostgreSQL + Redis
+# Using Docker for local Postgres + Redis
 docker run -d --name postgres -e POSTGRES_PASSWORD=password -p 5432:5432 postgres:16
 docker run -d --name redis -p 6379:6379 redis:7-alpine
 
-# Run migrations
-cd backend
-alembic upgrade head
+# Run drizzle migrations
+cd frontend
+npx drizzle-kit migrate
 ```
 
 ---
@@ -211,13 +195,13 @@ alembic upgrade head
 ┌──────────────────────▼──────────────────────────────────┐
 │                    NGINX Reverse Proxy                    │
 │              (Rate limiting, SSL termination)             │
-└────────┬─────────────────────────────────────┬───────────┘
-         │                                     │
-┌────────▼────────┐                  ┌────────▼────────┐
-│   Frontend       │                  │   Backend API   │
-│   Next.js 15     │◄────────────────►   FastAPI       │
-│   Port 3000      │  REST + Cookies  │   Port 8000     │
-└────────┬────────┘                  └────────┬────────┘
+└────────┬────────────────────────────────────────────────┘
+         │
+┌────────▼────────┐
+│   Next.js App    │
+│   (tRPC server)  │
+│   Port 3000      │
+└────────┬────────┘
          │                                    │
          │                                    │
 ┌────────▼────────────────────────────────────▼────────┐

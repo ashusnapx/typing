@@ -23,6 +23,7 @@ import PassageDiffView, { buildWordDisplay, getWordTiming, formatMs } from './pa
 import { TestMode } from '@/types';
 import { getExamSpecs, SSC_EXAM_SPECS, checkQualification, calculateNetWpm, calculateAccuracySsc } from '@/lib/exam-config';
 import { getPracticeSets, PracticeSet } from '@/lib/practice-sets';
+import { AuthPrompt } from '@/components/auth/auth-prompt';
 import { LoadingLogo, LogoSpinner } from '@/components/ui/loading-logo';
 import Image from 'next/image';
 import { SSCExamUI } from './ssc-exam-ui';
@@ -59,6 +60,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [passage, setPassage] = useState<any>(null);
   const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
   const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
+  const [showAuth, setShowAuth] = useState(false);
+  const [pendingSet, setPendingSet] = useState<number | null>(null);
 
   useEffect(() => {
     const sets = getPracticeSets(mode);
@@ -264,88 +267,114 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     blastConfetti();
   };
 
-  if (phase === 'loading') {
-    return <LoadingLogo />;
-  }
+  const content = (() => {
+    if (phase === 'loading') return <LoadingLogo />;
 
-  if (phase === 'select-set') {
-    const sets = getPracticeSets(mode);
-    const spec = getExamSpecs(mode);
-    return (
-      <PracticeSetSelector
-        examName={getModeDisplayName(mode)}
-        sets={sets}
-        durationMinutes={spec?.durationMinutes || Math.round(durationSeconds / 60)}
-        wpmTarget={spec?.englishSpeedWpm}
-        onSelect={(set) => {
-          setSelectedSet(set);
-          setPhase('loading');
-          initTest(set.number);
-        }}
-        onBack={() => router.push('/exam')}
-      />
-    );
-  }
+    if (phase === 'select-set') {
+      const sets = getPracticeSets(mode);
+      const spec = getExamSpecs(mode);
+      return (
+        <PracticeSetSelector
+          examName={getModeDisplayName(mode)}
+          sets={sets}
+          durationMinutes={spec?.durationMinutes || Math.round(durationSeconds / 60)}
+          wpmTarget={spec?.englishSpeedWpm}
+          onSelect={(set) => {
+            if (!isAuthenticated) {
+              setPendingSet(set.number);
+              setShowAuth(true);
+              return;
+            }
+            setSelectedSet(set);
+            setPhase('loading');
+            initTest(set.number);
+          }}
+          onBack={() => router.push('/exam')}
+        />
+      );
+    }
 
-  if (phase === 'instructions') {
+    if (phase === 'instructions') {
+      return (
+        <ExamInstructions
+          mode={mode}
+          durationSeconds={durationSeconds}
+          lang={lang}
+          selectedSet={selectedSet || undefined}
+          onBegin={startTyping}
+        />
+      );
+    }
+
+    if (phase === 'submitting') {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#f5f5f5',
+          fontFamily: 'Poppins, sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <LogoSpinner size="lg" />
+            <p style={{ marginTop: 20, fontSize: 18, color: '#666', fontWeight: 500 }}>
+              Evaluating your typing test...
+            </p>
+            <p style={{ marginTop: 8, fontSize: 14, color: '#999' }}>
+              Please wait while we analyze your performance
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === 'result' && result) {
+      return (
+        <ResultScreen
+          result={result}
+          mode={mode}
+          wpmTarget={wpmTarget}
+          router={router}
+          originalContent={store.originalContent}
+          typedContent={ENABLE_NEW_TYPING_ENGINE ? newEngine.getTypedText() : store.typedContent}
+        />
+      );
+    }
+
     return (
-      <ExamInstructions
+      <SSCExamUI
         mode={mode}
         durationSeconds={durationSeconds}
-        lang={lang}
-        selectedSet={selectedSet || undefined}
-        onBegin={startTyping}
-      />
-    );
-  }
-
-  if (phase === 'submitting') {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#f5f5f5',
-        fontFamily: 'Poppins, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <LogoSpinner size="lg" />
-          <p style={{ marginTop: 20, fontSize: 18, color: '#666', fontWeight: 500 }}>
-            Evaluating your typing test...
-          </p>
-          <p style={{ marginTop: 8, fontSize: 14, color: '#999' }}>
-            Please wait while we analyze your performance
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === 'result' && result) {
-    return (
-      <ResultScreen
-        result={result}
-        mode={mode}
         wpmTarget={wpmTarget}
-        router={router}
-        originalContent={store.originalContent}
-        typedContent={ENABLE_NEW_TYPING_ENGINE ? newEngine.getTypedText() : store.typedContent}
+        passage={passage}
+        lang={lang}
+        onComplete={() => store.completeTest()}
+        phase={phase}
+        newEngine={ENABLE_NEW_TYPING_ENGINE ? newEngine : undefined}
       />
     );
-  }
+  })();
 
   return (
-    <SSCExamUI
-      mode={mode}
-      durationSeconds={durationSeconds}
-      wpmTarget={wpmTarget}
-      passage={passage}
-      lang={lang}
-      onComplete={() => store.completeTest()}
-      phase={phase}
-      newEngine={ENABLE_NEW_TYPING_ENGINE ? newEngine : undefined}
-    />
+    <>
+      {content}
+      {showAuth && (
+        <AuthPrompt
+          onClose={() => { setShowAuth(false); setPendingSet(null); }}
+          onSuccess={() => {
+            setShowAuth(false);
+            if (pendingSet !== null) {
+              const set = getPracticeSets(mode).find(s => s.number === pendingSet);
+              if (set) setSelectedSet(set);
+              setPhase('loading');
+              initTest(pendingSet);
+              setPendingSet(null);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 

@@ -22,7 +22,7 @@ env:
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 1: SECURITY SCAN (fastest-fail — secrets, IaC, deps, vulns)
+  # STAGE 1: SECURITY SCAN (secrets, IaC, deps, filesystem scan)
   # ───────────────────────────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
@@ -42,25 +42,6 @@ jobs:
           skip_check: CKV_DOCKER_2,CKV_DOCKER_3,CKV_DOCKER_7
           quiet: true
           soft_fail: true
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-test.txt
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install -r backend/requirements-test.txt
-
-      - name: pip-audit — Python dependency vulnerabilities
-        run: pip-audit
-        continue-on-error: true
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -110,83 +91,10 @@ jobs:
           fi
 
   # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 2: BACKEND QUALITY (lint, typecheck, SAST, test)
-  # ───────────────────────────────────────────────────────────────────────────
-  backend:
-    name: Backend
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [security-scan]
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: typing_test
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-test.txt
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r backend/requirements.txt -r backend/requirements-test.txt
-
-      - name: Lint — flake8
-        run: python -m flake8 app --count --statistics
-        working-directory: backend
-
-      - name: Type check — mypy
-        run: python -m mypy app --ignore-missing-imports
-        working-directory: backend
-        continue-on-error: true
-
-      - name: SAST — bandit
-        run: python -m bandit -r app -ll
-        working-directory: backend
-        continue-on-error: true
-
-      - name: Test — pytest
-        run: python -m pytest tests -v --tb=short -x
-        working-directory: backend
-        env:
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/typing_test
-          REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET: test-secret-key-thats-at-least-32-chars-long-for-ci
-          SUPABASE_URL: https://test.supabase.co
-          SUPABASE_SERVICE_KEY: test-service-key
-        continue-on-error: true
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 3: FRONTEND QUALITY (lint, typecheck, build)
+  # STAGE 2: FRONTEND QUALITY (lint, typecheck, build)
   # ───────────────────────────────────────────────────────────────────────────
   frontend:
-    name: Frontend
+    name: Frontend Quality Checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [security-scan]
@@ -204,6 +112,14 @@ jobs:
         run: npm ci --legacy-peer-deps
         working-directory: frontend
 
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+
       - name: Lint — ESLint
         run: npm run lint
         working-directory: frontend
@@ -216,19 +132,20 @@ jobs:
         run: npm run build
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+          DATABASE_URL: postgresql://test:test@localhost:5432/typing_test
+          REDIS_URL: redis://localhost:6379/0
           NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
-        continue-on-error: true
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
 
   # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 4: BUILD & PUSH (main only — Docker images + Cosign signing)
+  # STAGE 3: BUILD & PUSH (main only — Docker image + Cosign signing)
   # ───────────────────────────────────────────────────────────────────────────
   build-and-push:
     name: Build & Push
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [backend, frontend]
+    needs: [frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v5
@@ -243,19 +160,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: backend-build
-        name: Build & push backend
-        uses: docker/build-push-action@v7
-        with:
-          context: backend
-          file: backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - id: frontend-build
         name: Build & push frontend
         uses: docker/build-push-action@v7
@@ -263,6 +167,10 @@ jobs:
           context: frontend
           file: frontend/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test-publishable-key
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
@@ -272,18 +180,13 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign backend image
-        run: |
-          cosign sign --yes \
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend@${{ steps.backend-build.outputs.digest }}
-
       - name: Sign frontend image
         run: |
           cosign sign --yes \
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend@${{ steps.frontend-build.outputs.digest }}
 
   # ───────────────────────────────────────────────────────────────────────────
-  # STAGE 5: DEPLOY (main only — Kubernetes, soft-fail if no cluster)
+  # STAGE 4: DEPLOY (main only — Kubernetes, soft-fail if no cluster)
   # ───────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy
@@ -314,12 +217,7 @@ jobs:
             echo "security-context.yaml not found — skipping"
           fi
 
-          # Deploy backend
-          kubectl set image deployment/backend \
-            backend=${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }}
-          kubectl rollout status deployment/backend --timeout=300s
-
           # Deploy frontend
-          kubectl set image deployment/frontend \
+          kubectl set image deployment/mathsmania-frontend \
             frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
-          kubectl rollout status deployment/frontend --timeout=300s
+          kubectl rollout status deployment/mathsmania-frontend --timeout=300s

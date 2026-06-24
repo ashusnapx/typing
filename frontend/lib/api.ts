@@ -1,4 +1,3 @@
-import { STORAGE_KEYS } from '@/lib/config';
 import { trpcClient } from './trpc-client';
 import { TRPCClientError } from '@trpc/client';
 import { useTypingStore } from '@/store/typing-store';
@@ -12,7 +11,7 @@ class ApiClient {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem(STORAGE_KEYS.token);
+      this.token = null;
     }
   }
 
@@ -35,10 +34,6 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.token = token;
-    if (typeof window !== 'undefined') {
-      if (token) localStorage.setItem(STORAGE_KEYS.token, token);
-      else localStorage.removeItem(STORAGE_KEYS.token);
-    }
   }
 
   getToken(): string | null {
@@ -63,13 +58,6 @@ class ApiClient {
 
       if (!isAuthError) throw err;
 
-      // If a refresh is already in progress (e.g. from a concurrent batched request), wait for it
-      if (this.refreshing) {
-        const refreshed = await this.refreshing;
-        if (refreshed) return await fn();
-        throw err;
-      }
-
       const refreshed = await this.refreshToken();
       if (refreshed) {
         return await fn();
@@ -88,32 +76,10 @@ class ApiClient {
 
   private async _refresh(): Promise<boolean> {
     try {
-      if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-        if (typeof window !== 'undefined') {
-          this.token = localStorage.getItem(STORAGE_KEYS.token);
-        }
-        if (!this.token) return false;
-        const cachedRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_cache') : null;
-        let userId: string | undefined;
-        if (cachedRaw) {
-          try { userId = JSON.parse(cachedRaw).user?.id; } catch {}
-        }
-        const data = await trpcClient.auth.refreshSession.mutate({ token: this.token, userId });
-        this.setToken(data.token);
-        return true;
-      }
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
-        },
-        credentials: 'include',
-      });
-      if (!response.ok) return false;
-      const data = await response.json();
-      if (data.token) {
-        this.setToken(data.token);
+      const { refreshTokenFromSession } = await import('@/lib/trpc-client');
+      const token = await refreshTokenFromSession();
+      if (token) {
+        this.token = token;
         return true;
       }
       return false;
@@ -172,59 +138,9 @@ class ApiClient {
   }
 
   // Auth
-  async login(email: string, password: string) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.auth.login.mutate({ email, password });
-      this.setToken(data.token);
-      return {
-        token: data.token,
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          full_name: data.user.fullName,
-          role: data.user.role,
-          xp: 0,
-          level: 1,
-          is_premium: true,
-        }
-      };
-    }
-    const data = await this.request<{ token: string; user: any }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    this.setToken(data.token);
-    return data;
-  }
-
-  async register(email: string, password: string, full_name: string) {
-    if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.auth.register.mutate({ email, password, full_name, confirmPassword: password });
-      this.setToken(data.token);
-      return {
-        token: data.token,
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          full_name: data.user.fullName,
-          role: data.user.role,
-          xp: 0,
-          level: 1,
-          is_premium: true,
-        }
-      };
-    }
-    const data = await this.request<{ token: string; user: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, full_name }),
-    });
-    this.setToken(data.token);
-    return data;
-  }
-
   async getMe() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await this._t(() => trpcClient.user.profile.query());
+      const data = await this._t(() => trpcClient.auth.getProfile.query());
       return {
         id: data.id,
         email: data.email,

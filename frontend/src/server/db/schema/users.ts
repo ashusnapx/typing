@@ -3,15 +3,10 @@ import { sql } from 'drizzle-orm';
 
 export const users = pgTable('users', {
   id: uuid('id').default(sql`generate_uuid_v7()`).primaryKey(),
-  clerkId: varchar('clerk_id', { length: 255 }),
   email: varchar('email', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
   fullName: varchar('full_name', { length: 255 }).notNull(),
   passwordHash: varchar('password_hash', { length: 255 }),
-  passwordChangedAt: timestamp('password_changed_at'),
-  passwordHistory: jsonb('password_history'),
-  failedLoginAttempts: integer('failed_login_attempts').default(0).notNull(),
-  lockedUntil: timestamp('locked_until'),
   role: varchar('role', { length: 50 }).default('student').notNull(),
   state: varchar('state', { length: 100 }),
   district: varchar('district', { length: 100 }),
@@ -36,6 +31,5 @@ export const users = pgTable('users', {
     emailIdx: uniqueIndex('email_idx').on(table.email),
     xpIdx: index('xp_idx').on(table.xp),
     stateXpIdx: index('state_xp_idx').on(table.state, table.xp),
-    clerkIdIdx: index('clerk_id_idx').on(table.clerkId),
   };
 });

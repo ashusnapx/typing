@@ -1,19 +1,27 @@
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { AppRouter } from '@/src/server/trpc/root';
-import { STORAGE_KEYS } from './config';
+import { createClient } from './supabase/client';
+
+let currentToken: string | null = null;
 
 export function getToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEYS.token);
-  }
-  return null;
+  return currentToken;
 }
 
-export function setToken(token: string | null) {
-  if (typeof window !== 'undefined') {
-    if (token) localStorage.setItem(STORAGE_KEYS.token, token);
-    else localStorage.removeItem(STORAGE_KEYS.token);
+export async function refreshTokenFromSession(): Promise<string | null> {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || null;
+    currentToken = token;
+    return token;
+  } catch {
+    return null;
   }
+}
+
+export function setSupabaseToken(token: string | null) {
+  currentToken = token;
 }
 
 export const trpcClient = createTRPCClient<AppRouter>({
@@ -21,8 +29,7 @@ export const trpcClient = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: '/api/trpc',
       headers() {
-        const token = getToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
+        return currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
       },
     }),
   ],

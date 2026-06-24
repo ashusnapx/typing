@@ -14,8 +14,7 @@ Cloudflare CDN + WAF
 Global Load Balancer
   ↓
 Kubernetes Cluster
-  ├── Next.js Pods (Frontend)
-  ├── FastAPI Pods (Backend API)
+  ├── Next.js Pods (Frontend, tRPC API & Server Functions)
   ├── Redis Cluster (Cache + Sessions)
   ├── PostgreSQL Primary + Read Replicas
   ├── Apache Kafka (Event Streaming)
@@ -26,12 +25,12 @@ Kubernetes Cluster
 
 ### Typing Test Flow
 
-1. User starts test → `POST /tests/start`
+1. User starts test → tRPC Mutation `trpcClient.tests.startTest`
 2. Passage loaded into browser memory
 3. Keystrokes captured in browser (NOT sent to DB)
 4. Redis stores active session data
-5. On submit → `POST /tests/{id}/submit`
-6. Backend error engine evaluates:
+5. On submit → tRPC Mutation `trpcClient.tests.submitTest`
+6. Next.js server-side error engine evaluates:
    - Levenshtein Distance analysis
    - Character-level diff
    - Word-level mapping

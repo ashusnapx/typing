@@ -258,8 +258,10 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             </div>
           )}
 
-          {!isMouseLesson && sampleText && /[A-Z]/.test(sampleText) && (
-            <div className="mb-6"><CapsLockNotice expectedChar={sampleText.match(/[A-Z]/)?.[0] || null} /></div>
+          {!isMouseLesson && (
+            <div className="mb-6">
+              <CapsLockNotice lessonNeedsUppercase={/[A-Z]/.test(sampleText)} />
+            </div>
           )}
 
           {isHindi && <div className="mb-6"><HindiKeyboardGuide /></div>}
@@ -466,7 +468,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
       <div className="flex-[3] min-h-0 max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col">
         <div className="shrink-0 mb-1">
-          <CapsLockNotice expectedChar={nextChar} requireCapsLock={false} />
+          <CapsLockNotice lessonNeedsUppercase={/[A-Z]/.test(sampleText)} compact />
         </div>
         {showKeyboard && (
           <div className="flex-1 min-h-0 flex items-center justify-center">

@@ -13,10 +13,9 @@ const ReactQueryDevtools = dynamic(
 import { Toaster } from 'react-hot-toast';
 import { useRef, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { CSS, ROUTES } from '@/lib/config';
+import { CSS } from '@/lib/config';
 import { initCapsLockTracker } from '@/lib/caps-lock-tracker';
 import { useAuthStore } from '@/store/auth-store';
-import { api } from '@/lib/api';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { syncManager } from '@/lib/offline/sync-manager';
 
@@ -25,23 +24,19 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isLoading, isAuthenticated, loadUser } = useAuthStore();
   const called = useRef(false);
-  const publicPaths = ['/', '/auth/login', '/auth/register', '/faq', '/about', '/contact', '/privacy', '/terms'];
+  const publicPaths = ['/', '/auth/login', '/auth/register', '/auth/callback', '/faq', '/about', '/contact', '/privacy', '/terms', '/learn', '/blog', '/coach'];
 
-  const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith('/exam/lesson/'));
+  const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith('/exam/lesson/') || pathname.startsWith('/exam/'));
 
   useEffect(() => {
     if (called.current) return;
     called.current = true;
-    if (api.getToken()) {
-      loadUser();
-    } else {
-      useAuthStore.setState({ isLoading: false, isAuthenticated: false });
-    }
+    loadUser();
   }, [loadUser]);
 
   useEffect(() => {
     if (!isPublic && !isLoading && !isAuthenticated) {
-      router.replace(ROUTES.authLogin);
+      router.replace('/');
     }
   }, [isPublic, isLoading, isAuthenticated, router]);
 

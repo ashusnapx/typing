@@ -21,41 +21,131 @@ function Skeleton() {
   return (
     <div className="min-h-screen bg-paper">
       <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Header */}
         <div className="mb-8 -rotate-1">
-          <div className="h-9 w-48 bg-pencil/10 rounded animate-pulse" />
+          <div className="h-9 w-56 bg-pencil/10 rounded animate-pulse" />
           <div className="h-5 w-64 bg-pencil/10 rounded mt-2 animate-pulse" />
         </div>
+
+        {/* Stats Grid — 4 cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[1,2,3,4].map(i => (
-            <div key={i} className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm} p-4`}>
-              <div className="h-10 w-10 bg-pencil/10 rounded animate-pulse mb-3 mx-auto" />
-              <div className="h-8 w-16 bg-pencil/10 rounded animate-pulse mx-auto mb-2" />
-              <div className="h-4 w-20 bg-pencil/10 rounded animate-pulse mx-auto" />
+          {[
+            { rotate: '-rotate-1', iconW: 10, valueW: 14, labelW: 16 },
+            { rotate: 'rotate-1', iconW: 8, valueW: 12, labelW: 14 },
+            { rotate: '-rotate-2', iconW: 12, valueW: 16, labelW: 18 },
+            { rotate: 'rotate-1', iconW: 10, valueW: 10, labelW: 16 },
+          ].map((s, i) => (
+            <div key={i}
+              className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center`}
+              style={{ borderRadius: CSS.radii.md, transform: `rotate(${s.rotate})` }}>
+              <div className="w-10 h-10 bg-pencil/10 rounded mx-auto mb-3 animate-pulse" />
+              <div className={`h-7 mx-auto mb-2 animate-pulse rounded`}
+                style={{ width: `${s.valueW * 4}px`, background: 'rgba(0,0,0,0.06)' }} />
+              <div className={`h-4 mx-auto animate-pulse rounded`}
+                style={{ width: `${s.labelW * 4}px`, background: 'rgba(0,0,0,0.05)' }} />
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {[1,2].map(i => (
-            <div key={i} className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm} p-4`}>
-              <div className="h-5 w-32 bg-pencil/10 rounded animate-pulse mb-3" />
-              <div className="h-4 w-48 bg-pencil/10 rounded animate-pulse mb-2" />
-              <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
+
+        {/* Performance Summary — post-it note style */}
+        <div className={`bg-postit border-2 border-pencil ${CSS.shadows.md} p-6 mb-8 -rotate-[0.3deg]`}>
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-6 h-6 bg-pencil/10 rounded animate-pulse" />
+            <div className="h-5 w-44 bg-pencil/10 rounded animate-pulse" />
+          </div>
+
+          {/* CHSL Progress */}
+          <div className="bg-white border-2 border-pencil p-4 mb-4 animate-pulse" style={{ borderRadius: CSS.radii.sm }}>
+            <div className="flex justify-between mb-3">
+              <div className="h-4 w-32 bg-pencil/10 rounded" />
+              <div className="h-4 w-20 bg-pencil/10 rounded" />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[1, 2].map(j => (
+                <div key={j}>
+                  <div className="flex justify-between mb-1">
+                    <div className="h-3 w-16 bg-pencil/8 rounded" />
+                    <div className="h-3 w-12 bg-pencil/8 rounded" />
+                  </div>
+                  <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-pencil/8 animate-pulse"
+                      style={{ width: `${30 + j * 15}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CGL Progress */}
+          <div className="bg-white border-2 border-pencil p-4 mb-4 animate-pulse" style={{ borderRadius: CSS.radii.sm }}>
+            <div className="flex justify-between mb-3">
+              <div className="h-4 w-36 bg-pencil/10 rounded" />
+              <div className="h-4 w-16 bg-pencil/10 rounded" />
+            </div>
+            <div className="flex justify-between mb-1">
+              <div className="h-3 w-20 bg-pencil/8 rounded" />
+              <div className="h-3 w-14 bg-pencil/8 rounded" />
+            </div>
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-pencil/8 animate-pulse" style={{ width: '25%' }} />
+            </div>
+          </div>
+
+          {/* 3 small stat cards */}
+          <div className="grid sm:grid-cols-3 gap-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white border border-pencil/30 p-3 text-center animate-pulse"
+                style={{ borderRadius: CSS.radii.sm }}>
+                <div className="h-3 w-20 bg-pencil/8 rounded mx-auto mb-2" />
+                <div className="h-5 w-12 bg-pencil/10 rounded mx-auto mb-1" />
+                <div className="h-2.5 w-16 bg-pencil/6 rounded mx-auto" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions — 3 cards */}
+        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+          {[
+            { rotate: '-rotate-1', titleW: 32 },
+            { rotate: 'rotate-1', titleW: 24 },
+            { rotate: '-rotate-2', titleW: 20 },
+          ].map((a, i) => (
+            <div key={i}
+              className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4`}
+              style={{ borderRadius: CSS.radii.md, transform: `rotate(${a.rotate})` }}>
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-10 h-10 border-2 border-pencil bg-muted animate-pulse" style={wobbly} />
+                <div className="h-5 bg-pencil/10 rounded animate-pulse" style={{ width: `${a.titleW * 4}px` }} />
+              </div>
+              <div className="h-4 w-40 bg-pencil/8 rounded animate-pulse mb-2" />
+              <div className="h-3.5 w-8 bg-pencil/6 rounded animate-pulse" />
             </div>
           ))}
         </div>
-        <div className={`bg-white border-2 border-pencil/10 ${CSS.shadows.sm}`}>
-          <div className="px-6 py-4 border-b-2 border-pencil/10">
+
+        {/* Recent Tests */}
+        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
+          <div className="px-6 py-4 border-b-2 border-pencil flex items-center space-x-3">
+            <div className="w-5 h-5 bg-pencil/10 rounded animate-pulse" />
             <div className="h-5 w-28 bg-pencil/10 rounded animate-pulse" />
           </div>
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="px-6 py-4 border-b border-pencil/10">
-              <div className="flex justify-between mb-2">
-                <div className="h-4 w-32 bg-pencil/10 rounded animate-pulse" />
-                <div className="h-4 w-12 bg-pencil/10 rounded animate-pulse" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-4 h-4 bg-pencil/8 rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
+                  <div className="h-3.5 w-20 bg-pencil/6 rounded animate-pulse" />
+                </div>
+                <div className="w-5 h-5 bg-pencil/8 rounded-full animate-pulse" />
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[1,2,3,4].map(j => (
-                  <div key={j} className="h-10 bg-pencil/10 rounded animate-pulse" />
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {[1, 2, 3, 4, 5, 6].map(j => (
+                  <div key={j} className="bg-paper rounded p-1.5 text-center animate-pulse">
+                    <div className="h-2.5 w-12 bg-pencil/6 rounded mx-auto mb-1" />
+                    <div className="h-4 w-10 bg-pencil/10 rounded mx-auto" />
+                  </div>
                 ))}
               </div>
             </div>

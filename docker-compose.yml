@@ -10,8 +10,7 @@ services:
       - DATABASE_URL=postgresql://postgres.awfqpmgshuicrfiwyvhy:No72rkkTtD3R9e3x@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
       - REDIS_URL=redis://:changeme@redis:6379/0
       - NEXT_PUBLIC_ENABLE_TRPC=true
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://awfqpmgshuicrfiwyvhy.supabase.co}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
     depends_on:
       redis:
         condition: service_healthy
@@ -24,7 +23,7 @@ services:
       - /app/.next
 
   redis:
-    image: redis:7-alpine@sha256:e9f5bc15665583ff1b96a6c7d12f99f58a87d0b83c16df9d1e545c7bae6d7cdb
+    image: redis:7-alpine
     ports:
       - "127.0.0.1:6379:6379"
     volumes:

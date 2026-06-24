@@ -48,25 +48,7 @@ spec:
             name: mathsmania-frontend
             port:
               number: 80
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: mathsmania-backend
-            port:
-              number: 80
-  - host: api.mathsmania.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: mathsmania-backend
-            port:
-              number: 80
   tls:
   - hosts:
     - mathsmania.com
-    - api.mathsmania.com
     secretName: mathsmania-tls

@@ -1,69 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mathsmania-backend
-  namespace: mathsmania
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: mathsmania-backend
-  template:
-    metadata:
-      labels:
-        app: mathsmania-backend
-    spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: mathsmania-backend
-          image: ghcr.io/anomalyco/typing/backend:latest
-          securityContext:
-            allowPrivilegeEscalation: false
-            privileged: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-              add:
-                - NET_BIND_SERVICE
-            runAsNonRoot: true
-            runAsUser: 1001
-            seccompProfile:
-              type: RuntimeDefault
-          envFrom:
-            - secretRef:
-                name: backend-secrets
-          ports:
-            - containerPort: 8000
-          livenessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: mathsmania-frontend
   namespace: mathsmania
 spec:
@@ -99,6 +36,21 @@ spec:
             runAsUser: 1001
             seccompProfile:
               type: RuntimeDefault
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mathsmania-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: "redis://redis-cluster:6379/0"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mathsmania-secrets
+                  key: jwt-secret
+            - name: PORT
+              value: "3000"
           ports:
             - containerPort: 3000
           resources:
@@ -126,26 +78,6 @@ spec:
   podSelector: {}
   policyTypes:
     - Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-backend-ingress
-  namespace: mathsmania
-spec:
-  podSelector:
-    matchLabels:
-      app: mathsmania-backend
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: mathsmania-frontend
-      ports:
-        - protocol: TCP
-          port: 8000
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -1,6 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const API_ORIGIN = new URL(API_URL).origin;
-const WS_ORIGIN = process.env.NEXT_PUBLIC_WS_URL || `ws://localhost:8000`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_ORIGINS = API_URL ? ` ${new URL(API_URL).origin}` : '';
 
 const cspHeader = `
   default-src 'self';
@@ -8,7 +7,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' blob: data: https:;
   font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;
-  connect-src 'self' ${API_ORIGIN} ${API_ORIGIN.replace(/^https/, 'wss')} https://awfqpmgshuicrfiwyvhy.supabase.co ${WS_ORIGIN};
+  connect-src 'self'${API_ORIGINS} https://awfqpmgshuicrfiwyvhy.supabase.co;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -67,12 +66,7 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/((?!trpc|inngest).*)',
-        destination: `http://backend:8000/api/v1/:1*`,
-      },
-    ];
+    return [];
   },
 };
 

@@ -35,7 +35,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -43,19 +43,20 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://awfqpmgshuicrfiwyvhy.supabase.co}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres.awfqpmgshuicrfiwyvhy:No72rkkTtD3R9e3x@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
+      - REDIS_URL=redis://:changeme@redis:6379/0
+      - NEXT_PUBLIC_ENABLE_TRPC=true
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - internal
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /app/.next/cache
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
 
   redis:
     image: redis:7-alpine@sha256:e9f5bc15665583ff1b96a6c7d12f99f58a87d0b83c16df9d1e545c7bae6d7cdb

@@ -54,7 +54,7 @@ export function useDashboard() {
 
   return useQuery({
     queryKey: ['dashboard'],
-    queryFn: () => api.request<any>('/dashboard'),
+    queryFn: () => api.getDashboard(),
     staleTime: 3 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
     enabled: isAuthenticated,

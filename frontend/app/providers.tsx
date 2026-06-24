@@ -1,24 +1,24 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
+
+const ReactQueryDevtools = dynamic(
+  () =>
+    import('@tanstack/react-query-devtools').then(
+      (mod) => mod.ReactQueryDevtools
+    ),
+  { ssr: false }
+);
 import { Toaster } from 'react-hot-toast';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CSS, ROUTES } from '@/lib/config';
 import { initCapsLockTracker } from '@/lib/caps-lock-tracker';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60 * 1000,
-      gcTime: 5 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import { ErrorBoundary } from '@/components/error-boundary';
+import { syncManager } from '@/lib/offline/sync-manager';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -39,8 +39,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [loadUser]);
 
+  useEffect(() => {
+    if (!isPublic && !isLoading && !isAuthenticated) {
+      router.replace(ROUTES.authLogin);
+    }
+  }, [isPublic, isLoading, isAuthenticated, router]);
+
   if (!isPublic && !isLoading && !isAuthenticated) {
-    router.replace(ROUTES.authLogin);
     return null;
   }
 
@@ -54,14 +59,30 @@ function ScrollToTop() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => { initCapsLockTracker(); }, []);
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,
+        gcTime: 5 * 60 * 1000,
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
+
+  useEffect(() => {
+    initCapsLockTracker();
+    syncManager.init();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ScrollToTop />
-      <AuthGate>
-        {children}
-      </AuthGate>
+      <ErrorBoundary>
+        <ScrollToTop />
+        <AuthGate>
+          {children}
+        </AuthGate>
+      </ErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -76,6 +97,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       />
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      )}
     </QueryClientProvider>
   );
 }

@@ -1,14 +1,25 @@
 'use client';
 
 import { useMemo, useEffect, useState, useRef } from 'react';
-import { KEYBOARD_KEYS, getKeyByLabel } from './keyboard-layout';
+import {
+  KEYBOARD_KEYS,
+  getKeyByLabel,
+  FINGER_COLORS,
+  FINGER_NAMES,
+  getFingerForLabel,
+  getActiveFingerZones,
+} from './keyboard-layout';
 import { KeystrokeEvent } from '@/types';
+import { FingerZone } from './keyboard-layout';
 
 interface KeyboardSVGProps {
   expectedChar?: string | null;
   typedHistory?: string[];
   showLegend?: boolean;
   keystrokeEvents?: KeystrokeEvent[];
+  highlightZones?: FingerZone[];
+  fingerQuizMode?: boolean;
+  focusedKey?: string;
 }
 
 const KEY_W = 44;
@@ -19,6 +30,16 @@ const STAGGER = [0, 14, 28, 42];
 const PAD_X = 12;
 const PAD_Y = 12;
 const RADIUS = 5;
+const HOME_ROW_KEYS = ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'];
+const GHOST_HAND_Y_OFFSET = 20;
+
+const FINGER_ZONE_ORDER: FingerZone[] = ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'];
+
+const FINGER_NAMES_SHORT: Record<FingerZone, string> = {
+  lp: 'LP', lr: 'LR', lm: 'LM', li: 'LI',
+  ri: 'RI', rm: 'RM', rr: 'RR', rp: 'RP',
+  thumb: 'TH',
+};
 
 function rowTotalWidth(row: number) {
   const keys = KEYBOARD_KEYS.filter(k => k.row === row);
@@ -37,11 +58,21 @@ function maxRowWidth() {
   return max;
 }
 
-export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegend = true, keystrokeEvents }: KeyboardSVGProps) {
+export default function KeyboardSVG({
+  expectedChar,
+  typedHistory = [],
+  showLegend = true,
+  keystrokeEvents,
+  highlightZones = [],
+  fingerQuizMode = false,
+  focusedKey,
+}: KeyboardSVGProps) {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const [wrongFlash, setWrongFlash] = useState<string | null>(null);
+  const [showFingerAnswer, setShowFingerAnswer] = useState(false);
   const prevLenRef = useRef(0);
   const prevEventsLen = useRef(0);
+  const fingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,6 +124,19 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
     prevLenRef.current = typedHistory.length;
   }, [typedHistory, expectedChar, keystrokeEvents]);
 
+  useEffect(() => {
+    if (fingerQuizMode && expectedChar) {
+      setShowFingerAnswer(false);
+      if (fingerTimerRef.current) clearTimeout(fingerTimerRef.current);
+      fingerTimerRef.current = setTimeout(() => setShowFingerAnswer(true), 2000);
+      return () => {
+        if (fingerTimerRef.current) clearTimeout(fingerTimerRef.current);
+      };
+    } else {
+      setShowFingerAnswer(false);
+    }
+  }, [fingerQuizMode, expectedChar]);
+
   const activeLabels = useMemo(() => {
     const set = new Set<string>();
     typedHistory.forEach(char => {
@@ -107,17 +151,35 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
   }, [typedHistory, expectedChar]);
 
   const viewW = maxRowWidth() + STAGGER[3] + PAD_X * 2;
-  const viewH = 4 * (KEY_H + ROW_GAP) + PAD_Y * 2 - ROW_GAP;
+  const viewH = 4 * (KEY_H + ROW_GAP) + PAD_Y * 2 - ROW_GAP + GHOST_HAND_Y_OFFSET + 12;
 
   const rows = [0, 1, 2, 3];
+
+  const homeRowX = (col: number) => {
+    const staggerX = PAD_X + STAGGER[2];
+    return staggerX + col * (KEY_W + GAP);
+  };
+
+  const homeRowY = PAD_Y + 2 * (KEY_H + ROW_GAP);
 
   return (
     <div className="w-full rounded-xl overflow-hidden border-2 border-pencil/20 shadow-hard-sm bg-paper/50">
       <div className="px-4 py-2 bg-pencil/5 border-b-2 border-pencil/10 flex items-center justify-between">
         <span className="text-sm font-hand text-pencil/60">Keyboard</span>
-        {expectedChar && (
+        {expectedChar && !fingerQuizMode && (
           <span className="text-sm font-mono font-bold text-blue-pen">
             Next: <kbd className="px-2 py-0.5 bg-white border border-pencil/30 rounded text-pencil">{expectedChar === ' ' ? '␣' : expectedChar}</kbd>
+          </span>
+        )}
+        {expectedChar && fingerQuizMode && (
+          <span className="text-sm font-mono font-bold text-purple-pen">
+            Which finger for{' '}
+            <kbd className="px-2 py-0.5 bg-white border border-pencil/30 rounded text-pencil">{expectedChar === ' ' ? '␣' : expectedChar}</kbd>
+            ?{showFingerAnswer && (
+              <span className="ml-2 text-green-600 font-bold">
+                → {FINGER_NAMES[getFingerForLabel(expectedChar)] || '?'}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -135,9 +197,20 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
               }
               @keyframes key-flash-red {
                 0% { fill: #ff4444; stroke: #cc0000; }
-                100% { fill: #ffd43b; stroke: #d4a017; }
+                100% { fill: #ff4444; stroke: #cc0000; }
+              }
+              @keyframes key-glow-pulse {
+                0%, 100% { filter: drop-shadow(0 0 3px rgba(255,255,255,0.4)); }
+                50% { filter: drop-shadow(0 0 8px rgba(255,255,255,0.8)); }
               }
             `}</style>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
           </defs>
           {rows.map(row => {
             const keys = KEYBOARD_KEYS.filter(k => k.row === row);
@@ -147,41 +220,52 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
               const x = staggerX + key.col * (KEY_W + GAP);
               const w = key.width * KEY_W + (key.width - 1) * GAP;
               const isPressed = pressedKeys.has(key.label.toLowerCase());
-              const isHighlighted = activeLabels.has(key.label);
-              const isNext = expectedChar && getKeyByLabel(expectedChar)?.label === key.label;
-              const isHomeRow = ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'].includes(key.label);
+              const isHomeRow = HOME_ROW_KEYS.includes(key.label);
               const isWrong = wrongFlash === key.label;
+              const isFocused = focusedKey
+                ? focusedKey === key.label
+                : (expectedChar && getKeyByLabel(expectedChar)?.label === key.label);
+              const isInHighlightZone = highlightZones.includes(key.finger);
 
-              let fill = '#f8f4ef';
-              let stroke = '#ddd8d0';
+              const fingerColor = FINGER_COLORS[key.finger];
+
+              let fillColor = fingerColor;
+              let fillOpacity = 0.15;
+              let strokeColor = '#ddd8d0';
               let textFill = '#555';
               let strokeW = 1.5;
               let fontWeight = 400;
               let animName = '';
+              let useGlow = false;
 
               if (isWrong) {
-                fill = '#ff4444';
-                stroke = '#cc0000';
+                fillColor = '#ff4444';
+                strokeColor = '#cc0000';
                 textFill = '#fff';
                 strokeW = 2.5;
                 fontWeight = 700;
+                fillOpacity = 1;
                 animName = 'key-flash-red 0.4s ease-out';
-              } else if (isNext) {
-                fill = '#4ade80';
-                stroke = '#16a34a';
+              } else if (isFocused) {
+                fillColor = fingerColor;
+                fillOpacity = 0.8;
+                strokeColor = '#666';
                 textFill = '#1a1a1a';
                 strokeW = 2;
                 fontWeight = 700;
-                animName = 'key-blink 1s ease-in-out infinite';
+                useGlow = true;
+                animName = 'key-glow-pulse 1s ease-in-out infinite';
               } else if (isPressed) {
-                fill = '#e0d8c8';
-                stroke = '#c0b8a8';
+                fillColor = fingerColor;
+                fillOpacity = 0.6;
+                strokeColor = '#999';
                 textFill = '#1a1a1a';
                 strokeW = 2;
                 fontWeight = 500;
-              } else if (isHomeRow) {
-                fill = '#f0ebe0';
-                stroke = '#d4d0c8';
+              } else if (isInHighlightZone) {
+                fillOpacity = 0.4;
+                textFill = '#333';
+                strokeW = 1.5;
               }
 
               return (
@@ -189,10 +273,13 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
                   <rect
                     x={x} y={rowY} width={w} height={KEY_H}
                     rx={RADIUS} ry={RADIUS}
-                    fill={fill} stroke={stroke} strokeWidth={strokeW}
+                    fill={fillColor}
+                    fillOpacity={fillOpacity}
+                    stroke={strokeColor} strokeWidth={strokeW}
                     style={{
-                      transition: 'fill 0.08s, stroke 0.08s',
+                      transition: 'fill 0.08s, stroke 0.08s, fill-opacity 0.08s',
                       ...(animName ? { animation: animName } : {}),
+                      ...(useGlow ? { filter: 'url(#glow)' } : {}),
                     }}
                   />
                   <text
@@ -206,15 +293,46 @@ export default function KeyboardSVG({ expectedChar, typedHistory = [], showLegen
                   >
                     {key.label === ' ' ? '␣' : key.label.toUpperCase()}
                   </text>
+                  {isHomeRow && (
+                    <line
+                      x1={x + w * 0.3} y1={rowY + KEY_H - 4}
+                      x2={x + w * 0.7} y2={rowY + KEY_H - 4}
+                      stroke="#888" strokeWidth={1.5} strokeLinecap="round"
+                      opacity={0.35}
+                    />
+                  )}
                 </g>
               );
             });
           })}
+
+          <g opacity={0.12} className="select-none">
+            {[0, 1, 2, 3].map(col => {
+              const cx = homeRowX(col) + KEY_W / 2;
+              const cy = homeRowY + KEY_H + GHOST_HAND_Y_OFFSET;
+              return <circle key={`ghost-l-${col}`} cx={cx} cy={cy} r={5} fill="#333" />;
+            })}
+            {[6, 7, 8, 9].map(col => {
+              const cx = homeRowX(col) + KEY_W / 2;
+              const cy = homeRowY + KEY_H + GHOST_HAND_Y_OFFSET;
+              return <circle key={`ghost-r-${col}`} cx={cx} cy={cy} r={5} fill="#333" />;
+            })}
+          </g>
         </svg>
       </div>
       {showLegend && (
-        <div className="px-4 py-2 bg-pencil/5 border-t-2 border-pencil/10 text-center text-xs font-hand text-pencil/40">
-          Home row keys are shaded. Next key blinks. Wrong key flashes red.
+        <div className="px-4 py-2 bg-pencil/5 border-t-2 border-pencil/10">
+          <div className="flex flex-wrap gap-3 justify-center text-xs">
+            {FINGER_ZONE_ORDER.map(zone => (
+              <span key={zone} className="flex items-center gap-1 font-hand text-pencil/60">
+                <span
+                  className="inline-block w-3 h-3 rounded-sm"
+                  style={{ backgroundColor: FINGER_COLORS[zone] }}
+                />
+                {FINGER_NAMES_SHORT[zone]}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

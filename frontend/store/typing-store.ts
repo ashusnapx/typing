@@ -25,6 +25,15 @@ interface TypingState {
   setNavHidden: (hidden: boolean) => void;
 
   startTest: (testId: string, mode: TestMode, content: string, duration: number) => void;
+  resumeSession: (params: {
+    testId: string;
+    mode: TestMode;
+    content: string;
+    duration: number;
+    startTime: number;
+    elapsedSeconds: number;
+    typedContent: string;
+  }) => void;
   addKeystroke: (event: KeystrokeEvent) => void;
   updateTypedContent: (content: string) => void;
   updateMetrics: (wpm: number, accuracy: number, errors: number, backspaces: number) => void;
@@ -66,6 +75,26 @@ export const useTypingStore = create<TypingState>((set, get) => ({
       startTime: Date.now(),
       elapsedSeconds: 0,
       totalDuration: duration,
+      keystrokeEvents: [],
+      wpm: 0,
+      accuracy: 100,
+      errors: 0,
+      backspaces: 0,
+    });
+  },
+
+  resumeSession: (params) => {
+    set({
+      testId: params.testId,
+      mode: params.mode,
+      originalContent: params.content,
+      typedContent: params.typedContent,
+      cursorPosition: params.typedContent.length,
+      isActive: true,
+      isComplete: false,
+      startTime: params.startTime,
+      elapsedSeconds: params.elapsedSeconds,
+      totalDuration: params.duration,
       keystrokeEvents: [],
       wpm: 0,
       accuracy: 100,

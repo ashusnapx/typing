@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
@@ -10,39 +10,40 @@ import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { PasswordStrength } from '@/components/password-strength';
 import { LoadingOverlay, LogoSpinner } from '@/components/ui/loading-logo';
 import { CSS, ROUTES } from '@/lib/config';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { registerSchema, type RegisterFormData } from '@/lib/schemas';
 
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function RegisterPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
-  const register = useAuthStore((s) => s.register);
+  const registerUser = useAuthStore((s) => s.register);
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
 
-  const validate = () => {
-    const errs: typeof errors = {};
-    if (!name.trim()) errs.name = 'Full name is required';
-    else if (name.trim().length < 2) errs.name = 'Name must be at least 2 characters';
-    if (!email.trim()) errs.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Invalid email format';
-    if (!password) errs.password = 'Password is required';
-    else if (password.length < 6) errs.password = 'Password must be at least 6 characters';
-    else if (password.length > 128) errs.password = 'Password is too long';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      full_name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const passwordValue = watch('password', '');
+
+  const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     try {
-      await register(email, password, name);
+      await registerUser(data.email, data.password, data.full_name);
       toast.success('Account created successfully');
       router.push(ROUTES.dashboard);
     } catch (err: any) {
@@ -74,7 +75,7 @@ export default function RegisterPage() {
             <p className="text-base text-pencil/60 font-hand mt-1">Start your SSC typing journey</p>
           </div>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div>
               <label htmlFor="reg-name" className="block text-base font-bold text-pencil font-hand mb-1">
                 <User className="w-4 h-4 inline mr-1" strokeWidth={3} /> Full Name
@@ -82,19 +83,17 @@ export default function RegisterPage() {
               <input
                 id="reg-name"
                 type="text"
-                value={name}
-                onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: undefined })); }}
-                onBlur={() => { if (name.trim() && name.trim().length < 2) setErrors((p) => ({ ...p, name: 'Name must be at least 2 characters' })); }}
-                className={`input-hand ${errors.name ? 'border-red-400 focus:border-red-500' : ''}`}
+                {...register('full_name')}
+                className={`input-hand ${errors.full_name ? 'border-red-400 focus:border-red-500' : ''}`}
                 placeholder="Your full name"
                 required
                 autoComplete="name"
                 disabled={loading}
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? 'reg-name-error' : undefined}
+                aria-invalid={!!errors.full_name}
+                aria-describedby={errors.full_name ? 'reg-name-error' : undefined}
               />
-              {errors.name && (
-                <p id="reg-name-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.name}</p>
+              {errors.full_name && (
+                <p id="reg-name-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.full_name.message}</p>
               )}
             </div>
 
@@ -105,9 +104,7 @@ export default function RegisterPage() {
               <input
                 id="reg-email"
                 type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
-                onBlur={() => { if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) setErrors((p) => ({ ...p, email: 'Invalid email format' })); }}
+                {...register('email')}
                 className={`input-hand ${errors.email ? 'border-red-400 focus:border-red-500' : ''}`}
                 placeholder="your@email.com"
                 required
@@ -117,7 +114,7 @@ export default function RegisterPage() {
                 aria-describedby={errors.email ? 'reg-email-error' : undefined}
               />
               {errors.email && (
-                <p id="reg-email-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.email}</p>
+                <p id="reg-email-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.email.message}</p>
               )}
             </div>
 
@@ -129,15 +126,12 @@ export default function RegisterPage() {
                 <input
                   id="reg-password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
+                  {...register('password')}
                   className={`input-hand pr-12 ${errors.password ? 'border-red-400 focus:border-red-500' : ''}`}
-                placeholder="6-16 characters"
-                required
-                minLength={6}
-                maxLength={16}
-                autoComplete="new-password"
-                disabled={loading}
+                  placeholder="6-128 characters"
+                  required
+                  autoComplete="new-password"
+                  disabled={loading}
                   aria-invalid={!!errors.password}
                   aria-describedby={errors.password ? 'reg-password-error' : undefined}
                 />
@@ -152,9 +146,41 @@ export default function RegisterPage() {
                 </button>
               </div>
               {errors.password && (
-                <p id="reg-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.password}</p>
+                <p id="reg-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.password.message}</p>
               )}
-              <PasswordStrength password={password} />
+              <PasswordStrength password={passwordValue} />
+            </div>
+
+            <div>
+              <label htmlFor="reg-confirm-password" className="block text-base font-bold text-pencil font-hand mb-1">
+                <Lock className="w-4 h-4 inline mr-1" strokeWidth={3} /> Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  id="reg-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  {...register('confirmPassword')}
+                  className={`input-hand pr-12 ${errors.confirmPassword ? 'border-red-400 focus:border-red-500' : ''}`}
+                  placeholder="Re-enter your password"
+                  required
+                  autoComplete="new-password"
+                  disabled={loading}
+                  aria-invalid={!!errors.confirmPassword}
+                  aria-describedby={errors.confirmPassword ? 'reg-confirm-password-error' : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-pencil/50 hover:text-pencil transition-colors"
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" strokeWidth={2.5} /> : <Eye className="w-5 h-5" strokeWidth={2.5} />}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <p id="reg-confirm-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.confirmPassword.message}</p>
+              )}
             </div>
 
             <button type="submit" disabled={loading} className="btn-hand w-full text-xl py-4 flex items-center justify-center gap-2">

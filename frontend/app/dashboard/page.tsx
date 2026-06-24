@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api';
+import { useDashboard } from '@/lib/queries';
 
 import Link from 'next/link';
 import {
@@ -78,12 +79,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener('dashboard-invalidate', handler);
   }, [queryClient]);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => api.request<any>('/dashboard'),
-    staleTime: TIME.cacheDashboard,
-    retry: 1,
-  });
+  const { data, isLoading, isError, refetch } = useDashboard();
 
   if (!user || isLoading) return <Skeleton />;
 

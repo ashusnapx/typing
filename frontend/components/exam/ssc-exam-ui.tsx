@@ -22,12 +22,18 @@ interface SSCExamUIProps {
   lang?: 'english' | 'hindi';
   onComplete: () => void;
   phase: string;
+  newEngine?: any;
 }
 
-export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'english', onComplete, phase }: SSCExamUIProps) {
+export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'english', onComplete, phase, newEngine }: SSCExamUIProps) {
   const store = useTypingStore();
   const { user } = useAuthStore();
-  const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
+  const { typedContent: oldTypedContent, originalContent: oldOriginalContent, elapsedSeconds: oldElapsedSeconds } = useTypingEngine(lang);
+
+  const typedContent = newEngine ? newEngine.getTypedText() : oldTypedContent;
+  const originalContent = newEngine ? store.originalContent : oldOriginalContent;
+  const elapsedSeconds = newEngine ? store.elapsedSeconds : oldElapsedSeconds;
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [tabSwitches, setTabSwitches] = useState(0);
   const [windowBlurs, setWindowBlurs] = useState(0);
@@ -41,9 +47,12 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
   useEffect(() => {
     if (phase === 'typing') {
       document.documentElement.requestFullscreen().catch(() => {});
-      textareaRef.current?.focus();
+      if (textareaRef.current) {
+        textareaRef.current.value = typedContent;
+        textareaRef.current.focus();
+      }
     }
-  }, [phase]);
+  }, [phase, typedContent]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -90,7 +99,7 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
   const mins = Math.floor((remaining % 3600) / 60);
   const secs = remaining % 60;
 
-  const correctChars = typedContent.split('').filter((c, i) => c === originalContent[i]).length;
+  const correctChars = typedContent.split('').filter((c: string, i: number) => c === originalContent[i]).length;
   const totalChars = typedContent.length;
   const wordsTyped = typedContent.trim().split(/\s+/).filter(Boolean).length;
   const grossWpm = elapsedSeconds > 0 ? Math.round((totalChars / 5) / (elapsedSeconds / 60)) : 0;
@@ -202,8 +211,14 @@ export function SSCExamUI({ mode, durationSeconds, wpmTarget, passage, lang = 'e
             </div>
             <textarea
               ref={textareaRef}
-              value={typedContent}
-              onChange={(e) => store.updateTypedContent(e.target.value)}
+              defaultValue={typedContent}
+              onChange={(e) => {
+                if (newEngine) {
+                  newEngine.handleTextareaInput(e.target.value);
+                } else {
+                  store.updateTypedContent(e.target.value);
+                }
+              }}
               onPaste={e => e.preventDefault()}
               onCopy={e => e.preventDefault()}
               onCut={e => e.preventDefault()}

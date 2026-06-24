@@ -9,6 +9,7 @@ import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName, normal
 import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
 import { api } from '@/lib/api';
+import { useUpdateProfile } from '@/lib/queries';
 import { blastConfetti } from '@/lib/confetti';
 import { CSS, ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
@@ -42,6 +43,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const router = useRouter();
   const store = useTypingStore();
   const authStore = useAuthStore();
+  const updateProfileMutation = useUpdateProfile();
   const { typedContent, originalContent, elapsedSeconds, keystrokeEvents } = useTypingEngine('english', true, true);
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
   const [countdown, setCountdown] = useState(3);
@@ -116,15 +118,19 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       key_depression_count: totalType,
       xp_earned: earnedXp,
     });
-    saveLessonProgress(lesson.id, finalWpm, finalAcc, qualified);
+    saveLessonProgress(lesson.id, finalWpm, finalAcc, qualified, keystrokeEvents);
 
     if (authStore.isAuthenticated && authStore.user) {
-      try {
-        const newXp = (authStore.user.xp || 0) + earnedXp;
-        const newLevel = Math.floor(newXp / 100) + 1;
-        await api.updateProfile({ xp: newXp, level: newLevel });
-        authStore.updateUser({ xp: newXp, level: newLevel });
-      } catch {}
+      const newXp = (authStore.user.xp || 0) + earnedXp;
+      const newLevel = Math.floor(newXp / 100) + 1;
+      updateProfileMutation.mutate(
+        { xp: newXp, level: newLevel },
+        {
+          onSuccess: () => {
+            authStore.updateUser({ xp: newXp, level: newLevel });
+          },
+        }
+      );
     }
 
     setPhase('result');

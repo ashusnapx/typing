@@ -569,3 +569,5 @@ export const API_ENDPOINTS = {
   subscription: '/subscription/status',
   paymentHistory: '/subscription/payments',
 } as const;
+
+export const ENABLE_NEW_TYPING_ENGINE = true;

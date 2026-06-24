@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
@@ -9,34 +9,34 @@ import toast from 'react-hot-toast';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { LoadingOverlay, LogoSpinner } from '@/components/ui/loading-logo';
 import { CSS, ROUTES } from '@/lib/config';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginSchema, type LoginFormData } from '@/lib/schemas';
 
 const wobbly = { borderRadius: CSS.radii.sm };
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const login = useAuthStore((s) => s.login);
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
 
-  const validate = () => {
-    const errs: typeof errors = {};
-    if (!email.trim()) errs.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Invalid email format';
-    if (!password) errs.password = 'Password is required';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     try {
-      await login(email, password);
+      await login(data.email, data.password);
       toast.success('Logged in successfully');
       router.push(ROUTES.dashboard);
     } catch (err: any) {
@@ -68,7 +68,7 @@ export default function LoginPage() {
             <p className="text-base text-pencil/60 font-hand mt-1">Sign in to continue your practice</p>
           </div>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div>
               <label htmlFor="login-email" className="block text-base font-bold text-pencil font-hand mb-1">
                 <Mail className="w-4 h-4 inline mr-1" strokeWidth={3} /> Email
@@ -76,9 +76,7 @@ export default function LoginPage() {
               <input
                 id="login-email"
                 type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
-                onBlur={() => { if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) setErrors((p) => ({ ...p, email: 'Invalid email format' })); }}
+                {...register('email')}
                 className={`input-hand ${errors.email ? 'border-red-400 focus:border-red-500' : ''}`}
                 placeholder="your@email.com"
                 required
@@ -88,7 +86,7 @@ export default function LoginPage() {
                 aria-describedby={errors.email ? 'login-email-error' : undefined}
               />
               {errors.email && (
-                <p id="login-email-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.email}</p>
+                <p id="login-email-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.email.message}</p>
               )}
             </div>
 
@@ -100,8 +98,7 @@ export default function LoginPage() {
                 <input
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
+                  {...register('password')}
                   className={`input-hand pr-12 ${errors.password ? 'border-red-400 focus:border-red-500' : ''}`}
                   placeholder="Enter your password"
                   required
@@ -121,7 +118,7 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password && (
-                <p id="login-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.password}</p>
+                <p id="login-password-error" className="mt-1 text-sm text-red-500 font-hand" role="alert">{errors.password.message}</p>
               )}
             </div>
 

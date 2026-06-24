@@ -10,15 +10,15 @@ export interface KeyDef {
 }
 
 export const FINGER_COLORS: Record<FingerZone, string> = {
-  lp: '#ff6b6b',
-  lr: '#ffa94d',
-  lm: '#ffd43b',
-  li: '#69db7c',
-  ri: '#4dabf7',
-  rm: '#9775fa',
-  rr: '#f783ac',
-  rp: '#adb5bd',
-  thumb: '#868e96',
+  lp: '#E74C3C',  // Left Pinky — Red
+  lr: '#E67E22',  // Left Ring — Orange
+  lm: '#F1C40F',  // Left Middle — Yellow
+  li: '#2ECC71',  // Left Index — Green
+  ri: '#3498DB',  // Right Index — Blue
+  rm: '#9B59B6',  // Right Middle — Purple
+  rr: '#E91E63',  // Right Ring — Pink
+  rp: '#607D8B',  // Right Pinky — Slate
+  thumb: '#78909C', // Thumb — Light Slate
 };
 
 export const FINGER_NAMES: Record<FingerZone, string> = {
@@ -143,4 +143,18 @@ export function getKeyByLabel(label: string): KeyDef | undefined {
 
 export function getHomeRowKeys(): string[] {
   return ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'];
+}
+
+export function getFingerForLabel(label: string): FingerZone {
+  const key = KEYBOARD_KEYS.find(k => k.label === label.toLowerCase());
+  return key?.finger || 'rp';
+}
+
+export function getActiveFingerZones(keys: string[]): FingerZone[] {
+  const zones = new Set<FingerZone>();
+  for (const k of keys) {
+    const zone = getFingerForLabel(k);
+    if (zone) zones.add(zone);
+  }
+  return Array.from(zones);
 }

@@ -3,13 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useSubmitTest, useDirectSubmit } from '@/lib/queries';
+import { useSubmitTest, useDirectSubmit, useStartTest } from '@/lib/queries';
 import { getRandomPassage, preloadPassages } from '@/lib/supabase';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
+import { ENABLE_NEW_TYPING_ENGINE } from '@/lib/config';
+import { useNewTypingEngine } from '@/features/typing/engine/typing-engine';
+import { TypingSessionManager } from '@/features/typing/engine/typing-session';
+import { SyncQueue } from '@/lib/offline/sync-queue';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
+import toast from 'react-hot-toast';
 
 import { blastConfetti } from '@/lib/confetti';
 import { ROUTES } from '@/lib/config';
@@ -42,18 +47,91 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const { user, isAuthenticated, loadUser } = useAuthStore();
   const store = useTypingStore();
   const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
+  const newEngine = useNewTypingEngine(lang);
   const submitMutation = useSubmitTest();
   const directSubmitMutation = useDirectSubmit();
+  const startTestMutation = useStartTest();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [passage, setPassage] = useState<any>(null);
   const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
   const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
+  const [recoveredSession, setRecoveredSession] = useState<any>(null);
 
   useEffect(() => { preloadPassages(); }, []);
 
   useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const session = await TypingSessionManager.recoverSession('current_active_session');
+        if (session && session.typedText.length > 0) {
+          setRecoveredSession(session);
+        } else {
+          proceedInit();
+        }
+      } catch (err) {
+        console.error('Failed to check session recovery:', err);
+        proceedInit();
+      }
+    };
+
+    const proceedInit = () => {
+      const sets = getPracticeSets(mode);
+      if (sets.length > 0) {
+        setPhase('select-set');
+        setLoading(false);
+      } else {
+        initTest();
+      }
+    };
+
+    checkSession();
+  }, [mode]);
+
+  const handleResumeSession = async () => {
+    if (!recoveredSession) return;
+    try {
+      const content = recoveredSession.passageId;
+      const resumedElapsedSeconds = Math.floor(recoveredSession.elapsedMs / 1000);
+      const adjustedStartTime = Date.now() - recoveredSession.elapsedMs;
+
+      setPassage({
+        id: 'recovered',
+        content: content,
+      });
+
+      store.resumeSession({
+        testId: 'local',
+        mode,
+        content,
+        duration: durationSeconds,
+        startTime: adjustedStartTime,
+        elapsedSeconds: resumedElapsedSeconds,
+        typedContent: recoveredSession.typedText,
+      });
+
+      if (ENABLE_NEW_TYPING_ENGINE) {
+        newEngine.resumeEngineSession(recoveredSession);
+      }
+
+      setPhase('typing');
+      setRecoveredSession(null);
+    } catch (err) {
+      console.error('Error during session recovery:', err);
+      await TypingSessionManager.clearSession('current_active_session');
+      setRecoveredSession(null);
+      initTest();
+    }
+  };
+
+  const handleDiscardSession = async () => {
+    try {
+      await TypingSessionManager.clearSession('current_active_session');
+    } catch (err) {
+      console.error('Failed to clear session:', err);
+    }
+    setRecoveredSession(null);
     const sets = getPracticeSets(mode);
     if (sets.length > 0) {
       setPhase('select-set');
@@ -61,7 +139,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     } else {
       initTest();
     }
-  }, [mode]);
+  };
 
   useEffect(() => {
     if (store.isComplete && !showResult && phase === 'typing') submitTest();
@@ -89,7 +167,11 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         let started = false;
         for (let attempt = 0; attempt < 2 && !started; attempt++) {
           try {
-            const test = await api.startTest(mode, passageData.id, durationSeconds);
+            const test = await startTestMutation.mutateAsync({
+              mode,
+              passage_id: passageData.id,
+              duration_seconds: durationSeconds,
+            });
             store.startTest(test.test_id, mode, passageData.content, durationSeconds);
             started = true;
           } catch {
@@ -121,13 +203,51 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     if (phase === 'submitting') return;
     setPhase('submitting');
     setShowResult(true);
+
+    const typedContent = ENABLE_NEW_TYPING_ENGINE ? newEngine.getTypedText() : store.typedContent;
+    const keystrokeEvents = ENABLE_NEW_TYPING_ENGINE ? newEngine.getKeystrokes() : store.keystrokeEvents;
+    const elapsedSeconds = ENABLE_NEW_TYPING_ENGINE 
+      ? Math.max(1, Math.floor(newEngine.getTelemetry().elapsed_ms / 1000)) 
+      : store.elapsedSeconds;
+
+    const wpm = ENABLE_NEW_TYPING_ENGINE ? newEngine.getWpm() : store.wpm;
+    const accuracy = ENABLE_NEW_TYPING_ENGINE ? newEngine.getAccuracy() : store.accuracy;
+    const errors = ENABLE_NEW_TYPING_ENGINE ? newEngine.getMistakes() : store.errors;
+    const backspaces = ENABLE_NEW_TYPING_ENGINE
+      ? newEngine.getKeystrokes().filter((e: any) => e.is_backspace).length
+      : store.backspaces;
+
+    let submissionSuccess = false;
+    let resultData: any = null;
+
     try {
-      const resultData = await submitMutation.mutateAsync({
+      resultData = await submitMutation.mutateAsync({
         testId: store.testId || 'local',
-        typed_content: store.typedContent,
-        keystroke_events: store.keystrokeEvents,
-        time_taken_seconds: store.elapsedSeconds,
+        typed_content: typedContent,
+        keystroke_events: keystrokeEvents,
+        time_taken_seconds: elapsedSeconds,
       });
+      submissionSuccess = true;
+    } catch {
+      // Fall back to direct-submit if two-step flow failed
+      if (store.testId === 'local' && passage && user) {
+        try {
+          resultData = await directSubmitMutation.mutateAsync({
+            mode,
+            passage_id: passage.id,
+            duration_seconds: durationSeconds,
+            typed_content: typedContent,
+            keystroke_events: keystrokeEvents,
+            time_taken_seconds: elapsedSeconds,
+          });
+          submissionSuccess = true;
+        } catch {
+          // offline/failure
+        }
+      }
+    }
+
+    if (submissionSuccess && resultData) {
       setResult(resultData);
       saveTestResult({
         wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
@@ -139,7 +259,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         total_errors: resultData.total_errors,
         key_depression_count: resultData.key_depression_count,
         backspace_count: resultData.backspace_count,
-        typed_content: store.typedContent,
+        typed_content: typedContent,
         original_content: store.originalContent,
         full_mistakes: resultData.full_mistakes,
         half_mistakes: resultData.half_mistakes,
@@ -156,79 +276,130 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       loadUser();
       setPhase('result');
       return;
-    } catch {
-      // Fall back to direct-submit if two-step flow failed
     }
 
-    if (store.testId === 'local' && passage && user) {
+    // Offline / API failure enqueueing
+    if (user && passage) {
       try {
-        const resultData = await directSubmitMutation.mutateAsync({
+        const grossWpm = calculateWPM(typedContent.length, elapsedSeconds);
+        await SyncQueue.enqueue({
+          userId: user.id,
           mode,
-          passage_id: passage.id,
-          duration_seconds: durationSeconds,
-          typed_content: store.typedContent,
-          keystroke_events: store.keystrokeEvents,
-          time_taken_seconds: store.elapsedSeconds,
+          passageId: passage.id,
+          isDirectSubmit: store.testId === 'local',
+          grossWpm,
+          netWpm: wpm,
+          accuracy,
+          totalErrors: errors,
+          trustScore: 1.0,
+          payload: {
+            mode,
+            durationSeconds,
+            typedContent,
+            keystrokeEvents,
+            timeTakenSeconds: elapsedSeconds,
+          },
         });
-        setResult(resultData);
-        saveTestResult({
-          wpm: resultData.ssc_net_wpm || resultData.net_wpm || 0,
-          accuracy: resultData.ssc_accuracy || resultData.accuracy || 0,
-          mode,
-          qualified: !!resultData.is_qualified,
-          duration: durationSeconds,
-          gross_wpm: resultData.gross_wpm,
-          total_errors: resultData.total_errors,
-          key_depression_count: resultData.key_depression_count,
-          backspace_count: resultData.backspace_count,
-          typed_content: store.typedContent,
-          original_content: store.originalContent,
-          full_mistakes: resultData.full_mistakes,
-          half_mistakes: resultData.half_mistakes,
-          ssc_net_wpm: resultData.ssc_net_wpm,
-          ssc_accuracy: resultData.ssc_accuracy,
-          omission_errors: resultData.omission_errors,
-          addition_errors: resultData.addition_errors,
-          substitution_errors: resultData.substitution_errors,
-          wrong_word_errors: resultData.wrong_word_errors,
-          space_errors: resultData.space_errors,
-          consistency_score: resultData.consistency_score,
-          xp_earned: resultData.xp_earned || 0,
-        }, resultData.test_id);
-        loadUser();
-        setPhase('result');
-        return;
-      } catch {
-        // Fall through to client-side result
+        toast.success('Attempt saved offline! It will sync when connection returns.');
+      } catch (err) {
+        console.error('Failed to enqueue attempt to offline database:', err);
       }
     }
 
     const clientResult = {
-      net_wpm: store.wpm,
-      accuracy: store.accuracy,
-      gross_wpm: calculateWPM(store.typedContent.length, store.elapsedSeconds),
-      key_depression_count: store.typedContent.length,
-      total_errors: store.errors,
-      backspace_count: store.backspaces,
-      is_qualified: store.wpm >= (wpmTarget || 35) && store.accuracy >= 95,
+      net_wpm: wpm,
+      accuracy: accuracy,
+      gross_wpm: calculateWPM(typedContent.length, elapsedSeconds),
+      key_depression_count: typedContent.length,
+      total_errors: errors,
+      backspace_count: backspaces,
+      is_qualified: wpm >= (wpmTarget || 35) && accuracy >= 95,
     };
     setResult(clientResult);
     saveTestResult({
-      wpm: store.wpm,
-      accuracy: store.accuracy,
+      wpm,
+      accuracy,
       mode,
-      qualified: store.wpm >= (wpmTarget || 35) && store.accuracy >= 95,
+      qualified: wpm >= (wpmTarget || 35) && accuracy >= 95,
       duration: durationSeconds,
       gross_wpm: clientResult.gross_wpm,
-      total_errors: store.errors,
-      key_depression_count: store.typedContent.length,
-      backspace_count: store.backspaces,
-      typed_content: store.typedContent,
+      total_errors: errors,
+      key_depression_count: typedContent.length,
+      backspace_count: backspaces,
+      typed_content: typedContent,
       original_content: store.originalContent,
     });
     setPhase('result');
     blastConfetti();
   };
+
+  if (recoveredSession) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#f5f5f5',
+        fontFamily: 'Poppins, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: 440,
+          background: '#fff',
+          border: '2px solid #000',
+          borderRadius: 8,
+          boxShadow: '4px 4px 0px 0px #000',
+          padding: 24,
+          textAlign: 'center',
+        }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#333', marginBottom: 12 }}>
+            Unfinished Test Found
+          </h2>
+          <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
+            You have an unfinished typing session containing <strong>{recoveredSession.typedText.length} characters</strong> from your last attempt. Would you like to resume it?
+          </p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={handleResumeSession}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                background: '#2F5BFF',
+                color: '#fff',
+                border: '2px solid #000',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '2px 2px 0px 0px #000',
+              }}
+            >
+              Resume Test
+            </button>
+            <button
+              onClick={handleDiscardSession}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                background: '#fff',
+                color: '#333',
+                border: '2px solid #000',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '2px 2px 0px 0px #000',
+              }}
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'loading') {
     return <LoadingLogo />;
@@ -296,7 +467,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         wpmTarget={wpmTarget}
         router={router}
         originalContent={store.originalContent}
-        typedContent={store.typedContent}
+        typedContent={ENABLE_NEW_TYPING_ENGINE ? newEngine.getTypedText() : store.typedContent}
       />
     );
   }
@@ -310,6 +481,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       lang={lang}
       onComplete={() => store.completeTest()}
       phase={phase}
+      newEngine={ENABLE_NEW_TYPING_ENGINE ? newEngine : undefined}
     />
   );
 }

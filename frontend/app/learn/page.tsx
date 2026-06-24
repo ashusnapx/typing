@@ -413,7 +413,7 @@ export default function LearnPage() {
           ))}
         </div>
 
-        {/* ─── Daily Focus Section ─────────────────────────────── */}
+        {/*
         <DailyFocus
           weakestKeys={weakestKeys}
           streak={streak}
@@ -425,8 +425,10 @@ export default function LearnPage() {
             }
           }}
         />
-
+        */}
+ 
         {/* ─── Keyboard Guide Section ──────────────────────────── */}
+        {/*
         <div
           className="bg-white border-2 border-pencil shadow-hard-sm mb-6 overflow-hidden"
           style={{ borderRadius: WOBBLY_RADII.md }}
@@ -473,12 +475,12 @@ export default function LearnPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
+              <div className="space-y-4">
+                <div>
                   <KeyboardSVG showLegend={true} />
                 </div>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FingerLegend
                     activeZone={selectedFinger}
                     onZoneHover={setSelectedFinger}
@@ -554,7 +556,8 @@ export default function LearnPage() {
             </div>
           </details>
         </div>
-
+        */}
+ 
         {/* ─── Curriculum Timeline ─────────────────────────────── */}
         <CurriculumTimeline
           levels={LEVELS}

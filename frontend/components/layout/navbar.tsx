@@ -34,7 +34,6 @@ export function Navbar() {
     { href: '/exam/cgl-dest', label: 'SSC CGL' },
     { href: '/exam/practice', label: 'Practice' },
     { href: '/learn', label: 'Learn' },
-    { href: '/leaderboard', label: 'Leaderboard' },
     { href: '/coach', label: 'AI Coach' },
   ];
 

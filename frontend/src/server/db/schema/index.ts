@@ -3,3 +3,8 @@ export * from './typing-tests';
 export * from './analytics-events';
 export * from './sessions';
 export * from './keystroke-summaries';
+export * from './passages';
+export * from './subscriptions';
+export * from './error-patterns';
+export * from './typing-sessions';
+export * from './user-analytics';

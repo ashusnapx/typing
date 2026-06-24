@@ -49,7 +49,6 @@ export default function NotFound() {
               { href: '/exam/chsl', label: 'SSC CHSL' },
               { href: '/exam/cgl-dest', label: 'SSC CGL DEST' },
               { href: '/learn', label: 'Learn Typing' },
-              { href: '/leaderboard', label: 'Leaderboard' },
               { href: '/dashboard', label: 'Dashboard' },
               { href: '/coach', label: 'AI Coach' },
             ].map((link) => (

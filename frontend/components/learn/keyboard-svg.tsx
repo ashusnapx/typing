@@ -31,7 +31,7 @@ const PAD_X = 12;
 const PAD_Y = 12;
 const RADIUS = 5;
 const HOME_ROW_KEYS = ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'];
-const GHOST_HAND_Y_OFFSET = 20;
+const GHOST_HAND_Y_OFFSET = 2 * (KEY_H + ROW_GAP) + 12;
 
 const FINGER_ZONE_ORDER: FingerZone[] = ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'];
 
@@ -77,12 +77,36 @@ export default function KeyboardSVG({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      setPressedKeys(prev => new Set(prev).add(e.key.toLowerCase()));
+      setPressedKeys(prev => {
+        const next = new Set(prev);
+        const key = e.key.toLowerCase();
+        next.add(key);
+        if (key === 'control') next.add('ctrl');
+        if (key === ' ') next.add('space');
+        if (key === 'escape') next.add('esc');
+        if (key === 'arrowup') next.add('up');
+        if (key === 'arrowdown') next.add('down');
+        if (key === 'arrowleft') next.add('left');
+        if (key === 'arrowright') next.add('right');
+        if (key === 'enter') next.add('enter');
+        if (key === 'backspace') next.add('backspace');
+        if (key === 'tab') next.add('tab');
+        if (key === 'capslock') next.add('capslock');
+        return next;
+      });
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       setPressedKeys(prev => {
         const next = new Set(prev);
-        next.delete(e.key.toLowerCase());
+        const key = e.key.toLowerCase();
+        if (key === 'control') { next.delete('control'); next.delete('ctrl'); return next; }
+        if (key === ' ') { next.delete(' '); next.delete('space'); return next; }
+        if (key === 'escape') { next.delete('escape'); next.delete('esc'); return next; }
+        if (key === 'arrowup') { next.delete('arrowup'); next.delete('up'); return next; }
+        if (key === 'arrowdown') { next.delete('arrowdown'); next.delete('down'); return next; }
+        if (key === 'arrowleft') { next.delete('arrowleft'); next.delete('left'); return next; }
+        if (key === 'arrowright') { next.delete('arrowright'); next.delete('right'); return next; }
+        next.delete(key);
         return next;
       });
     };
@@ -151,9 +175,9 @@ export default function KeyboardSVG({
   }, [typedHistory, expectedChar]);
 
   const viewW = maxRowWidth() + STAGGER[3] + PAD_X * 2;
-  const viewH = 4 * (KEY_H + ROW_GAP) + PAD_Y * 2 - ROW_GAP + GHOST_HAND_Y_OFFSET + 12;
+  const viewH = 5 * (KEY_H + ROW_GAP) + PAD_Y * 2 - ROW_GAP + GHOST_HAND_Y_OFFSET + 12;
 
-  const rows = [0, 1, 2, 3];
+  const rows = [0, 1, 2, 3, 4];
 
   const homeRowX = (col: number) => {
     const staggerX = PAD_X + STAGGER[2];
@@ -214,7 +238,17 @@ export default function KeyboardSVG({
           </defs>
           {rows.map(row => {
             const keys = KEYBOARD_KEYS.filter(k => k.row === row);
-            const staggerX = PAD_X + STAGGER[row];
+            let staggerX: number;
+            if (row === 4) {
+              const topWidth = maxRowWidth() + STAGGER[3];
+              const bottomWidth = keys.reduce((sum, k) => {
+                const kw = k.width * KEY_W + (sum > 0 ? GAP : 0);
+                return sum + kw;
+              }, 0);
+              staggerX = PAD_X + (topWidth - bottomWidth) / 2;
+            } else {
+              staggerX = PAD_X + STAGGER[row];
+            }
             const rowY = PAD_Y + row * (KEY_H + ROW_GAP);
             return keys.map(key => {
               const x = staggerX + key.col * (KEY_W + GAP);

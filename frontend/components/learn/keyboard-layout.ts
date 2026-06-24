@@ -135,7 +135,18 @@ const modifiers: KeyDef[] = [
   { label: '/', shiftLabel: '?', row: 3, col: 9, width: 1, finger: 'rp' },
 ];
 
-export const KEYBOARD_KEYS: KeyDef[] = modifiers;
+const modifierRow: KeyDef[] = [
+  { label: 'Ctrl', row: 4, col: 0, width: 1.25, finger: 'lp' },
+  { label: 'Alt', row: 4, col: 1.25, width: 1.25, finger: 'lp' },
+  { label: 'Shift', row: 4, col: 2.5, width: 1.5, finger: 'lp' },
+  { label: ' ', row: 4, col: 4, width: 4.5, finger: 'thumb' },
+  { label: 'Enter', row: 4, col: 8.5, width: 1.5, finger: 'rp' },
+  { label: 'Shift', row: 4, col: 10, width: 1.5, finger: 'rp' },
+  { label: 'Alt', row: 4, col: 11.5, width: 1.25, finger: 'rp' },
+  { label: 'Ctrl', row: 4, col: 12.75, width: 1.25, finger: 'rp' },
+];
+
+export const KEYBOARD_KEYS: KeyDef[] = [...modifiers, ...modifierRow];
 
 export function getKeyByLabel(label: string): KeyDef | undefined {
   return KEYBOARD_KEYS.find(k => k.label === label.toLowerCase() || k.label === label);

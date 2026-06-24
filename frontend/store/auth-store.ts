@@ -95,6 +95,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setCachedUser(user);
       set({ user, isAuthenticated: true, isLoading: false });
     } catch {
+      // Token might be expired — try to refresh
       try {
         const refreshed = await api.refreshToken();
         if (refreshed) {
@@ -104,6 +105,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
       } catch {}
+      // If we have cached user data, keep it rather than force-logout
+      if (cached) {
+        set({ isLoading: false });
+        return;
+      }
       api.setToken(null);
       clearCachedUser();
       set({ user: null, isAuthenticated: false, isLoading: false });

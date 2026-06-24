@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from '@/lib/config';
 import { trpcClient } from './trpc-client';
+import { TRPCClientError } from '@trpc/client';
 import { useTypingStore } from '@/store/typing-store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -44,6 +45,39 @@ class ApiClient {
     return this.token;
   }
 
+  private async _t<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!this.token) throw err;
+
+      const isAuthError =
+        (err instanceof TRPCClientError && err.data?.code === 'UNAUTHORIZED') ||
+        (err instanceof TRPCClientError && err.data?.httpStatus === 401) ||
+        (err instanceof Error && (
+          err.message?.includes('UNAUTHORIZED') ||
+          err.message?.includes('expired') ||
+          err.message?.includes('invalid') ||
+          err.message?.includes('401')
+        ));
+
+      if (!isAuthError) throw err;
+
+      // If a refresh is already in progress (e.g. from a concurrent batched request), wait for it
+      if (this.refreshing) {
+        const refreshed = await this.refreshing;
+        if (refreshed) return await fn();
+        throw err;
+      }
+
+      const refreshed = await this.refreshToken();
+      if (refreshed) {
+        return await fn();
+      }
+      throw err;
+    }
+  }
+
   async refreshToken(): Promise<boolean> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = this._refresh();
@@ -54,6 +88,20 @@ class ApiClient {
 
   private async _refresh(): Promise<boolean> {
     try {
+      if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
+        if (typeof window !== 'undefined') {
+          this.token = localStorage.getItem(STORAGE_KEYS.token);
+        }
+        if (!this.token) return false;
+        const cachedRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_cache') : null;
+        let userId: string | undefined;
+        if (cachedRaw) {
+          try { userId = JSON.parse(cachedRaw).user?.id; } catch {}
+        }
+        const data = await trpcClient.auth.refreshSession.mutate({ token: this.token, userId });
+        this.setToken(data.token);
+        return true;
+      }
       const response = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -110,8 +158,9 @@ class ApiClient {
           credentials: 'include',
         });
         if (retryResponse.ok) return retryResponse.json();
+      } else {
+        this.setToken(null);
       }
-      this.setToken(null);
     }
 
     if (!response.ok) {
@@ -175,7 +224,7 @@ class ApiClient {
 
   async getMe() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.user.profile.query();
+      const data = await this._t(() => trpcClient.user.profile.query());
       return {
         id: data.id,
         email: data.email,
@@ -219,32 +268,21 @@ class ApiClient {
       const state = useTypingStore.getState();
       const mode = state.mode || 'practice';
       const durationSeconds = state.totalDuration || 600;
+      const originalContent = state.originalContent || '';
       
       const totalChars = typed_content.length;
-      let totalErrors = 0;
-      const original = state.originalContent;
-      if (original) {
-        for (let i = 0; i < totalChars; i++) {
-          if (typed_content[i] !== original[i]) totalErrors++;
-        }
-      }
-      
-      const timeMinutes = time_taken_seconds / 60;
-      const grossWpm = timeMinutes > 0 ? Math.round((totalChars / 5) / timeMinutes) : 0;
-      const netWpm = timeMinutes > 0 ? Math.max(0, Math.round(((totalChars / 5) - totalErrors) / timeMinutes)) : 0;
-      const accuracy = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 10000) / 100 : 100;
-      
-      const idempotencyKey = testId && testId !== 'local' ? testId : (Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
 
-      const trpcResult = await trpcClient.tests.submit.mutate({
+      const trpcResult = await this._t(() => trpcClient.tests.submit.mutate({
         mode,
         durationSeconds,
-        grossWpm,
-        netWpm,
-        accuracy,
-        totalErrors,
+        originalContent,
+        typedContent: typed_content,
+        grossWpm: 0,
+        netWpm: 0,
+        accuracy: 100,
+        totalErrors: 0,
         trustScore: 100,
-        idempotencyKey,
+        idempotencyKey: testId && testId !== 'local' ? testId : (Math.random().toString(36).substring(2, 15) + Date.now().toString(36)),
         keystrokeEvents: keystroke_events.map(e => ({
           key: e.key || '',
           timestamp_ms: e.timestamp_ms || 0,
@@ -254,7 +292,7 @@ class ApiClient {
           cursor_position: e.cursor_position || 0,
           expected_char: e.expected_char || null,
         })),
-      });
+      }));
 
       return {
         test_id: trpcResult.testId,
@@ -265,12 +303,21 @@ class ApiClient {
         total_errors: trpcResult.totalErrors,
         time_taken_seconds,
         is_qualified: trpcResult.isQualified,
-        ssc_net_wpm: trpcResult.netWpm,
-        ssc_accuracy: trpcResult.accuracy,
-        ssc_error_percentage: 100 - trpcResult.accuracy,
-        full_mistakes: trpcResult.totalErrors,
-        half_mistakes: 0,
-        key_depression_count: totalChars,
+        ssc_net_wpm: trpcResult.sscNetWpm ?? trpcResult.netWpm,
+        ssc_accuracy: trpcResult.sscAccuracy ?? trpcResult.accuracy,
+        ssc_error_percentage: trpcResult.sscErrorPercentage ?? (100 - (trpcResult.sscAccuracy ?? trpcResult.accuracy)),
+        full_mistakes: trpcResult.fullMistakes ?? 0,
+        half_mistakes: trpcResult.halfMistakes ?? 0,
+        key_depression_count: trpcResult.keyDepressionCount ?? totalChars,
+        omission_errors: trpcResult.omissionErrors ?? 0,
+        addition_errors: trpcResult.additionErrors ?? 0,
+        substitution_errors: trpcResult.substitutionErrors ?? 0,
+        wrong_word_errors: trpcResult.wrongWordErrors ?? 0,
+        space_errors: trpcResult.spaceErrors ?? 0,
+        backspace_count: trpcResult.backspaceCount ?? 0,
+        consistency_score: trpcResult.consistencyScore ?? 100,
+        typing_rhythm_score: trpcResult.typingRhythmScore ?? 100,
+        pause_count: trpcResult.pauseCount ?? 0,
         xp_earned: trpcResult.trustScore,
         feedback: 'Nice attempt!',
       };
@@ -284,31 +331,19 @@ class ApiClient {
   async directSubmit(mode: string, passage_id: string, duration_seconds: number, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
       const state = useTypingStore.getState();
-      const totalChars = typed_content.length;
-      let totalErrors = 0;
-      const original = state.originalContent;
-      if (original) {
-        for (let i = 0; i < totalChars; i++) {
-          if (typed_content[i] !== original[i]) totalErrors++;
-        }
-      }
-      
-      const timeMinutes = time_taken_seconds / 60;
-      const grossWpm = timeMinutes > 0 ? Math.round((totalChars / 5) / timeMinutes) : 0;
-      const netWpm = timeMinutes > 0 ? Math.max(0, Math.round(((totalChars / 5) - totalErrors) / timeMinutes)) : 0;
-      const accuracy = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 10000) / 100 : 100;
-      
-      const idempotencyKey = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      const originalContent = state.originalContent || '';
 
-      const trpcResult = await trpcClient.tests.submit.mutate({
+      const trpcResult = await this._t(() => trpcClient.tests.submit.mutate({
         mode,
         durationSeconds: duration_seconds,
-        grossWpm,
-        netWpm,
-        accuracy,
-        totalErrors,
+        originalContent,
+        typedContent: typed_content,
+        grossWpm: 0,
+        netWpm: 0,
+        accuracy: 100,
+        totalErrors: 0,
         trustScore: 100,
-        idempotencyKey,
+        idempotencyKey: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
         keystrokeEvents: keystroke_events.map(e => ({
           key: e.key || '',
           timestamp_ms: e.timestamp_ms || 0,
@@ -318,7 +353,7 @@ class ApiClient {
           cursor_position: e.cursor_position || 0,
           expected_char: e.expected_char || null,
         })),
-      });
+      }));
 
       return {
         test_id: trpcResult.testId,
@@ -329,12 +364,21 @@ class ApiClient {
         total_errors: trpcResult.totalErrors,
         time_taken_seconds,
         is_qualified: trpcResult.isQualified,
-        ssc_net_wpm: trpcResult.netWpm,
-        ssc_accuracy: trpcResult.accuracy,
-        ssc_error_percentage: 100 - trpcResult.accuracy,
-        full_mistakes: trpcResult.totalErrors,
-        half_mistakes: 0,
-        key_depression_count: totalChars,
+        ssc_net_wpm: trpcResult.sscNetWpm ?? trpcResult.netWpm,
+        ssc_accuracy: trpcResult.sscAccuracy ?? trpcResult.accuracy,
+        ssc_error_percentage: trpcResult.sscErrorPercentage ?? (100 - (trpcResult.sscAccuracy ?? trpcResult.accuracy)),
+        full_mistakes: trpcResult.fullMistakes ?? 0,
+        half_mistakes: trpcResult.halfMistakes ?? 0,
+        key_depression_count: trpcResult.keyDepressionCount ?? typed_content.length,
+        omission_errors: trpcResult.omissionErrors ?? 0,
+        addition_errors: trpcResult.additionErrors ?? 0,
+        substitution_errors: trpcResult.substitutionErrors ?? 0,
+        wrong_word_errors: trpcResult.wrongWordErrors ?? 0,
+        space_errors: trpcResult.spaceErrors ?? 0,
+        backspace_count: trpcResult.backspaceCount ?? 0,
+        consistency_score: trpcResult.consistencyScore ?? 100,
+        typing_rhythm_score: trpcResult.typingRhythmScore ?? 100,
+        pause_count: trpcResult.pauseCount ?? 0,
         xp_earned: trpcResult.trustScore,
         feedback: 'Nice attempt!',
       };
@@ -347,7 +391,7 @@ class ApiClient {
 
   async getTestHistory(limit = 20, offset = 0) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.tests.history.query({ limit, offset });
+      const data = await this._t(() => trpcClient.tests.history.query({ limit, offset }));
       return data.map((t) => ({
         id: t.id,
         user_id: t.userId,
@@ -366,7 +410,7 @@ class ApiClient {
 
   async getTestResult(testId: string) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const t = await trpcClient.tests.result.query({ testId });
+      const t = await this._t(() => trpcClient.tests.result.query({ testId }));
       return {
         test_id: t.testId,
         mode: t.mode,
@@ -375,16 +419,26 @@ class ApiClient {
         accuracy: t.accuracy,
         total_errors: t.totalErrors,
         is_qualified: t.isQualified,
-        ssc_net_wpm: t.netWpm,
-        ssc_accuracy: t.accuracy,
-        ssc_error_percentage: 100 - t.accuracy,
-        time_taken_seconds: 0,
-        time_utilization_percentage: 100,
-        backspace_count: 0,
-        pause_count: 0,
-        total_pause_duration_seconds: 0,
-        typing_rhythm_score: 100,
-        consistency_score: 100,
+        ssc_net_wpm: t.sscNetWpm ?? t.netWpm,
+        ssc_accuracy: t.sscAccuracy ?? t.accuracy,
+        ssc_error_percentage: 100 - (t.sscAccuracy ?? t.accuracy),
+        time_taken_seconds: t.timeTakenSeconds ?? 0,
+        full_mistakes: t.fullMistakes ?? 0,
+        half_mistakes: t.halfMistakes ?? 0,
+        key_depression_count: t.keyDepressionCount ?? 0,
+        omission_errors: t.omissionErrors ?? 0,
+        addition_errors: t.additionErrors ?? 0,
+        substitution_errors: t.substitutionErrors ?? 0,
+        wrong_word_errors: t.wrongWordErrors ?? 0,
+        space_errors: t.spaceErrors ?? 0,
+        backspace_count: t.backspaceCount ?? 0,
+        pause_count: t.pauseCount ?? 0,
+        consistency_score: t.consistencyScore ?? 100,
+        typing_rhythm_score: t.typingRhythmScore ?? 100,
+        typed_content: t.typedContent ?? '',
+        original_content: t.originalContent ?? '',
+        completed_at: t.createdAt,
+        date: t.createdAt,
       };
     }
     return this.request<any>(`/tests/${testId}`);
@@ -392,7 +446,7 @@ class ApiClient {
 
   async getTestReplay(testId: string) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.tests.replay.query({ testId });
+      const data = await this._t(() => trpcClient.tests.replay.query({ testId }));
       return {
         events: data.events,
         original_content: data.original_content,
@@ -406,7 +460,7 @@ class ApiClient {
   // Dashboard
   async getDashboard() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      return trpcClient.user.dashboard.query();
+      return this._t(() => trpcClient.user.dashboard.query());
     }
     return this.request<any>('/dashboard');
   }
@@ -414,7 +468,7 @@ class ApiClient {
   // Analytics
   async getAnalyticsOverview() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.user.dashboard.query();
+      const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.overview;
     }
     return this.request<any>('/analytics/overview');
@@ -422,7 +476,7 @@ class ApiClient {
 
   async getPredictions() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.user.dashboard.query();
+      const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.predictions;
     }
     return this.request<any>('/analytics/predictions');
@@ -430,7 +484,7 @@ class ApiClient {
 
   async getRecentScores() {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.user.dashboard.query();
+      const data = await this._t(() => trpcClient.user.dashboard.query());
       return data.recent_scores;
     }
     return this.request<any[]>('/analytics/recent-scores');
@@ -439,16 +493,18 @@ class ApiClient {
   // Leaderboard
   async getLeaderboard(scope = 'global', limit = 100) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const data = await trpcClient.leaderboard.getRankings.query({ scope, limit });
-      return data.map((item) => ({
-        rank: item.rank,
-        user_id: item.userId,
-        userId: item.userId,
-        score: item.score,
-        full_name: item.fullName,
-        fullName: item.fullName,
-        level: item.level,
-      }));
+      const data = await this._t(() => trpcClient.leaderboard.getRankings.query({ scope, limit }));
+      return {
+        entries: data.map((item) => ({
+          rank: item.rank,
+          full_name: item.fullName,
+          college: item.college || '',
+          best_wpm: item.bestWpm ?? item.score,
+          best_accuracy: item.bestAccuracy ?? 0,
+          tests_taken: item.totalTestsTaken,
+          xp: item.xp,
+        })),
+      };
     }
     return this.request<any>(`/leaderboard?scope=${scope}&limit=${limit}`);
   }
@@ -474,10 +530,10 @@ class ApiClient {
   // Profile
   async updateProfile(data: any) {
     if (process.env.NEXT_PUBLIC_ENABLE_TRPC === 'true') {
-      const updated = await trpcClient.user.updateProfile.mutate({
+      const updated = await this._t(() => trpcClient.user.updateProfile.mutate({
         full_name: data.full_name,
         email: data.email,
-      });
+      }));
       return {
         id: updated.id,
         email: updated.email,

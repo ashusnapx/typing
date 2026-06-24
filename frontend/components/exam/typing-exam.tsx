@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useSubmitTest, useDirectSubmit, useStartTest } from '@/lib/queries';
-import { getRandomPassage, preloadPassages } from '@/lib/supabase';
+import { getRandomPassage } from '@/lib/supabase';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { ENABLE_NEW_TYPING_ENGINE } from '@/lib/config';
 import { useNewTypingEngine } from '@/features/typing/engine/typing-engine';
-import { TypingSessionManager } from '@/features/typing/engine/typing-session';
+
 import { SyncQueue } from '@/lib/offline/sync-queue';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
@@ -44,6 +45,7 @@ interface TypingExamProps {
 
 export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english', isTCSReplica = false }: TypingExamProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isAuthenticated, loadUser } = useAuthStore();
   const store = useTypingStore();
   const { typedContent, originalContent, elapsedSeconds } = useTypingEngine(lang);
@@ -57,81 +59,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
   const [passage, setPassage] = useState<any>(null);
   const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
   const [phase, setPhase] = useState<'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'>('loading');
-  const [recoveredSession, setRecoveredSession] = useState<any>(null);
-
-  useEffect(() => { preloadPassages(); }, []);
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const session = await TypingSessionManager.recoverSession('current_active_session');
-        if (session && session.typedText.length > 0) {
-          setRecoveredSession(session);
-        } else {
-          proceedInit();
-        }
-      } catch (err) {
-        console.error('Failed to check session recovery:', err);
-        proceedInit();
-      }
-    };
-
-    const proceedInit = () => {
-      const sets = getPracticeSets(mode);
-      if (sets.length > 0) {
-        setPhase('select-set');
-        setLoading(false);
-      } else {
-        initTest();
-      }
-    };
-
-    checkSession();
-  }, [mode]);
-
-  const handleResumeSession = async () => {
-    if (!recoveredSession) return;
-    try {
-      const content = recoveredSession.passageId;
-      const resumedElapsedSeconds = Math.floor(recoveredSession.elapsedMs / 1000);
-      const adjustedStartTime = Date.now() - recoveredSession.elapsedMs;
-
-      setPassage({
-        id: 'recovered',
-        content: content,
-      });
-
-      store.resumeSession({
-        testId: 'local',
-        mode,
-        content,
-        duration: durationSeconds,
-        startTime: adjustedStartTime,
-        elapsedSeconds: resumedElapsedSeconds,
-        typedContent: recoveredSession.typedText,
-      });
-
-      if (ENABLE_NEW_TYPING_ENGINE) {
-        newEngine.resumeEngineSession(recoveredSession);
-      }
-
-      setPhase('typing');
-      setRecoveredSession(null);
-    } catch (err) {
-      console.error('Error during session recovery:', err);
-      await TypingSessionManager.clearSession('current_active_session');
-      setRecoveredSession(null);
-      initTest();
-    }
-  };
-
-  const handleDiscardSession = async () => {
-    try {
-      await TypingSessionManager.clearSession('current_active_session');
-    } catch (err) {
-      console.error('Failed to clear session:', err);
-    }
-    setRecoveredSession(null);
     const sets = getPracticeSets(mode);
     if (sets.length > 0) {
       setPhase('select-set');
@@ -139,7 +68,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
     } else {
       initTest();
     }
-  };
+  }, [mode]);
 
   useEffect(() => {
     if (store.isComplete && !showResult && phase === 'typing') submitTest();
@@ -229,8 +158,8 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       });
       submissionSuccess = true;
     } catch {
-      // Fall back to direct-submit if two-step flow failed
-      if (store.testId === 'local' && passage && user) {
+      // Fall back to direct-submit if primary submission failed
+      if (passage && user) {
         try {
           resultData = await directSubmitMutation.mutateAsync({
             mode,
@@ -329,77 +258,11 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
       typed_content: typedContent,
       original_content: store.originalContent,
     });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    window.dispatchEvent(new CustomEvent('dashboard-invalidate'));
     setPhase('result');
     blastConfetti();
   };
-
-  if (recoveredSession) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#f5f5f5',
-        fontFamily: 'Poppins, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: 440,
-          background: '#fff',
-          border: '2px solid #000',
-          borderRadius: 8,
-          boxShadow: '4px 4px 0px 0px #000',
-          padding: 24,
-          textAlign: 'center',
-        }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#333', marginBottom: 12 }}>
-            Unfinished Test Found
-          </h2>
-          <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
-            You have an unfinished typing session containing <strong>{recoveredSession.typedText.length} characters</strong> from your last attempt. Would you like to resume it?
-          </p>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button
-              onClick={handleResumeSession}
-              style={{
-                flex: 1,
-                padding: '10px 0',
-                background: '#2F5BFF',
-                color: '#fff',
-                border: '2px solid #000',
-                borderRadius: 6,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: '2px 2px 0px 0px #000',
-              }}
-            >
-              Resume Test
-            </button>
-            <button
-              onClick={handleDiscardSession}
-              style={{
-                flex: 1,
-                padding: '10px 0',
-                background: '#fff',
-                color: '#333',
-                border: '2px solid #000',
-                borderRadius: 6,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: '2px 2px 0px 0px #000',
-              }}
-            >
-              Discard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (phase === 'loading') {
     return <LoadingLogo />;
@@ -490,6 +353,7 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
 
 function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedContent }:
   { result: any; mode: string; wpmTarget?: number; router: any; originalContent: string; typedContent: string }) {
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const specs = getExamSpecs(mode);
   const sscNetWpm = result.ssc_net_wpm || result.net_wpm || 0;
   const sscAccuracy = result.ssc_accuracy || result.accuracy || 0;

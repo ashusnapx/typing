@@ -10,8 +10,19 @@ import PassageDiffView, { getWordTiming, formatMs } from '@/components/exam/pass
 import { CSS } from '@/lib/config';
 import {
   CheckCircle2, XCircle, ArrowLeft, Clock, Gauge, Target,
-  AlertTriangle, Brain, BarChart3, Zap,
+  AlertTriangle, Brain, BarChart3, Zap, Info,
 } from 'lucide-react';
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex items-center ml-1.5">
+      <Info className="w-3.5 h-3.5 text-pencil/30 hover:text-pencil/70 transition-colors cursor-help" strokeWidth={2.5} />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-pencil text-paper text-xs font-hand rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed">
+        {text}
+      </span>
+    </span>
+  );
+}
 
 interface WordAnalysis {
   index: number;
@@ -152,6 +163,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Brain className="w-4 h-4" strokeWidth={3} /> SSC Error Analysis
+              <Tooltip text="Full mistakes = wrong character at correct position. Half mistakes = extra/missing character. SSC Error % = (full mistakes + half mistakes × 0.5) / key depressions × 100. Lower is better — keep it under 5-10% to qualify." />
             </h2>
             <div className="space-y-2.5">
               <div className="flex justify-between items-center">
@@ -173,6 +185,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" strokeWidth={3} /> Passage Completion
+              <Tooltip text="Percentage of the passage you typed. You must complete at least 50% of the passage for your result to be considered valid. Focus on typing the full passage rather than rushing for speed." />
             </h2>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -204,6 +217,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Target className="w-4 h-4" strokeWidth={3} /> Qualification by Category
+              <Tooltip text="SSC has different error allowances for different categories. UR needs ≤20% errors, OBC/EWS ≤25%, SC/ST ≤30%. Your WPM and error rate are checked against these thresholds to determine qualification." />
             </h2>
             <div className="space-y-2">
               {categories.map(c => {
@@ -239,6 +253,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" strokeWidth={3} /> Error Breakdown
+              <Tooltip text="Omission = missed character. Addition = extra character typed. Substitution = wrong character at that position. Wrong Word = entire word mistyped. Space = wrong spacing. Backspaces = correction count. Reducing omissions & substitutions has the biggest impact on your score." />
             </h2>
             <div className="space-y-2">
               {[
@@ -263,6 +278,7 @@ export default function AnalysisPage() {
           <div className="px-6 py-4 border-b-2 border-pencil/20 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-pencil" strokeWidth={3} />
             <h2 className="text-base font-bold font-marker text-pencil">Passage Comparison</h2>
+            <Tooltip text="Side-by-side view of the original passage vs what you typed. Green = correct, orange = typo/caps, red = wrong, gray = missed characters, underlined = extra characters you typed that weren't in the original. Focus on accuracy before speed." />
             <span className="text-xs font-hand text-pencil/40 ml-auto">
               <span style={{ color: '#16a34a' }}>green</span> = correct &nbsp;{'|'}&nbsp;
               <span style={{ color: '#ea580c' }}>orange</span> = typo/caps &nbsp;{'|'}&nbsp;
@@ -288,6 +304,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" strokeWidth={3} /> Slow Words (hesitated before typing)
+              <Tooltip text="Words where you paused for more than 500ms before typing. Long pauses suggest unfamiliarity or hesitation. Practice those specific words to build muscle memory and improve your rhythm." />
             </h2>
             {slowWords.length === 0 ? (
               <p className="text-sm font-hand text-pencil/40">No significant pauses detected.</p>
@@ -311,6 +328,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" strokeWidth={3} /> Words with Errors
+              <Tooltip text="Words where your typed version differed from the original. Shows what you typed vs what was expected. Focus on these patterns — if it's always the same type of error (e.g., missing 's' or wrong vowel), target that specific weakness." />
             </h2>
             {errorWords.length === 0 ? (
               <p className="text-sm font-hand text-pencil/40">No errors! Perfect typing.</p>
@@ -340,6 +358,7 @@ export default function AnalysisPage() {
           <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5 mb-6`}>
             <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
               <Zap className="w-4 h-4" strokeWidth={3} /> Pace & Consistency
+              <Tooltip text="Consistency measures how steady your WPM is throughout the test (higher = more even pacing). Rhythm score reflects your typing flow. Pauses indicate hesitation. Backspaces slow you down. Aim for consistent speed rather than bursts of fast typing followed by pauses." />
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {testData.consistency_score && (

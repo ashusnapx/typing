@@ -15,12 +15,11 @@ import { CSS, ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
 import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
 import KeyboardSVG from '@/components/learn/keyboard-svg';
-import CuteCat from '@/components/learn/cute-cat';
+
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
 
-import { LogoSpinner } from '@/components/ui/loading-logo';
 import {
   Timer, Target, CheckCircle2, XCircle, RotateCcw,
   BarChart3, Keyboard, GraduationCap, ArrowLeft, ArrowRight, MousePointer2,
@@ -44,13 +43,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const store = useTypingStore();
   const authStore = useAuthStore();
   const updateProfileMutation = useUpdateProfile();
-  const { typedContent, originalContent, elapsedSeconds, keystrokeEvents } = useTypingEngine('english', true, true);
+  const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, true, lesson.drillType === 'letters');
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
   const [countdown, setCountdown] = useState(3);
   const [result, setResult] = useState<any>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
-  const [finishing, setFinishing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasCompletedRef = useRef(false);
 
   useEffect(() => {
     store.setNavHidden(phase === 'typing' || phase === 'countdown');
@@ -83,6 +82,12 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   useEffect(() => {
     store.startTest('lesson', 'practice' as any, sampleText, lesson.durationSec);
   }, []);
+
+  useEffect(() => {
+    if (phase === 'typing') {
+      containerRef.current?.focus();
+    }
+  }, [phase]);
 
   const finishLesson = useCallback(async (extra?: { wpm?: number; acc?: number }) => {
     const totalType = typedContent.length;
@@ -136,6 +141,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     setPhase('result');
     blastConfetti();
   }, [typedContent, originalContent, elapsedSeconds, lesson, authStore]);
+
+  useEffect(() => {
+    if (isComplete && phase === 'typing' && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
+      finishLesson();
+    }
+  }, [isComplete, phase, finishLesson]);
 
   const startLesson = () => {
     setPhase('countdown');
@@ -398,16 +410,10 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const keysPreview = typedContent.split('').slice(-50);
   const isHindi = false;
 
-  const catMood = errorFlash ? 'sad' as const
-    : totalChars === 0 ? 'neutral' as const
-    : currentWpm >= lesson.targetWpm && currentAccuracy >= lesson.minAccuracy ? 'excited' as const
-    : currentAccuracy >= lesson.minAccuracy ? 'happy' as const
-    : 'neutral' as const;
-
   return (
-    <div className="min-h-screen bg-paper">
-      <div className="max-w-6xl mx-auto px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
+    <div ref={containerRef} tabIndex={-1} className="h-screen bg-paper flex flex-col overflow-hidden focus:outline-none">
+      <div className="shrink-0 max-w-6xl mx-auto w-full px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-3">
           <button onClick={() => router.push(ROUTES.learn)} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
             <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Exit
           </button>
@@ -426,7 +432,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4 text-pencil/60 font-hand text-base">
+        <div className="flex items-center justify-between text-pencil/60 font-hand text-base">
           <div className="flex items-center space-x-4">
             <span className={`font-bold font-marker text-lg ${currentWpm >= lesson.targetWpm ? 'text-green-600' : ''}`}>
               {currentWpm} <span className="text-sm font-hand font-normal">wpm</span>
@@ -444,44 +450,32 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             <span>Goal: {lesson.targetWpm} WPM / {lesson.minAccuracy}% acc</span>
           </div>
         </div>
+      </div>
 
-        <div className={`grid ${showKeyboard ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
-          {isHindi && (
-            <div className="lg:col-span-5 mb-4">
-              <HindiKeyboardGuide />
-            </div>
-          )}
-          <div className="lg:col-span-3">
-            <TypingDisplay
-              originalContent={originalContent}
-              typedContent={typedContent}
-              isActive={phase === 'typing'}
-            />
-
-            <div className="mt-4 flex items-center justify-between text-sm font-hand text-pencil/40">
-              <span>{typedContent.length} / {originalContent.length} chars</span>
-              <button onClick={() => { if (!finishing) { setFinishing(true); finishLesson(); } }} disabled={finishing} className="btn-hand-sm flex items-center gap-2">
-                {finishing ? <LogoSpinner size="sm" /> : 'Finish Lesson'}
-              </button>
-            </div>
-          </div>
-
-          <div className={showKeyboard ? 'lg:col-span-2' : 'lg:col-span-1'}>
-            <div className="space-y-4">
-              <CapsLockNotice expectedChar={nextChar} />
-
-              {showKeyboard && (
-                <KeyboardSVG expectedChar={nextChar} typedHistory={keysPreview} keystrokeEvents={keystrokeEvents} />
-              )}
-              {phase === 'typing' && (
-                <div className="bg-white border-2 border-pencil/20 p-3 shadow-hard-sm flex flex-col items-center"
-                     style={{ borderRadius: CSS.radii.sm }}>
-                  <CuteCat mood={catMood} wpm={currentWpm} accuracy={currentAccuracy} />
-                </div>
-              )}
-            </div>
-          </div>
+      <div className="flex-[2] min-h-0 max-w-6xl mx-auto w-full px-4 pb-1 flex flex-col">
+        {isHindi && <HindiKeyboardGuide />}
+        <TypingDisplay
+          originalContent={originalContent}
+          typedContent={typedContent}
+          isActive={phase === 'typing'}
+        />
+        <div className="mt-2 text-sm font-hand text-pencil/40 shrink-0">
+          {typedContent.length} / {originalContent.length} chars
         </div>
+      </div>
+
+      <div className="flex-[3] min-h-0 max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col">
+        <div className="shrink-0 mb-1">
+          <CapsLockNotice expectedChar={nextChar} requireCapsLock={false} />
+        </div>
+        {showKeyboard && (
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <div className="w-full max-w-4xl h-full">
+              <KeyboardSVG expectedChar={nextChar} typedHistory={keysPreview} keystrokeEvents={keystrokeEvents} showLegend={false} />
+            </div>
+          </div>
+        )}
+        {!showKeyboard && <div className="flex-1 min-h-0" />}
       </div>
     </div>
   );

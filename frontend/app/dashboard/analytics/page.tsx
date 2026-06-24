@@ -188,12 +188,7 @@ export default function AnalyticsPage() {
             <Brain className="w-6 h-6 text-pencil mx-auto mb-2" strokeWidth={3} />
             <span className="font-bold text-pencil font-hand">AI Coach</span>
           </Link>
-          <Link href="/leaderboard"
-                className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 text-center -rotate-2`}
-                style={{ borderRadius: CSS.radii.md }}>
-            <TrendingUp className="w-6 h-6 text-pencil mx-auto mb-2" strokeWidth={3} />
-            <span className="font-bold text-pencil font-hand">Leaderboard</span>
-          </Link>
+
         </div>
       </main>
     </div>

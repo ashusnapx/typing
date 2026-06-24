@@ -80,6 +80,15 @@ export function CurriculumTimeline({
 
         return (
           <div key={level.id} className="relative pl-14 pb-8 last:pb-0">
+            {/* Fill line — spans from node center to bottom padding */}
+            {idx < levels.length - 1 && fillHeight > 0 && (
+              <div className="absolute left-[26px] top-[14px] bottom-0 w-0.5 bg-pencil/15">
+                <div
+                  className="absolute left-0 top-0 w-full bg-green-400 transition-all duration-500"
+                  style={{ height: `${fillHeight}%` }}
+                />
+              </div>
+            )}
             {/* Timeline node */}
             <div className="absolute left-4 top-1 z-10">
               <div
@@ -105,13 +114,6 @@ export function CurriculumTimeline({
                   <span className="font-marker text-[8px]">{level.id}</span>
                 )}
               </div>
-              {/* Fill line */}
-              {fillHeight > 0 && (
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 w-0.5 bg-green-400 transition-all duration-500"
-                  style={{ top: '100%', height: `${fillHeight}%` }}
-                />
-              )}
             </div>
 
             {/* Level card */}

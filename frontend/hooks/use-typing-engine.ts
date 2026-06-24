@@ -5,7 +5,7 @@ import { useTypingStore } from '@/store/typing-store';
 import { KeystrokeEvent } from '@/types';
 import { transliterateEnglishToHindi } from '@/lib/hindi-transliteration';
 
-export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, requireCapsLock?: boolean) {
+export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, requireCapsLock?: boolean, autoSpace?: boolean) {
   const {
     originalContent,
     typedContent,
@@ -47,7 +47,10 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
 
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-    e.preventDefault();
+    const isTargetInput = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+    if (!isTargetInput) {
+      e.preventDefault();
+    }
 
     const now = Date.now();
     const timestamp_ms = now - (startTime || now);
@@ -125,8 +128,18 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
 
     updateTypedContent(newContent);
 
-    const correctChars = newContent.split('').filter((c, i) => c === originalContent[i]).length;
-    const totalChars = newContent.length;
+    let finalContent = newContent;
+    if (autoSpace) {
+      while (finalContent.length < originalContent.length && originalContent[finalContent.length] === ' ') {
+        finalContent += ' ';
+      }
+      if (finalContent !== newContent) {
+        updateTypedContent(finalContent);
+      }
+    }
+
+    const correctChars = finalContent.split('').filter((c, i) => c === originalContent[i]).length;
+    const totalChars = finalContent.length;
     const errors = totalChars - correctChars;
     const backspaces = keystrokeEvents.filter((e) => e.is_backspace).length + (isBackspace ? 1 : 0);
     const wpm = totalChars > 0 ? Math.round((totalChars / 5) / (elapsedSeconds / 60)) : 0;
@@ -134,10 +147,10 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
 
     updateMetrics(wpm, accuracy, errors, backspaces);
 
-    if (newContent.length >= originalContent.length) {
+    if (finalContent.length >= originalContent.length) {
       completeTest();
     }
-  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, requireCapsLock]);
+  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, requireCapsLock, autoSpace]);
 
   useEffect(() => {
     if (isActive) {

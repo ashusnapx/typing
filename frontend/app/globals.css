@@ -42,7 +42,7 @@
   }
 
   .btn-hand {
-    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-white text-pencil font-hand text-lg shadow-hard transition-all duration-100;
+    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-white text-pencil font-hand text-lg shadow-hard transition-all duration-100 cursor-pointer;
     border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
   }
 
@@ -57,7 +57,7 @@
   }
 
   .btn-hand-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-muted text-pencil font-hand text-lg shadow-hard transition-all duration-100;
+    @apply inline-flex items-center justify-center px-6 py-3 border-[3px] border-pencil bg-muted text-pencil font-hand text-lg shadow-hard transition-all duration-100 cursor-pointer;
     border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
   }
 
@@ -72,7 +72,7 @@
   }
 
   .btn-hand-sm {
-    @apply inline-flex items-center justify-center px-4 py-2 border-[3px] border-pencil bg-white text-pencil font-hand text-base shadow-hard-sm transition-all duration-100;
+    @apply inline-flex items-center justify-center px-4 py-2 border-[3px] border-pencil bg-white text-pencil font-hand text-base shadow-hard-sm transition-all duration-100 cursor-pointer;
     border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
   }
 

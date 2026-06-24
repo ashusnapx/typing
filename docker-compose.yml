@@ -1,37 +1,4 @@
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "127.0.0.1:8000:8000"
-    env_file:
-      - ./backend/.env
-    environment:
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
-      - DEBUG=false
-      - OPENTELEMETRY_ENABLED=false
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app:ro
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-    networks:
-      - internal
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-
   frontend:
     build:
       context: ./frontend
@@ -39,16 +6,14 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      - API_URL=http://backend:8000/api/v1
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://awfqpmgshuicrfiwyvhy.supabase.co}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres.awfqpmgshuicrfiwyvhy:No72rkkTtD3R9e3x@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
       - REDIS_URL=redis://:changeme@redis:6379/0
       - NEXT_PUBLIC_ENABLE_TRPC=true
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://awfqpmgshuicrfiwyvhy.supabase.co}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
     depends_on:
-      backend:
+      redis:
         condition: service_healthy
     networks:
       - internal

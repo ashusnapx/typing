@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db/client';
 import { users } from '../../db/schema/users';
 import { typingTests } from '../../db/schema/typing-tests';
-import { eq, desc, count, avg, max } from 'drizzle-orm';
+import { eq, desc, count, avg, max, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { profileSchema } from '@/lib/schemas';
 
@@ -23,6 +23,25 @@ export const userRouter = router({
         .where(eq(typingTests.userId, ctx.user.id));
 
       const total_tests = Number(aggregate?.totalTests ?? 0);
+
+      const xpByMode = await db
+        .select({
+          mode: typingTests.mode,
+          totalXp: sql<number>`COALESCE(SUM(${typingTests.xpEarned}), 0)`,
+          testCount: count(),
+        })
+        .from(typingTests)
+        .where(eq(typingTests.userId, ctx.user.id))
+        .groupBy(typingTests.mode);
+
+      const totalTestXp = xpByMode.reduce((s, r) => s + Number(r.totalXp), 0);
+
+      const [userRecord] = await db
+        .select({ xp: users.xp })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1);
+      const totalXp = Number(userRecord?.xp ?? 0);
 
       const recentTests = await db
         .select()
@@ -111,6 +130,12 @@ export const userRouter = router({
           wpm_series: wpms.slice(0, 10).reverse().map(w => Math.round(w * 10) / 10),
           accuracy_series: accs.slice(0, 10).reverse().map(a => Math.round(a * 10) / 10),
         },
+        xpBreakdown: xpByMode.map(r => ({
+          source: r.mode,
+          xp: Number(r.totalXp),
+          tests: Number(r.testCount),
+        })),
+        lessonXp: Math.max(0, totalXp - totalTestXp),
         recent_scores,
       };
     }),

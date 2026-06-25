@@ -532,8 +532,16 @@ export default function DashboardPage() {
           const totalTests = analytics?.total_tests || 0;
           const recentXpTotal = recentTests.slice(0, 10).reduce((s: number, t: any) => s + (t.xp_earned || 0), 0);
           const avgXpPerTest = totalTests > 0 ? Math.round(xp / totalTests) : 0;
-          const lessonXpEstimate = 895;
-          const testXpEstimate = Math.max(0, xp - lessonXpEstimate);
+          const xpBreakdown: { source: string; xp: number; tests: number }[] = (data as any)?.xpBreakdown || [];
+          const lessonXp: number = (data as any)?.lessonXp ?? Math.max(0, xp - xpBreakdown.reduce((s, r) => s + r.xp, 0));
+          const modeLabels: Record<string, string> = {
+            ssc_chsl: 'SSC CHSL',
+            ssc_cgl_dest: 'SSC CGL DEST',
+            ssc_cgl: 'SSC CGL',
+            practice: 'Practice',
+            blind: 'Blind Typing',
+            lesson: 'Lessons',
+          };
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowXPModal(false)}>
               <div className={`bg-white border-2 border-pencil ${CSS.shadows.md} max-w-lg w-full mx-4 relative overflow-y-auto max-h-[90vh]`}
@@ -595,18 +603,25 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mb-5">
-                    <h3 className="text-sm font-bold font-hand text-pencil mb-2">XP Sources</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                           style={{ borderRadius: CSS.radii.sm }}>
-                        <span className="text-sm font-hand text-pencil/70">Lessons (max 895 XP)</span>
-                        <span className="text-sm font-bold font-mono text-pencil">{Math.min(lessonXpEstimate, xp)}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                           style={{ borderRadius: CSS.radii.sm }}>
-                        <span className="text-sm font-hand text-pencil/70">Typing Tests</span>
-                        <span className="text-sm font-bold font-mono text-pencil">{Math.max(0, testXpEstimate)}</span>
-                      </div>
+                    <h3 className="text-sm font-bold font-hand text-pencil mb-2">XP Breakdown</h3>
+                    <div className="space-y-1.5">
+                      {lessonXp > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
+                             style={{ borderRadius: CSS.radii.sm }}>
+                          <span className="text-sm font-hand text-pencil/70">Learn Typing (Lessons)</span>
+                          <span className="text-sm font-bold font-mono text-pencil">{lessonXp} XP</span>
+                        </div>
+                      )}
+                      {xpBreakdown.filter(r => r.xp > 0).map((r) => (
+                        <div key={r.source} className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
+                             style={{ borderRadius: CSS.radii.sm }}>
+                          <span className="text-sm font-hand text-pencil/70">{modeLabels[r.source] || r.source}</span>
+                          <span className="text-sm font-bold font-mono text-pencil">{r.xp} XP</span>
+                        </div>
+                      ))}
+                      {lessonXp === 0 && xpBreakdown.every(r => r.xp === 0) && (
+                        <div className="text-sm font-hand text-pencil/40 p-2">No XP earned yet</div>
+                      )}
                     </div>
                   </div>
 

@@ -2,10 +2,9 @@ import { router, protectedProcedure } from '../trpc';
 import { z } from 'zod';
 import { db } from '../../db/client';
 import { typingTests } from '../../db/schema/typing-tests';
-import { userAnalytics } from '../../db/schema/user-analytics';
 import { errorPatterns } from '../../db/schema/error-patterns';
 import { passages } from '../../db/schema/passages';
-import { eq, desc, sql, and } from 'drizzle-orm';
+import { eq, desc, sql, and, count, avg, max, sum } from 'drizzle-orm';
 import { responseCache } from '../../services/response-cache';
 
 export const dashboardRouter = router({
@@ -14,56 +13,59 @@ export const dashboardRouter = router({
     .query(async ({ ctx }) => {
       const cacheKey = responseCache.makeCacheKey('dashboard', 'stats', ctx.user.id);
       return responseCache.getOrCompute(cacheKey, 30, async () => {
-        const allTests = await db
+        const [aggregate] = await db
+          .select({
+            totalTests: count(),
+            avgWpm: avg(typingTests.netWpm),
+            avgAccuracy: avg(typingTests.accuracy),
+            bestWpm: max(typingTests.netWpm),
+            bestAccuracy: max(typingTests.accuracy),
+            totalDuration: sum(typingTests.durationSeconds),
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id));
+
+        const [qualified] = await db
+          .select({ count: count() })
+          .from(typingTests)
+          .where(
+            and(
+              eq(typingTests.userId, ctx.user.id),
+              sql`(${typingTests.netWpm} >= 35 AND ${typingTests.accuracy} >= 95)`
+            )
+          );
+
+        const recentTests = await db
           .select({
             netWpm: typingTests.netWpm,
             accuracy: typingTests.accuracy,
-            grossWpm: typingTests.grossWpm,
             mode: typingTests.mode,
-            durationSeconds: typingTests.durationSeconds,
             createdAt: typingTests.createdAt,
           })
           .from(typingTests)
           .where(eq(typingTests.userId, ctx.user.id))
-          .orderBy(desc(typingTests.createdAt));
+          .orderBy(desc(typingTests.createdAt))
+          .limit(10);
 
-      const totalTests = allTests.length;
-      const avgWpm = totalTests > 0
-        ? allTests.reduce((s, t) => s + (t.netWpm ?? 0), 0) / totalTests
-        : 0;
-      const avgAccuracy = totalTests > 0
-        ? allTests.reduce((s, t) => s + (t.accuracy ?? 0), 0) / totalTests
-        : 0;
-      const bestWpm = totalTests > 0
-        ? Math.max(...allTests.map(t => t.netWpm ?? 0))
-        : 0;
-      const bestAccuracy = totalTests > 0
-        ? Math.max(...allTests.map(t => t.accuracy ?? 0))
-        : 0;
+        const totalTests = Number(aggregate?.totalTests ?? 0);
 
-      const qualifiedTests = allTests.filter(
-        t => (t.netWpm ?? 0) >= 35 && (t.accuracy ?? 0) >= 95,
-      ).length;
-
-      const totalDuration = allTests.reduce((s, t) => s + (t.durationSeconds ?? 0), 0);
-
-      return {
-        totalTests,
-        avgWpm: Math.round(avgWpm * 100) / 100,
-        avgAccuracy: Math.round(avgAccuracy * 100) / 100,
-        bestWpm: Math.round(bestWpm * 100) / 100,
-        bestAccuracy: Math.round(bestAccuracy * 100) / 100,
-        qualifiedTests,
-        totalDurationSeconds: totalDuration,
-        recentTests: allTests.slice(0, 10).map(t => ({
-          id: t.createdAt.toISOString(),
-          wpm: t.netWpm,
-          accuracy: t.accuracy,
-          date: t.createdAt.toISOString(),
-          mode: t.mode,
-        })),
-      };
-    });
+        return {
+          totalTests,
+          avgWpm: Math.round((Number(aggregate?.avgWpm ?? 0)) * 100) / 100,
+          avgAccuracy: Math.round((Number(aggregate?.avgAccuracy ?? 0)) * 100) / 100,
+          bestWpm: Math.round((Number(aggregate?.bestWpm ?? 0)) * 100) / 100,
+          bestAccuracy: Math.round((Number(aggregate?.bestAccuracy ?? 0)) * 100) / 100,
+          qualifiedTests: Number(qualified?.count ?? 0),
+          totalDurationSeconds: Number(aggregate?.totalDuration ?? 0),
+          recentTests: recentTests.map(t => ({
+            id: t.createdAt.toISOString(),
+            wpm: t.netWpm,
+            accuracy: t.accuracy,
+            date: t.createdAt.toISOString(),
+            mode: t.mode,
+          })),
+        };
+      });
     }),
 
   weeklyActivity: protectedProcedure

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db/client';
 import { users } from '../../db/schema/users';
 import { typingTests } from '../../db/schema/typing-tests';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count, avg, max } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { profileSchema } from '@/lib/schemas';
 
@@ -11,30 +11,19 @@ export const userRouter = router({
   dashboard: protectedProcedure
     .input(z.void())
     .query(async ({ ctx }) => {
-      // 1. Fetch all tests for overview metrics
-      const allTests = await db
+      const [aggregate] = await db
         .select({
-          netWpm: typingTests.netWpm,
-          accuracy: typingTests.accuracy,
+          totalTests: count(),
+          avgWpm: avg(typingTests.netWpm),
+          avgAccuracy: avg(typingTests.accuracy),
+          bestWpm: max(typingTests.netWpm),
+          bestAccuracy: max(typingTests.accuracy),
         })
         .from(typingTests)
         .where(eq(typingTests.userId, ctx.user.id));
 
-      const total_tests = allTests.length;
-      const avg_wpm = total_tests > 0 ? allTests.reduce((sum, t) => sum + (t.netWpm ?? 0), 0) / total_tests : 0;
-      const avg_accuracy = total_tests > 0 ? allTests.reduce((sum, t) => sum + (t.accuracy ?? 0), 0) / total_tests : 0;
-      const best_wpm = total_tests > 0 ? Math.max(...allTests.map(t => t.netWpm ?? 0)) : 0;
-      const best_accuracy = total_tests > 0 ? Math.max(...allTests.map(t => t.accuracy ?? 0)) : 0;
+      const total_tests = Number(aggregate?.totalTests ?? 0);
 
-      const overview = {
-        total_tests,
-        avg_wpm,
-        avg_accuracy,
-        best_wpm,
-        best_accuracy,
-      };
-
-      // 2. Fetch recent tests
       const recentTests = await db
         .select()
         .from(typingTests)
@@ -58,7 +47,6 @@ export const userRouter = router({
         key_depression_count: t.grossWpm !== null ? t.grossWpm * 5 : 0,
       }));
 
-      // 3. Calculate predictions
       const wpms = recentTests.map(t => t.netWpm ?? 0);
       const accs = recentTests.map(t => t.accuracy ?? 0);
       const recent_avg_wpm = wpms.length > 0 ? wpms.reduce((a, b) => a + b, 0) / wpms.length : 0;
@@ -99,7 +87,13 @@ export const userRouter = router({
       }
 
       return {
-        overview,
+        overview: {
+          total_tests,
+          avg_wpm: Number(aggregate?.avgWpm ?? 0),
+          avg_accuracy: Number(aggregate?.avgAccuracy ?? 0),
+          best_wpm: Number(aggregate?.bestWpm ?? 0),
+          best_accuracy: Number(aggregate?.bestAccuracy ?? 0),
+        },
         predictions: {
           chsl_qualification_probability: Math.round(probability * 10) / 10,
           cgl_dest_qualification_probability: Math.round(cgl_probability * 10) / 10,

@@ -3,6 +3,7 @@ import { Context } from './context';
 import { logStorage } from '../observability/logger';
 import { traceSpan } from '../observability/tracing';
 import { redis } from '../redis/client';
+import crypto from 'crypto';
 
 const t = initTRPC.context<Context>().create();
 
@@ -10,10 +11,14 @@ const RATE_LIMIT_WINDOW = 60;
 const RATE_LIMIT_AUTHED = 100;
 const RATE_LIMIT_ANON = 20;
 
+function hashIp(ip: string): string {
+  return crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
+}
+
 async function checkRateLimit(ctx: Context): Promise<void> {
   const key = ctx.user?.id
     ? `ratelimit:user:${ctx.user.id}`
-    : `ratelimit:ip:${ctx.requestId}`;
+    : `ratelimit:ip:${hashIp(ctx.clientIp || 'unknown')}`;
   try {
     const current = await redis.incr(key);
     if (current === 1) {

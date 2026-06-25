@@ -7,7 +7,6 @@ import { users } from '../../db/schema/users';
 import { passages } from '../../db/schema/passages';
 import { LeaderboardService } from '../../redis/leaderboard-service';
 import { errorEngine } from '../../services/error-engine';
-import { typingEngine } from '../../services/typing-engine';
 import { analyticsService } from '../../services/analytics';
 import { qualificationPredictor } from '../../services/qualification-predictor';
 import { eq, and, desc } from 'drizzle-orm';
@@ -31,7 +30,7 @@ export const testsRouter = router({
       durationSeconds: z.number(),
       passageId: z.string().optional(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const testId = crypto.randomUUID();
 
       let originalContent = '';
@@ -43,8 +42,6 @@ export const testsRouter = router({
           .limit(1);
         originalContent = passage?.content ?? '';
       }
-
-      typingEngine.createSession(testId, originalContent, input.durationSeconds);
 
       return { testId, originalContent };
     }),

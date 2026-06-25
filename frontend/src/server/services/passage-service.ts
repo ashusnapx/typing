@@ -1,6 +1,6 @@
 import { db } from '../db/client';
 import { passages } from '../db/schema/passages';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, count } from 'drizzle-orm';
 
 export class PassageService {
   async getPassage(passageId: string) {
@@ -51,14 +51,21 @@ export class PassageService {
       ];
       if (difficulty) conditions.push(eq(passages.difficulty, difficulty));
 
-      const [passage] = await db
-        .select()
+      const [{ total }] = await db
+        .select({ total: count() })
         .from(passages)
-        .where(and(...conditions))
-        .orderBy(sql`RANDOM()`)
-        .limit(1);
+        .where(and(...conditions));
 
-      if (passage) return passage;
+      if (total > 0) {
+        const offset = Math.floor(Math.random() * total);
+        const [passage] = await db
+          .select()
+          .from(passages)
+          .where(and(...conditions))
+          .offset(offset)
+          .limit(1);
+        if (passage) return passage;
+      }
     }
 
     const conditions = [
@@ -68,11 +75,19 @@ export class PassageService {
     if (difficulty) conditions.push(eq(passages.difficulty, difficulty));
     if (practiceSet) conditions.push(eq(passages.practiceSet, practiceSet));
 
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(passages)
+      .where(and(...conditions));
+
+    if (total === 0) return null;
+
+    const offset = Math.floor(Math.random() * total);
     const [passage] = await db
       .select()
       .from(passages)
       .where(and(...conditions))
-      .orderBy(sql`RANDOM()`)
+      .offset(offset)
       .limit(1);
 
     return passage ?? null;

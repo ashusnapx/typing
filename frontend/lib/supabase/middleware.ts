@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_ROUTES = [
-  '/', '/auth/callback',
+  '/', '/auth/callback', '/health',
   '/api/trpc', '/api/inngest',
   '/exam', '/learn', '/about', '/faq', '/contact', '/privacy', '/terms',
   '/blog', '/coach', '/dashboard', '/leaderboard',

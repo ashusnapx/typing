@@ -55,17 +55,15 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getUser()
   const user = data?.user
 
+  // Auth pages: let them through (login/register should always render)
+  if (isAuthPage(pathname)) {
+    return supabaseResponse;
+  }
+
   // Protected route + no user → redirect to login
   if (!user && !isPublicRoute(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
-  }
-
-  // Already logged in on auth pages → redirect to dashboard
-  if (user && isAuthPage(pathname)) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

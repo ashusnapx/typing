@@ -43,7 +43,7 @@ export const userRouter = router({
         total_errors: t.totalErrors,
         backspace_count: 0,
         consistency_score: 100,
-        xp_earned: t.trustScore,
+        xp_earned: t.xpEarned,
         key_depression_count: t.grossWpm !== null ? t.grossWpm * 5 : 0,
       }));
 

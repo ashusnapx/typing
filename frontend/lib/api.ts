@@ -230,7 +230,7 @@ class ApiClient {
         consistency_score: trpcResult.consistencyScore ?? 100,
         typing_rhythm_score: trpcResult.typingRhythmScore ?? 100,
         pause_count: trpcResult.pauseCount ?? 0,
-        xp_earned: trpcResult.trustScore,
+        xp_earned: trpcResult.xpEarned,
         feedback: 'Nice attempt!',
       };
     }
@@ -291,7 +291,7 @@ class ApiClient {
         consistency_score: trpcResult.consistencyScore ?? 100,
         typing_rhythm_score: trpcResult.typingRhythmScore ?? 100,
         pause_count: trpcResult.pauseCount ?? 0,
-        xp_earned: trpcResult.trustScore,
+        xp_earned: trpcResult.xpEarned,
         feedback: 'Nice attempt!',
       };
     }

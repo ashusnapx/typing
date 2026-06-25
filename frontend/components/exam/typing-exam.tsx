@@ -205,6 +205,12 @@ export function TypingExam({ mode, durationSeconds, wpmTarget, lang = 'english',
         consistency_score: resultData.consistency_score,
         xp_earned: resultData.xp_earned || 0,
       }, resultData.test_id);
+      const earnedXp = resultData.xp_earned || 0;
+      if (earnedXp > 0 && user) {
+        const newXp = (user.xp || 0) + earnedXp;
+        const newLevel = Math.floor(Math.sqrt(newXp / 100)) + 1;
+        useAuthStore.getState().updateUser({ xp: newXp, level: newLevel });
+      }
       loadUser();
       setPhase('result');
       return;

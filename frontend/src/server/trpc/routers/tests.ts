@@ -76,6 +76,7 @@ export const testsRouter = router({
         halfMistakes: z.number().optional(),
         totalErrors: z.number(),
         trustScore: z.number(),
+        xpEarned: z.number(),
         isQualified: z.boolean(),
         keyDepressionCount: z.number().optional(),
         timeTakenSeconds: z.number().optional(),
@@ -194,7 +195,12 @@ export const testsRouter = router({
               .where(eq(users.id, ctx.user.id));
           }
 
-          return test;
+          await tx
+            .update(typingTests)
+            .set({ xpEarned })
+            .where(eq(typingTests.id, testId));
+
+          return { ...test, xpEarned };
         });
 
         const [userData] = await db
@@ -235,6 +241,7 @@ export const testsRouter = router({
           halfMistakes: report?.halfMistakes,
           totalErrors: result.totalErrors || 0,
           trustScore: result.trustScore,
+          xpEarned: result.xpEarned,
           isQualified,
           keyDepressionCount: report?.keyDepressionCount ?? input.typedContent?.length ?? 0,
           timeTakenSeconds: input.durationSeconds,

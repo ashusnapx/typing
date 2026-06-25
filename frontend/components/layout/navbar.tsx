@@ -27,6 +27,22 @@ export function Navbar() {
     return () => { document.body.style.overflow = ''; };
   }, [showMobileMenu]);
 
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const close = () => setShowUserMenu(false);
+    const onScroll = () => close();
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-user-menu]')) close();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [showUserMenu]);
+
   if (navHidden) return null;
 
   const navLinks = [
@@ -76,7 +92,7 @@ export function Navbar() {
             ))}
             <span className="w-px h-6 bg-pencil/20 mx-1" />
             {isAuthenticated && user ? (
-              <div className="relative">
+              <div className="relative" data-user-menu>
                 <button onClick={() => setShowUserMenu(!showUserMenu)}
                         className="flex items-center space-x-2 btn-hand-sm">
                   <User className="w-4 h-4" strokeWidth={3} />

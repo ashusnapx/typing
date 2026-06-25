@@ -159,9 +159,10 @@ export function calculateAccuracySsc(
   fullMistakes: number,
   halfMistakes: number
 ): number {
+  const grossWords = totalKeyDepressions / 5;
   const totalErrors = fullMistakes + (halfMistakes / 2);
-  if (totalKeyDepressions <= 0) return 100;
-  return Math.round(((totalKeyDepressions - totalErrors) / totalKeyDepressions) * 100 * 100) / 100;
+  if (grossWords <= 0) return 100;
+  return Math.round(Math.max(0, ((grossWords - totalErrors) / grossWords) * 100) * 100) / 100;
 }
 
 export function calculateKdph(

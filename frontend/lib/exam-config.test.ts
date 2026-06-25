@@ -43,10 +43,11 @@ describe('calculateAccuracySsc', () => {
   });
 
   it('calculates SSC accuracy correctly', () => {
-    // 1000 key depressions, 5 full mistakes, 4 half mistakes
+    // 1000 key depressions = 200 gross words
+    // 5 full mistakes, 4 half mistakes
     // errors = 5 + 4/2 = 7
-    // accuracy = (1000 - 7) / 1000 * 100 = 99.3
-    expect(calculateAccuracySsc(1000, 5, 4)).toBe(99.3);
+    // accuracy = (200 - 7) / 200 * 100 = 96.5
+    expect(calculateAccuracySsc(1000, 5, 4)).toBe(96.5);
   });
 
   it('returns 100 when key depressions are 0', () => {

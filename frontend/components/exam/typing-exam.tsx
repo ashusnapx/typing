@@ -394,7 +394,7 @@ function ResultScreen({ result, mode, wpmTarget, router, originalContent, typedC
   const sscAccuracy = result.ssc_accuracy || result.accuracy || 0;
   const fullMistakes = result.full_mistakes ?? 0;
   const halfMistakes = result.half_mistakes ?? 0;
-  const sscErrorPct = result.ssc_error_percentage ?? (sscAccuracy > 0 ? +(100 - sscAccuracy).toFixed(2) : 0);
+  const sscErrorPct = result.ssc_error_percentage ?? (100 - sscAccuracy);
 
   const typedWordCount = typedContent?.trim() ? typedContent.trim().split(/\s+/).length : 0;
   const originalWordCount = originalContent?.trim() ? originalContent.trim().split(/\s+/).length : 1;

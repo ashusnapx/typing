@@ -328,7 +328,7 @@ export const testsRouter = router({
       }
 
       const isQualified = errorEngine.isQualified(
-        test.netWpm || 0,
+        test.grossWpm || 0,
         test.accuracy || 0,
         test.mode,
       );

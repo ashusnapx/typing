@@ -164,8 +164,8 @@ export class SSCErrorEngine {
     const minutes = durationSeconds > 0 ? durationSeconds / 60 : 1;
     const sscNetWpm = this.calculateSscNetWpm(keyDepressionCount, fullMistakes, halfMistakes, minutes);
 
-    const sscTotalErrors = fullMistakes + halfMistakes / 2;
-    const sscAccuracy = this.calculateSscAccuracy(keyDepressionCount, sscTotalErrors);
+    const grossWords = keyDepressionCount / 5;
+    const sscAccuracy = this.calculateSscAccuracy(grossWords, fullMistakes, halfMistakes);
     const sscErrorPct = sscAccuracy > 0 ? Math.round((100 - sscAccuracy) * 100) / 100 : 0;
 
     return {
@@ -349,9 +349,10 @@ export class SSCErrorEngine {
     return Math.max(0, grossWords - totalErrors) / minutes;
   }
 
-  private calculateSscAccuracy(keyDepressions: number, totalErrors: number): number {
-    if (keyDepressions <= 0) return 0;
-    return Math.max(0, ((keyDepressions - totalErrors) / keyDepressions) * 100);
+  private calculateSscAccuracy(grossWords: number, fullMistakes: number, halfMistakes: number): number {
+    if (grossWords <= 0) return 100;
+    const totalErrors = fullMistakes + halfMistakes / 2;
+    return Math.max(0, ((grossWords - totalErrors) / grossWords) * 100);
   }
 
   isQualifiedChsl(wpm: number, accuracy: number, mode: string = 'english'): boolean {
@@ -364,16 +365,20 @@ export class SSCErrorEngine {
   }
 
   isQualified(wpm: number, accuracy: number, testMode: string): boolean {
-    if (testMode === 'ssc_hindi') return this.isQualifiedChsl(wpm, accuracy, 'hindi');
-    if (testMode === 'ssc_cgl_dest') return this.isQualifiedCglDest(wpm, accuracy);
-    return this.isQualifiedChsl(wpm, accuracy);
+    const errorPct = accuracy > 0 ? Math.round((100 - accuracy) * 100) / 100 : 0;
+    if (testMode === 'ssc_hindi') return wpm >= 30 && errorPct <= 7;
+    if (testMode === 'ssc_chsl') return wpm >= 35 && errorPct <= 7;
+    if (testMode === 'ssc_cgl_dest') return errorPct <= 20;
+    return wpm >= 35 && accuracy >= 95;
   }
 
   isQualifiedFromReport(report: ErrorReport, testMode: string): boolean {
     if (['ssc_chsl', 'ssc_hindi', 'ssc_cgl_dest'].includes(testMode)) {
-      if (testMode === 'ssc_cgl_dest') return report.sscAccuracy >= 95;
+      if (testMode === 'ssc_cgl_dest') {
+        return report.sscErrorPercentage <= 20;
+      }
       const wpmTarget = testMode === 'ssc_hindi' ? 30 : 35;
-      return report.sscNetWpm >= wpmTarget && report.sscAccuracy >= 95;
+      return report.sscNetWpm >= wpmTarget && report.sscErrorPercentage <= 7;
     }
     return this.isQualified(report.netWpm, report.accuracy, testMode);
   }

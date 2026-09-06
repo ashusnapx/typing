@@ -1,0 +1,52 @@
+- generic [ref=f1e1]:
+  - link "Skip to content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main"
+  - main [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - complementary [ref=f1e5]:
+        - link "Typing Mania" [ref=f1e6] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f1e8]:
+          - heading [level=2] [ref=f1e9]:
+            - text: Practise like it’s
+            - emphasis [ref=f1e10]: exam day
+          - list [ref=f1e11]:
+            - listitem [ref=f1e12]:
+              - generic [ref=f1e15]: Scored with the official SSC error engine
+            - listitem [ref=f1e16]:
+              - generic [ref=f1e19]: Your speed history and full mistake report
+            - listitem [ref=f1e20]:
+              - generic [ref=f1e23]: Free — and you can practise without an account
+      - generic [ref=f1e25]:
+        - heading [level=1] [ref=f1e26]:
+          - text: Get
+          - emphasis [ref=f1e27]: started
+        - paragraph [ref=f1e28]: Free, and takes about twenty seconds.
+        - generic [ref=f1e30]:
+          - generic [ref=f1e31]:
+            - generic [ref=f1e32]: Your name
+            - textbox "Your name" [active] [ref=f1e33]:
+              - /placeholder: Priya Sharma
+          - generic [ref=f1e34]:
+            - generic [ref=f1e35]: Email
+            - textbox "Email" [ref=f1e36]:
+              - /placeholder: you@example.com
+          - generic [ref=f1e37]:
+            - generic [ref=f1e38]: Password
+            - generic [ref=f1e39]:
+              - textbox "Password" [ref=f1e40]:
+                - /placeholder: Create a password
+              - button "Show password" [ref=f1e41] [cursor=pointer]
+            - paragraph [ref=f1e45]: At least 8 characters.
+          - button "Create account" [ref=f1e46] [cursor=pointer]
+        - paragraph [ref=f1e48]:
+          - text: Already have an account?
+          - link "Sign in" [ref=f1e49] [cursor=pointer]:
+            - /url: /auth/login
+        - paragraph [ref=f1e50]:
+          - text: You don’t need an account to practise.
+          - link "Take a test without signing in" [ref=f1e51] [cursor=pointer]:
+            - /url: /exam
+          - text: .
+  - button "Open Next.js Dev Tools" [ref=f1e57] [cursor=pointer]
+  - alert [ref=f1e61]

@@ -54,63 +54,45 @@ export function TypingDisplay({ originalContent, typedContent, isActive }: Typin
     }
   }, [currentIndex]);
 
-  const progress = originalContent.length > 0
-    ? Math.min(100, (typedContent.length / originalContent.length) * 100)
-    : 0;
-
   return (
-    <div className="card-hand-lg p-6 relative overflow-hidden flex flex-col min-h-0">
-      <div className="w-full bg-muted/50 h-1.5 rounded-full mb-6 overflow-hidden shrink-0">
-        <div
-          className="h-full bg-blue-pen transition-all duration-200 rounded-full"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
+    <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         ref={containerRef}
-        className="font-mono text-xl leading-[2.2] text-pencil/30 select-none flex-1 overflow-y-auto scroll-smooth focus:outline-none min-h-0"
-        style={{ wordBreak: 'break-word' }}
+        className="scroll-fade min-h-0 flex-1 select-none overflow-y-auto scroll-smooth break-words px-5 py-5 text-lg leading-[1.9] focus:outline-none sm:px-6 sm:text-xl"
       >
         {words.map((word, wi) => (
-          <span key={wi} className="inline mr-3">
+          <span key={wi}>
             {word.chars.map((c, ci) => {
               const isCurrent = c.globalIndex === currentIndex;
               const isExtra = c.globalIndex >= originalContent.length;
 
               if (isExtra) {
                 return (
-                  <span key={ci} className="text-accent/50 line-through">
+                  <span key={ci} className="ch text-err/60 line-through">
                     {typedContent[c.globalIndex] || ''}
                   </span>
                 );
               }
 
-              if (isCurrent && isActive) {
-                return (
-                  <span key={ci} className="relative">
-                    <span
-                      ref={caretRef}
-                      className="absolute -left-[1px] top-0 w-[2px] h-[1.2em] bg-pencil animate-pulse"
-                    />
-                    <span className="text-pencil">{c.char}</span>
-                  </span>
-                );
-              }
+              // A mistyped space needs its own treatment: colouring a blank
+              // character does nothing, so the cell itself is filled instead.
+              const cls =
+                c.state === 'correct'
+                  ? 'ch ch-correct'
+                  : c.state === 'incorrect'
+                    ? c.char === ' '
+                      ? 'ch ch-error-space'
+                      : 'ch ch-error'
+                    : 'ch ch-pending';
 
-              if (c.state === 'correct') {
-                return <span key={ci} className="text-pencil">{c.char}</span>;
-              }
-
-              if (c.state === 'incorrect') {
-                return (
-                  <span key={ci} className="text-accent">
-                    <span className="bg-red-100 rounded">{typedContent[c.globalIndex]}</span>
-                  </span>
-                );
-              }
-
-              return <span key={ci} className="text-pencil/25">{c.char}</span>;
+              return (
+                <span key={ci} className={cls}>
+                  {isCurrent && isActive && (
+                    <span ref={caretRef} className="caret" aria-hidden="true" />
+                  )}
+                  {c.state === 'incorrect' ? typedContent[c.globalIndex] : c.char}
+                </span>
+              );
             })}
           </span>
         ))}

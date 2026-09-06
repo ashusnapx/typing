@@ -11,7 +11,7 @@ export const APP = {
   fullName: 'Typing Mania by Maths Mania',
   tagLineFull: "India's Most Accurate SSC Typing Exam Simulator",
   description:
-    "India's Most Accurate SSC Typing Exam Simulator. Practice SSC CHSL, CGL DEST with exact evaluation logic and Ediquity replica experience. Learn typing from scratch with progressive lessons.",
+    "India's Most Accurate SSC Typing Exam Simulator. Practice SSC CHSL, CGL DEST with exact evaluation logic and Eduquity replica experience. Learn typing from scratch with progressive lessons.",
   keywords:
     'SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing, Typing Lessons',
   url: 'https://typingmania.com',
@@ -20,7 +20,7 @@ export const APP = {
   footer:
     "© 2026 Typing Mania by Maths Mania. India's Most Accurate SSC Typing Exam Simulator.",
   footerDisclaimer:
-    'Not affiliated with SSC or Ediquity. This is a practice platform.',
+    'Not affiliated with SSC or Eduquity. This is a practice platform.',
 } as const;
 
 // =============================================================================
@@ -95,9 +95,9 @@ export const EXAM_MODES = [
   },
   {
     id: 'tcs_ion_replica',
-    title: 'Ediquity Replica',
+    title: 'Eduquity Replica',
     description:
-      'Exact replica of Ediquity exam environment. Same layout, fonts, and experience.',
+      'Exact replica of Eduquity exam environment. Same layout, fonts, and experience.',
     href: '/exam/tcs-ion',
     duration: 600,
     wpmTarget: 35,
@@ -141,7 +141,7 @@ export const FEATURES = [
     icon: 'Play',
   },
   {
-    title: 'Ediquity Replica',
+    title: 'Eduquity Replica',
     description:
       'Same layout, fonts, timer placement, instructions, and typing area as real exam.',
     icon: 'Award',
@@ -171,10 +171,10 @@ export const FEATURES = [
 // =============================================================================
 export const PAIN_POINTS = [
   {
-    problem: 'Mock tests look nothing like the real Ediquity exam',
+    problem: 'Mock tests look nothing like the real Eduquity exam',
     problemShort: 'Wrong Interface',
     solution:
-      'Exact Ediquity replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
+      'Exact Eduquity replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
     icon: 'Monitor',
   },
   {
@@ -185,7 +185,7 @@ export const PAIN_POINTS = [
     icon: 'Calculator',
   },
   {
-    problem: 'No blind mode — real Ediquity hides errors during the test',
+    problem: 'No blind mode — real Eduquity hides errors during the test',
     problemShort: 'No Blind Mode',
     solution:
       'Blind Mode hides all error feedback while typing. Mistakes only revealed at the end — exactly like the real exam. Builds real confidence, not false comfort.',
@@ -343,8 +343,81 @@ export const MODE_NAMES: Record<string, string> = {
   practice: 'Practice',
   blind: 'Blind Mode',
   mock: 'Mock Test',
-  tcs_ion_replica: 'Ediquity Replica',
+  tcs_ion_replica: 'Eduquity Replica',
 } as const;
+
+// =============================================================================
+// LEGAL & BUSINESS IDENTITY
+// =============================================================================
+// Every legal page reads from here. The fields left empty are the ones only
+// the business can supply — they are rendered conditionally, so nothing false
+// is ever published, and every page becomes compliant the moment they are set.
+//
+// REQUIRED BEFORE PAYMENTS GO LIVE (payment aggregators and the Consumer
+// Protection (E-Commerce) Rules 2020 both require the registered legal name,
+// registered address and a working phone number to be published):
+//   legalEntityName, registeredAddress, phone, gstin
+// REQUIRED FOR IT Rules 2021 r. 3(2) AND DPDP Act 2023 s. 13:
+//   grievanceOfficer (a named person), and ideally a dedicated mailbox for
+//   grievanceEmail / privacyEmail instead of the shared support inbox.
+// =============================================================================
+export const LEGAL = {
+  /** Trading name shown in prose. */
+  brand: 'Typing Mania',
+  /** Publisher of the service. */
+  operator: 'Maths Mania',
+  /** Registered legal name, e.g. "Maths Mania Edutech Private Limited". */
+  legalEntityName: '' as string,
+  /** Full registered office address, one line per element. */
+  registeredAddress: [] as readonly string[],
+  /** Working phone number with country code. */
+  phone: '' as string,
+  /** GSTIN, printed on invoices and required on the contact page once GST-registered. */
+  gstin: '' as string,
+
+  supportEmail: 'support@mathsmania.com',
+  /** Point these at dedicated mailboxes when they exist. */
+  privacyEmail: 'support@mathsmania.com',
+  grievanceEmail: 'support@mathsmania.com',
+  telegram: 'https://t.me/mathsmania',
+
+  /** Named grievance officer under IT Rules 2021 r. 3(2)(a) and DPDP s. 13. */
+  grievanceOfficer: '' as string,
+  /** Support hours, in the site's own timezone. */
+  supportHours: 'Monday to Saturday, 10:00–19:00 IST',
+
+  /** Published response commitments. The tighter of the IT Rules (ack 24h,
+   *  resolve 15 days) and the E-Commerce Rules (ack 48h, resolve 30 days). */
+  ackHours: 24,
+  resolveDays: 15,
+  /** DPDP Rules 2025 r. 7 — breach notification window. */
+  breachNoticeHours: 72,
+
+  /** Seat of jurisdiction. Empty renders as "courts of competent jurisdiction
+   *  in India" rather than naming a city we cannot verify. */
+  jurisdictionCity: '' as string,
+  governingLaw: 'India',
+
+  /** Policy versioning. Bump both when the substance of a policy changes. */
+  policyVersion: '1.0',
+  effectiveDate: '2026-09-06',
+  lastUpdated: '2026-09-06',
+
+  /** Refund window for a first paid subscription, in days. */
+  refundWindowDays: 7,
+  /** Working days for a sanctioned refund to reach the original method. */
+  refundProcessingDays: '5–7 business days',
+} as const;
+
+/** "6 September 2026" from an ISO date, without pulling in a formatter. */
+export function formatPolicyDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
 
 // =============================================================================
 // FOOTER — All footer data. Add/remove links here only.
@@ -359,7 +432,7 @@ export const FOOTER = {
     { label: 'Practice Mode', href: '/exam/practice' },
     { label: 'Blind Mode', href: '/exam/blind' },
     { label: 'Mock Test', href: '/exam/mock' },
-    { label: 'Ediquity Replica', href: '/exam/tcs-ion' },
+    { label: 'Eduquity Replica', href: '/exam/tcs-ion' },
   ],
   quickLinks: [
     { label: 'Learn Typing', href: '/learn' },
@@ -373,11 +446,11 @@ export const FOOTER = {
     { label: 'Register', href: '/auth/register' },
   ],
   companyLinks: [
-    { label: 'About Us', href: '/about' },
-    { label: 'FAQ', href: '/faq' },
-    { label: 'Contact', href: '/contact' },
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
+    { label: 'About us', href: '/about' },
+    { label: 'Contact us', href: '/contact' },
+    { label: 'Privacy policy', href: '/privacy' },
+    { label: 'Terms of service', href: '/terms' },
+    { label: 'Cancellation & refunds', href: '/refunds' },
   ],
   socialLinks: [
     {
@@ -403,7 +476,8 @@ export const FOOTER = {
   ],
   legal: {
     copyright: '© 2026 Typing Mania by Maths Mania',
-    disclaimer: 'Not affiliated with SSC or Ediquity. This is a practice platform.',
+    disclaimer:
+      'Not affiliated with, endorsed by or connected to the Staff Selection Commission, Eduquity Careers or TCS iON. Speed and error requirements are reproduced from published SSC notices; always confirm them against the notice for your own examination.',
   },
 } as const;
 
@@ -422,6 +496,7 @@ export const ROUTES = {
   privacy: '/privacy',
   terms: '/terms',
   admin: '/admin',
+  refunds: '/refunds',
   authLogin: '/auth/login',
   authRegister: '/auth/register',
   examChsl: '/exam/chsl',

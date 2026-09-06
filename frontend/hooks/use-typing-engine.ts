@@ -50,6 +50,8 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
     const isTargetInput = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
     if (!isTargetInput) {
       e.preventDefault();
+    } else if (isHindi) {
+      e.preventDefault();
     }
 
     const now = Date.now();
@@ -128,6 +130,10 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
 
     updateTypedContent(newContent);
 
+    if (isHindi && e.target instanceof HTMLTextAreaElement) {
+      e.target.value = newContent;
+    }
+
     let finalContent = newContent;
     if (autoSpace) {
       while (finalContent.length < originalContent.length && originalContent[finalContent.length] === ' ') {
@@ -135,6 +141,9 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
       }
       if (finalContent !== newContent) {
         updateTypedContent(finalContent);
+        if (isHindi && e.target instanceof HTMLTextAreaElement) {
+          e.target.value = finalContent;
+        }
       }
     }
 

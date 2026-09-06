@@ -1,105 +1,171 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { EXAM_MODES, WOBBLY_RADII, CSS } from '@/lib/config';
-import { Clock, Target, ArrowRight, ScrollText } from 'lucide-react';
+import Link from 'next/link';
+import { Clock, Target, ArrowRight, Languages } from 'lucide-react';
+import { EXAM_MODES } from '@/lib/config';
+import { getExamSpecs } from '@/lib/exam-config';
 
-const ICONS: Record<string, React.ReactNode> = {
-  Target: <Target className="w-5 h-5" strokeWidth={3} />,
-  Keyboard: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h12" />
-    </svg>
-  ),
-  Play: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  ),
-  Sparkles: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z" />
-      <path d="M18 14l1 2.5L22 17l-2.5 1L18 21l-1-2.5L14 17l2.5-1z" />
-    </svg>
-  ),
-  Award: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <circle cx="12" cy="8" r="6" />
-      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-    </svg>
-  ),
-};
+type ModeId = (typeof EXAM_MODES)[number]['id'];
 
-export default function ExamListingPage() {
-  const router = useRouter();
+/** Only the official set is named. Everything else in EXAM_MODES falls through
+ *  to training, so the config stays the single source of truth and a mode added
+ *  there can never go silently missing from this page. */
+const OFFICIAL_MODES: readonly ModeId[] = ['ssc_chsl', 'ssc_cgl_dest', 'ssc_hindi'];
+
+/** Grouped so the page answers "which one is my exam?" before it answers
+ *  "what modes exist?". Aspirants arrive knowing their post, not our taxonomy. */
+const GROUPS = [
+  {
+    id: 'official',
+    title: 'Official exam patterns',
+    blurb: 'Exact duration, speed target and error allowance from the notification.',
+    modes: EXAM_MODES.filter((m) => OFFICIAL_MODES.includes(m.id)).map((m) => m.id),
+  },
+  {
+    id: 'training',
+    title: 'Training modes',
+    blurb: 'Same passages, different feedback — for building speed before you test it.',
+    modes: EXAM_MODES.filter((m) => !OFFICIAL_MODES.includes(m.id)).map((m) => m.id),
+  },
+] as const;
+
+/** `emphasis` is purely presentational. The official patterns are what most
+ *  visitors came for, so they get the bordered white card; training modes sit
+ *  back as hairline cards at a smaller type size. */
+function ExamCard({ id, emphasis = false }: { id: ModeId; emphasis?: boolean }) {
+  const mode = EXAM_MODES.find((m) => m.id === id);
+  if (!mode) return null;
+
+  const specs = getExamSpecs(mode.id);
+  const minutes = Math.floor(mode.duration / 60);
+  const target =
+    specs?.qualifyingNature === 'speed_wpm'
+      ? `${specs.englishSpeedWpm} WPM`
+      : specs
+        ? `${specs.englishKdph.toLocaleString('en-IN')} KDPH`
+        : mode.wpmTarget > 0
+          ? `${mode.wpmTarget} WPM`
+          : 'KDPH';
 
   return (
-    <div className="min-h-screen bg-paper">
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-postit"
-            style={{ borderRadius: WOBBLY_RADII.sm }}>
-            <ScrollText className="w-5 h-5 text-pencil" strokeWidth={3} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-pencil font-marker">Choose a Typing Test</h1>
-            <p className="text-sm text-pencil/60 font-hand">Select an exam mode. Each follows official SSC guidelines.</p>
-          </div>
+    <Link
+      href={mode.href}
+      data-reveal
+      className={`group flex flex-col transition-transform duration-200 ease-spring hover:-translate-y-1 ${
+        emphasis ? 'card p-6 sm:p-7' : 'card-flat p-5 hover:border-vast'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <h3 className={emphasis ? 'text-2xl' : 'text-xl'}>{mode.title}</h3>
+        {mode.lang === 'hindi' && (
+          <span className="chip chip-lilac ml-auto shrink-0">
+            <Languages className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            <span className="font-hindi">हिंदी</span>
+          </span>
+        )}
+      </div>
+
+      <p
+        className={`flex-1 leading-relaxed text-vast/60 ${
+          emphasis ? 'mt-3 text-base' : 'mt-2 text-sm'
+        }`}
+      >
+        {mode.description}
+      </p>
+
+      {/* Given its own line rather than buried in the meta row: losing the
+          backspace key changes how you sit the whole test. */}
+      {specs && !specs.backspaceAllowed && (
+        <p className="mt-4">
+          <span className="chip chip-err">No backspace</span>
+        </p>
+      )}
+
+      <div
+        className={`flex items-center gap-4 border-t-2 border-vast/10 text-vast/50 ${
+          emphasis ? 'mt-6 pt-4 text-sm' : 'mt-5 pt-3 text-xs'
+        }`}
+      >
+        <span className="tnum flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          {minutes} min
+        </span>
+        <span className="tnum flex items-center gap-1.5">
+          <Target className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          {target}
+        </span>
+        <ArrowRight
+          className="ml-auto h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:text-vast"
+          strokeWidth={2.2}
+          aria-hidden="true"
+        />
+      </div>
+    </Link>
+  );
+}
+
+export default function ExamListingPage() {
+  return (
+    <>
+      {/* ═══════════════════════════════════════════════════ lead — cream */}
+      <section className="px-5 pb-14 pt-12 sm:px-8 sm:pb-16 sm:pt-16">
+        <div className="mx-auto w-full max-w-content">
+          <p className="eyebrow">Typing tests</p>
+
+          <h1 className="mt-6 max-w-3xl text-5xl sm:text-6xl">
+            Pick the test you&rsquo;re <em>actually sitting</em>
+          </h1>
+
+          <p className="mt-6 max-w-xl text-lg text-vast/70">
+            Every mode below scores you with the official SSC error engine. No
+            account needed — sign in only when you want your history kept.
+          </p>
         </div>
+      </section>
 
-        <div className="flex flex-col gap-3">
-          {EXAM_MODES.map((exam, idx) => {
-            const minutes = Math.floor(exam.duration / 60);
-            const wpmLabel = exam.wpmTarget > 0 ? `${exam.wpmTarget} WPM` : 'KDPH';
-            const isHindi = exam.lang === 'hindi';
+      {/* Each group is its own slab, and the official one takes the lilac —
+          the loudest ground in the system — so the exam patterns read as the
+          page's answer and the training modes as the follow-up. */}
+      {GROUPS.map((group) => {
+        const official = group.id === 'official';
+        return (
+          <section
+            key={group.id}
+            aria-labelledby={`${group.id}-heading`}
+            className={`slab ${official ? 'slab-lilac' : 'slab-cream'}`}
+          >
+            <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+              <div className={official ? 'max-w-2xl' : 'max-w-xl'} data-reveal>
+                <h2
+                  id={`${group.id}-heading`}
+                  className={official ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'}
+                >
+                  {group.title}
+                </h2>
+                <p
+                  className={`mt-4 leading-relaxed text-vast/60 ${
+                    official ? 'text-lg' : 'text-base'
+                  }`}
+                >
+                  {group.blurb}
+                </p>
+              </div>
 
-            return (
-              <button
-                key={exam.id}
-                onClick={() => router.push(exam.href)}
-                className="bg-white border-2 border-pencil p-4 hover:shadow-hard transition-all text-left cursor-pointer group flex items-center gap-4"
-                style={{
-                  borderRadius: WOBBLY_RADII.md,
-                  transform: `rotate(${idx % 2 === 0 ? '-0.3' : '0.3'}deg)`,
-                }}
+              <div
+                className={`grid ${
+                  official
+                    ? 'mt-12 gap-4 sm:grid-cols-2 lg:grid-cols-3'
+                    : 'mt-10 gap-3 sm:grid-cols-2 lg:grid-cols-4'
+                }`}
               >
-                {/* Icon */}
-                <div className="w-12 h-12 shrink-0 flex items-center justify-center border-2 border-pencil bg-paper"
-                  style={{ borderRadius: WOBBLY_RADII.sm }}>
-                  <span className="text-pencil">{ICONS[exam.icon] || <Target className="w-5 h-5" strokeWidth={3} />}</span>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-marker text-base text-pencil flex items-center gap-2">
-                    {exam.title}
-                    {isHindi && (
-                      <span className="text-[10px] bg-accent text-white font-bold px-2 py-0.5" style={{ borderRadius: WOBBLY_RADII.sm }}>
-                        HINDI
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-hand text-sm text-pencil/60 mt-0.5">{exam.description}</div>
-                </div>
-
-                {/* Meta */}
-                <div className="hidden sm:flex items-center gap-4 shrink-0">
-                  <div className="flex items-center gap-1.5 text-xs font-hand text-pencil/50">
-                    <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    {minutes} min
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-hand text-pencil/50">
-                    <Target className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    {wpmLabel}
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-pencil/30 group-hover:text-pencil/60 transition-colors" strokeWidth={3} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </main>
-    </div>
+                {group.modes.map((id) => (
+                  <ExamCard key={id} id={id} emphasis={official} />
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })}
+    </>
   );
 }

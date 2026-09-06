@@ -67,7 +67,7 @@ describe('getModeDisplayName', () => {
     expect(getModeDisplayName('practice')).toBe('Practice');
     expect(getModeDisplayName('blind')).toBe('Blind Mode');
     expect(getModeDisplayName('mock')).toBe('Mock Test');
-    expect(getModeDisplayName('tcs_ion_replica')).toBe('Ediquity Replica');
+    expect(getModeDisplayName('tcs_ion_replica')).toBe('Eduquity Replica');
   });
 
   it('returns the mode string itself for unknown modes', () => {

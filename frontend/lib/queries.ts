@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { getRandomPassage, type PassageCategory } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth-store';
 import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
@@ -28,23 +27,10 @@ export function useCurrentUser() {
 // =============================================================================
 // Passages
 // =============================================================================
-export function usePassage(
-  mode: string,
-  lang: string = 'english',
-  practiceSet?: number,
-) {
-  const category = mode === 'ssc_chsl' ? 'ssc_chsl' as const
-    : mode === 'ssc_cgl_dest' ? 'ssc_cgl' as const
-    : undefined;
-
-  return useQuery({
-    queryKey: ['passage', category, lang, practiceSet],
-    queryFn: () => getRandomPassage(category, undefined, lang, practiceSet),
-    staleTime: Infinity,
-    gcTime: 3600000,
-    retry: 2,
-  });
-}
+// The client-side `usePassage` hook and its Supabase query are gone. Passages
+// are now fetched once on the server (lib/passages/server.ts), cached, and
+// handed to the exam as a prop — so there is nothing to query from the
+// browser, and no second Supabase client to construct.
 
 // =============================================================================
 // Dashboard

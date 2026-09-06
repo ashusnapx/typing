@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { type FieldError, type UseFormRegisterReturn } from 'react-hook-form';
 
 interface FormFieldProps {
@@ -19,22 +20,24 @@ export function FormField({
   registration,
   autoComplete,
 }: FormFieldProps) {
+  const id = useId();
   return (
-    <div>
-      <label className="block text-sm font-bold font-hand text-pencil mb-1">
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
       <input
+        id={id}
         type={type}
         placeholder={placeholder || label}
         autoComplete={autoComplete}
-        className={`w-full px-4 py-2.5 bg-white border-2 font-hand text-pencil placeholder:text-pencil/30 outline-none transition-colors ${
-          error ? 'border-red-400 focus:border-red-500' : 'border-pencil/30 focus:border-pencil'
-        }`}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className="field"
         {...registration}
       />
       {error && (
-        <p className="mt-1 text-xs font-hand text-red-500" role="alert">
+        <p id={`${id}-error`} className="text-xs text-err" role="alert">
           {error.message}
         </p>
       )}

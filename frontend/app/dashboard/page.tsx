@@ -3,155 +3,135 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth-store';
-import { api } from '@/lib/api';
 import { useDashboard } from '@/lib/queries';
 
 import Link from 'next/link';
 import {
   FileText, Gauge, Target, Zap, TrendingUp, ArrowRight, BarChart3,
-  Brain, Sparkles, Timer, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
-  Trophy, Clock, AlertTriangle, Activity, ArrowUp, ArrowDown, X,
+  Brain, Timer, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
+  Clock, AlertTriangle, ArrowUp, ArrowDown, X,
 } from 'lucide-react';
 import { getLevelFromXP, getLevelIndex, getLevelProgress, LEVEL_NAMES } from '@/lib/utils';
-import { CSS, ROUTES, TIME, PAGINATION } from '@/lib/config';
+import { ROUTES, PAGINATION } from '@/lib/config';
 
-const wobbly = { borderRadius: CSS.radii.sm };
+/* -------------------------------------------------------------------------- */
+
+/** The CHSL bar every figure on this page is read against. Named once so the
+ *  summary tiles and the per-test verdict can never drift apart. */
+const CHSL_WPM = 35;
+const CHSL_ACC = 95;
+
+/** Qualification odds read very differently at 20% and at 80% — colour the
+ *  chip so the shape of the number lands before the number is read. */
+function oddsChip(p: number): string {
+  if (p >= 70) return 'chip-ok';
+  if (p >= 40) return 'chip-glow';
+  return 'chip-err';
+}
+
+function trendChip(trend: string): string {
+  if (trend === 'improving') return 'chip-ok';
+  if (trend === 'declining') return 'chip-err';
+  return '';
+}
+
+/* -------------------------------------------------------------------------- */
 
 function Skeleton() {
   return (
-    <div className="min-h-screen bg-paper">
-      <main className="max-w-5xl mx-auto px-6 py-8">
+    <div
+      className="mx-auto w-full max-w-content px-5 py-10 sm:px-8 sm:py-14"
+      role="status"
+      aria-label="Loading dashboard"
+    >
+      <div aria-hidden="true">
         {/* Header */}
-        <div className="mb-8 -rotate-1">
-          <div className="h-9 w-56 bg-pencil/10 rounded animate-pulse" />
-          <div className="h-5 w-64 bg-pencil/10 rounded mt-2 animate-pulse" />
+        <div className="mb-10">
+          <div className="skeleton h-3.5 w-24" />
+          <div className="skeleton mt-4 h-12 w-72 max-w-full" />
+          <div className="skeleton mt-3 h-5 w-64 max-w-full" />
         </div>
 
-        {/* Stats Grid — 4 cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { rotate: '-rotate-1', iconW: 10, valueW: 14, labelW: 16 },
-            { rotate: 'rotate-1', iconW: 8, valueW: 12, labelW: 14 },
-            { rotate: '-rotate-2', iconW: 12, valueW: 16, labelW: 18 },
-            { rotate: 'rotate-1', iconW: 10, valueW: 10, labelW: 16 },
-          ].map((s, i) => (
-            <div key={i}
-              className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center`}
-              style={{ borderRadius: CSS.radii.md, transform: `rotate(${s.rotate})` }}>
-              <div className="w-10 h-10 bg-pencil/10 rounded mx-auto mb-3 animate-pulse" />
-              <div className={`h-7 mx-auto mb-2 animate-pulse rounded`}
-                style={{ width: `${s.valueW * 4}px`, background: 'rgba(0,0,0,0.06)' }} />
-              <div className={`h-4 mx-auto animate-pulse rounded`}
-                style={{ width: `${s.labelW * 4}px`, background: 'rgba(0,0,0,0.05)' }} />
+        {/* Summary tiles */}
+        <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="card p-5">
+              <div className="skeleton h-3.5 w-20" />
+              <div className="skeleton mt-4 h-9 w-24" />
+              <div className="skeleton mt-4 h-5 w-16" />
             </div>
           ))}
         </div>
 
-        {/* Performance Summary — post-it note style */}
-        <div className={`bg-postit border-2 border-pencil ${CSS.shadows.md} p-6 mb-8 -rotate-[0.3deg]`}>
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-6 h-6 bg-pencil/10 rounded animate-pulse" />
-            <div className="h-5 w-44 bg-pencil/10 rounded animate-pulse" />
-          </div>
-
-          {/* CHSL Progress */}
-          <div className="bg-white border-2 border-pencil p-4 mb-4 animate-pulse" style={{ borderRadius: CSS.radii.sm }}>
-            <div className="flex justify-between mb-3">
-              <div className="h-4 w-32 bg-pencil/10 rounded" />
-              <div className="h-4 w-20 bg-pencil/10 rounded" />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[1, 2].map(j => (
-                <div key={j}>
-                  <div className="flex justify-between mb-1">
-                    <div className="h-3 w-16 bg-pencil/8 rounded" />
-                    <div className="h-3 w-12 bg-pencil/8 rounded" />
-                  </div>
-                  <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-pencil/8 animate-pulse"
-                      style={{ width: `${30 + j * 15}%` }} />
-                  </div>
+        {/* Performance summary */}
+        <div className="mb-10">
+          <div className="skeleton mb-4 h-8 w-56" />
+          <div className="card space-y-4 p-5 sm:p-6">
+            {[0, 1].map((i) => (
+              <div key={i} className="card-flat p-4">
+                <div className="flex items-center justify-between">
+                  <div className="skeleton h-6 w-40" />
+                  <div className="skeleton h-6 w-28" />
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {[0, 1].map((j) => (
+                    <div key={j}>
+                      <div className="skeleton h-4 w-full" />
+                      <div className="skeleton mt-2 h-2.5 w-full rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="card-flat p-4 text-center">
+                  <div className="skeleton mx-auto h-3.5 w-20" />
+                  <div className="skeleton mx-auto mt-3 h-7 w-16" />
+                  <div className="skeleton mx-auto mt-3 h-3 w-24" />
                 </div>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* CGL Progress */}
-          <div className="bg-white border-2 border-pencil p-4 mb-4 animate-pulse" style={{ borderRadius: CSS.radii.sm }}>
-            <div className="flex justify-between mb-3">
-              <div className="h-4 w-36 bg-pencil/10 rounded" />
-              <div className="h-4 w-16 bg-pencil/10 rounded" />
-            </div>
-            <div className="flex justify-between mb-1">
-              <div className="h-3 w-20 bg-pencil/8 rounded" />
-              <div className="h-3 w-14 bg-pencil/8 rounded" />
-            </div>
-            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-pencil/8 animate-pulse" style={{ width: '25%' }} />
-            </div>
-          </div>
-
-          {/* 3 small stat cards */}
-          <div className="grid sm:grid-cols-3 gap-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white border border-pencil/30 p-3 text-center animate-pulse"
-                style={{ borderRadius: CSS.radii.sm }}>
-                <div className="h-3 w-20 bg-pencil/8 rounded mx-auto mb-2" />
-                <div className="h-5 w-12 bg-pencil/10 rounded mx-auto mb-1" />
-                <div className="h-2.5 w-16 bg-pencil/6 rounded mx-auto" />
+        {/* Quick actions */}
+        <div className="mb-10">
+          <div className="skeleton mb-4 h-8 w-40" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card p-5">
+                <div className="flex items-center gap-3">
+                  <div className="skeleton h-10 w-10" />
+                  <div className="skeleton h-7 w-32" />
+                </div>
+                <div className="skeleton mt-4 h-5 w-40 max-w-full" />
+                <div className="skeleton mt-5 h-4 w-12" />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Quick Actions — 3 cards */}
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          {[
-            { rotate: '-rotate-1', titleW: 32 },
-            { rotate: 'rotate-1', titleW: 24 },
-            { rotate: '-rotate-2', titleW: 20 },
-          ].map((a, i) => (
-            <div key={i}
-              className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4`}
-              style={{ borderRadius: CSS.radii.md, transform: `rotate(${a.rotate})` }}>
-              <div className="flex items-center space-x-3 mb-2">
-                <div className="w-10 h-10 border-2 border-pencil bg-muted animate-pulse" style={wobbly} />
-                <div className="h-5 bg-pencil/10 rounded animate-pulse" style={{ width: `${a.titleW * 4}px` }} />
-              </div>
-              <div className="h-4 w-40 bg-pencil/8 rounded animate-pulse mb-2" />
-              <div className="h-3.5 w-8 bg-pencil/6 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Tests */}
-        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
-          <div className="px-6 py-4 border-b-2 border-pencil flex items-center space-x-3">
-            <div className="w-5 h-5 bg-pencil/10 rounded animate-pulse" />
-            <div className="h-5 w-28 bg-pencil/10 rounded animate-pulse" />
-          </div>
-          {[1, 2, 3].map(i => (
-            <div key={i} className="px-6 py-4 border-b border-pencil/10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-4 h-4 bg-pencil/8 rounded animate-pulse" />
-                  <div className="h-4 w-24 bg-pencil/10 rounded animate-pulse" />
-                  <div className="h-3.5 w-20 bg-pencil/6 rounded animate-pulse" />
+        {/* Recent tests */}
+        <div>
+          <div className="skeleton mb-4 h-8 w-44" />
+          <div className="card divide-y-2 divide-vast/10 overflow-hidden">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="skeleton h-5 w-40" />
+                  <div className="skeleton h-6 w-24" />
                 </div>
-                <div className="w-5 h-5 bg-pencil/8 rounded-full animate-pulse" />
+                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {[0, 1, 2, 3, 4, 5].map((j) => (
+                    <div key={j} className="skeleton h-11" />
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                {[1, 2, 3, 4, 5, 6].map(j => (
-                  <div key={j} className="bg-paper rounded p-1.5 text-center animate-pulse">
-                    <div className="h-2.5 w-12 bg-pencil/6 rounded mx-auto mb-1" />
-                    <div className="h-4 w-10 bg-pencil/10 rounded mx-auto" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
@@ -175,13 +155,16 @@ export default function DashboardPage() {
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <div className={`text-center max-w-md mx-auto p-8 bg-white border-2 border-accent ${CSS.shadows.sm}`}
-             style={wobbly}>
-          <AlertTriangle className="w-12 h-12 text-accent mx-auto mb-4" strokeWidth={2.5} />
-          <h2 className="text-xl font-bold text-pencil font-marker mb-2">Failed to load dashboard</h2>
-          <p className="text-sm text-pencil/60 font-hand mb-4">Check your connection and try again.</p>
-          <button onClick={() => refetch()} className="btn-hand">Retry</button>
+      <div className="mx-auto flex w-full max-w-content items-center justify-center px-5 py-24 sm:px-8">
+        <div className="card mx-auto max-w-md p-8 text-center">
+          <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-flare" strokeWidth={2} />
+          <h2 className="text-3xl">Could not load your dashboard</h2>
+          <p className="mt-3 text-base text-vast/60">
+            Check your connection and try again.
+          </p>
+          <button onClick={() => refetch()} className="btn btn-primary btn-md mt-6">
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -191,477 +174,662 @@ export default function DashboardPage() {
   const predictions = data?.predictions;
   const recentTests = data?.recent_scores || [];
 
+  /* Progress toward each target, clamped. Computed once so the bar width and
+     its aria-valuenow can never disagree. */
+  const chslWpmPct = predictions?.chsl_wpm_target
+    ? Math.min(100, ((predictions.recent_avg_wpm || 0) / predictions.chsl_wpm_target) * 100)
+    : 0;
+  const chslAccPct = predictions?.chsl_acc_target
+    ? Math.min(100, ((predictions.recent_avg_accuracy || 0) / predictions.chsl_acc_target) * 100)
+    : 0;
+  const cglAccPct = Math.min(100, ((predictions?.recent_avg_accuracy || 0) / 95) * 100);
+
+  const avgWpm = analytics?.avg_wpm ?? 0;
+  const avgAcc = analytics?.avg_accuracy ?? 0;
+
   return (
-    <div className="min-h-screen bg-paper">
-      <main className="max-w-5xl mx-auto px-6 py-8">
-        <div className="mb-8 -rotate-1">
-          <h1 className="text-3xl font-bold text-pencil font-marker">
-            Hey, {user.full_name}!
-          </h1>
-          <p className="text-lg text-pencil/60 font-hand mt-1">Track your SSC typing preparation</p>
+    <div className="mx-auto w-full max-w-content px-5 py-10 sm:px-8 sm:py-14">
+      <header className="mb-10">
+        <p className="eyebrow">Dashboard</p>
+        <h1 className="mt-3 text-4xl sm:text-5xl">
+          Hey, <em>{user.full_name}</em>
+        </h1>
+        <p className="mt-4 text-lg text-vast/60">
+          Track your SSC typing preparation
+        </p>
+      </header>
+
+      {/* ═════════════════════════════════════════════ summary — four figures */}
+      {/* The whole page in four numbers, before any detail. Each carries its
+          own verdict, so the state is legible without reading the figure. */}
+      <div className="mb-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="card flex flex-col p-5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="eyebrow">Tests taken</span>
+            <FileText className="h-4 w-4 shrink-0 text-vast/40" strokeWidth={2} />
+          </div>
+          <div className="tnum mt-3 font-display text-3xl leading-none sm:text-4xl">
+            {analytics?.total_tests || 0}
+          </div>
+          <p className="mt-auto pt-3 text-sm text-vast/50">All modes</p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { value: analytics?.total_tests || 0, label: 'Tests Taken', icon: <FileText className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1', isXp: false },
-            { value: analytics?.avg_wpm?.toFixed(1) || 0, label: 'Avg WPM', icon: <Gauge className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1', isXp: false },
-            { value: `${analytics?.avg_accuracy?.toFixed(1) || 0}%`, label: 'Avg Accuracy', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-2', isXp: false },
-            { value: user.xp, label: getLevelFromXP(user.xp), icon: <Zap className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1', isXp: true },
-          ].map((stat) => stat.isXp ? (
-            <button key={stat.label} onClick={() => setShowXPModal(true)}
-                 className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all duration-100 cursor-pointer w-full`}
-                 style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
-              <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
-              <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
-              <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
-            </button>
-          ) : (
-            <div key={stat.label}
-                 className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 text-center ${CSS.shadows.mdHover} transition-all duration-100`}
-                 style={{ borderRadius: CSS.radii.md, transform: `rotate(${stat.rotate})` }}>
-              <div className="flex justify-center mb-2 text-pencil">{stat.icon}</div>
-              <div className="text-2xl font-bold text-pencil font-marker">{stat.value}</div>
-              <div className="text-sm text-pencil/60 font-hand mt-1">{stat.label}</div>
-            </div>
-          ))}
+        <div className="card flex flex-col p-5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="eyebrow">Avg WPM</span>
+            <Gauge className="h-4 w-4 shrink-0 text-vast/40" strokeWidth={2} />
+          </div>
+          <div className="tnum mt-3 font-display text-3xl leading-none sm:text-4xl">
+            {analytics?.avg_wpm?.toFixed(1) || 0}
+          </div>
+          <div className="mt-auto pt-3">
+            <span className={`chip ${avgWpm >= CHSL_WPM ? 'chip-ok' : ''}`}>
+              {avgWpm >= CHSL_WPM ? 'At the bar' : `Bar ${CHSL_WPM}`}
+            </span>
+          </div>
         </div>
 
-        {/* Performance Summary */}
-        {predictions && (
-          <div className={`bg-postit border-2 border-pencil ${CSS.shadows.md} p-6 mb-8 -rotate-[0.3deg] hover:rotate-0 transition-transform relative`}>
-            <div className="tack" />
-            <div className="flex items-center space-x-3 mb-4">
-              <TrendingUp className="w-6 h-6 text-pencil" strokeWidth={3} />
-              <h2 className="text-xl font-bold text-pencil font-marker">Performance Summary</h2>
-            </div>
+        <div className="card flex flex-col p-5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="eyebrow">Avg accuracy</span>
+            <Target className="h-4 w-4 shrink-0 text-vast/40" strokeWidth={2} />
+          </div>
+          <div className="tnum mt-3 font-display text-3xl leading-none sm:text-4xl">
+            {`${analytics?.avg_accuracy?.toFixed(1) || 0}%`}
+          </div>
+          <div className="mt-auto pt-3">
+            <span className={`chip ${avgAcc >= CHSL_ACC ? 'chip-ok' : ''}`}>
+              {avgAcc >= CHSL_ACC ? 'At the bar' : `Bar ${CHSL_ACC}%`}
+            </span>
+          </div>
+        </div>
 
-            {predictions.chsl_wpm_target && (
-              <div className={`bg-white border-2 border-pencil p-4 ${CSS.shadows.sm} mb-4`}
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold font-hand text-pencil">SSC CHSL Progress</h3>
-                  <div className="flex items-center gap-2 text-xs font-hand">
-                    <span className="text-pencil/50">Qualification odds:</span>
-                    <span className="font-bold font-mono text-pencil">{predictions.chsl_qualification_probability}%</span>
-                  </div>
+        <button
+          type="button"
+          onClick={() => setShowXPModal(true)}
+          aria-haspopup="dialog"
+          aria-expanded={showXPModal}
+          className="card group flex flex-col p-5 text-left transition-transform duration-200 ease-spring hover:-translate-y-1"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span className="eyebrow">{getLevelFromXP(user.xp)}</span>
+            <Zap className="h-4 w-4 shrink-0 text-vast/40" strokeWidth={2} />
+          </div>
+          <div className="tnum mt-3 font-display text-3xl leading-none sm:text-4xl">
+            {user.xp}
+          </div>
+          <span className="mt-auto flex items-center gap-1.5 pt-3 text-sm text-vast/50 transition-colors group-hover:text-vast">
+            XP breakdown
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" strokeWidth={2.2} />
+          </span>
+        </button>
+      </div>
+
+      {/* ═══════════════════════════════════════ performance — targets & trend */}
+      {predictions && (
+        <section className="mb-12" aria-labelledby="perf-heading" data-reveal>
+          <div className="mb-4 flex items-center gap-2.5">
+            <TrendingUp className="h-5 w-5" strokeWidth={2} />
+            <h2 id="perf-heading" className="text-3xl">
+              Performance summary
+            </h2>
+          </div>
+
+          <div className="card space-y-4 p-5 sm:p-6">
+            {predictions.chsl_wpm_target ? (
+              <div className="card-flat p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xl">SSC CHSL</h3>
+                  <span className={`chip ${oddsChip(predictions.chsl_qualification_probability)}`}>
+                    Odds
+                    <span className="tnum">{predictions.chsl_qualification_probability}%</span>
+                  </span>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3 mb-2">
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-hand mb-1">
-                      <span className="text-pencil/60">Net WPM</span>
-                      <span className="font-semibold text-pencil">
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="text-vast/60">Net WPM</span>
+                      <span className="tnum font-semibold">
                         {predictions.recent_avg_wpm || 0}
-                        <span className="text-pencil/40 font-normal"> / {predictions.chsl_wpm_target}</span>
+                        <span className="font-normal text-vast/40"> / {predictions.chsl_wpm_target}</span>
                       </span>
                     </div>
-                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, ((predictions.recent_avg_wpm || 0) / predictions.chsl_wpm_target) * 100)}%`,
-                          background: (predictions.recent_avg_wpm || 0) >= predictions.chsl_wpm_target ? CSS.colors.green : CSS.colors.blue
-                        }} />
+                    <div
+                      className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-lumen-dark"
+                      role="progressbar"
+                      aria-valuenow={Math.round(chslWpmPct)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label="Net WPM against the CHSL target"
+                    >
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${
+                          (predictions.recent_avg_wpm || 0) >= predictions.chsl_wpm_target
+                            ? 'bg-ok'
+                            : 'bg-fathom'
+                        }`}
+                        style={{ width: `${chslWpmPct}%` }}
+                      />
                     </div>
                     {predictions.wpm_gap > 0 && (
-                      <div className="text-xs text-accent font-hand mt-0.5 flex items-center gap-0.5">
-                        <ArrowUp className="w-3 h-3" strokeWidth={2.5} />
+                      <p className="tnum mt-1.5 flex items-center gap-1 text-xs text-err">
+                        <ArrowUp className="h-3 w-3" strokeWidth={2.5} />
                         Need +{predictions.wpm_gap} WPM more
-                      </div>
+                      </p>
                     )}
                   </div>
+
                   <div>
-                    <div className="flex items-center justify-between text-xs font-hand mb-1">
-                      <span className="text-pencil/60">Accuracy</span>
-                      <span className="font-semibold text-pencil">
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="text-vast/60">Accuracy</span>
+                      <span className="tnum font-semibold">
                         {predictions.recent_avg_accuracy || 0}%
-                        <span className="text-pencil/40 font-normal"> / {predictions.chsl_acc_target}%</span>
+                        <span className="font-normal text-vast/40"> / {predictions.chsl_acc_target}%</span>
                       </span>
                     </div>
-                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, ((predictions.recent_avg_accuracy || 0) / predictions.chsl_acc_target) * 100)}%`,
-                          background: (predictions.recent_avg_accuracy || 0) >= predictions.chsl_acc_target ? CSS.colors.green : CSS.colors.blue
-                        }} />
+                    <div
+                      className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-lumen-dark"
+                      role="progressbar"
+                      aria-valuenow={Math.round(chslAccPct)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label="Accuracy against the CHSL target"
+                    >
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${
+                          (predictions.recent_avg_accuracy || 0) >= predictions.chsl_acc_target
+                            ? 'bg-ok'
+                            : 'bg-fathom'
+                        }`}
+                        style={{ width: `${chslAccPct}%` }}
+                      />
                     </div>
                     {predictions.acc_gap > 0 && (
-                      <div className="text-xs text-accent font-hand mt-0.5 flex items-center gap-0.5">
-                        <ArrowUp className="w-3 h-3" strokeWidth={2.5} />
+                      <p className="tnum mt-1.5 flex items-center gap-1 text-xs text-err">
+                        <ArrowUp className="h-3 w-3" strokeWidth={2.5} />
                         Need +{predictions.acc_gap}% accuracy more
-                      </div>
+                      </p>
                     )}
                   </div>
                 </div>
+
                 {predictions.wpm_series && predictions.wpm_series.length >= 2 && (
-                  <div className="pt-2 border-t border-pencil/10">
-                    <MiniChart data={predictions.wpm_series} color={CSS.colors.blue} label="WPM" />
+                  <div className="mt-4 border-t border-vast/10 pt-3">
+                    <MiniChart data={predictions.wpm_series} tone="text-fathom" label="WPM" />
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
 
-            <div className={`bg-white border-2 border-pencil p-4 ${CSS.shadows.sm} mb-4`}
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold font-hand text-pencil">SSC CGL DEST Progress</h3>
-                <div className="flex items-center gap-2 text-xs font-hand">
-                  <span className="text-pencil/50">Qualification odds:</span>
-                  <span className="font-bold font-mono text-pencil">{predictions.cgl_dest_qualification_probability}%</span>
-                </div>
+            <div className="card-flat p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xl">SSC CGL DEST</h3>
+                <span className={`chip ${oddsChip(predictions.cgl_dest_qualification_probability)}`}>
+                  Odds
+                  <span className="tnum">{predictions.cgl_dest_qualification_probability}%</span>
+                </span>
               </div>
-              <div>
-                <div className="flex items-center justify-between text-xs font-hand mb-1">
-                  <span className="text-pencil/60">Accuracy (CGL focus)</span>
-                  <span className="font-semibold text-pencil">
+
+              <div className="mt-4">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="text-vast/60">Accuracy (CGL focus)</span>
+                  <span className="tnum font-semibold">
                     {predictions.recent_avg_accuracy || 0}%
-                    <span className="text-pencil/40 font-normal"> / 95%</span>
+                    <span className="font-normal text-vast/40"> / 95%</span>
                   </span>
                 </div>
-                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, ((predictions.recent_avg_accuracy || 0) / 95) * 100)}%`,
-                      background: (predictions.recent_avg_accuracy || 0) >= 95 ? CSS.colors.green : CSS.colors.red
-                    }} />
+                <div
+                  className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-lumen-dark"
+                  role="progressbar"
+                  aria-valuenow={Math.round(cglAccPct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Accuracy against the CGL DEST target"
+                >
+                  <div
+                    className={`h-full rounded-full transition-[width] duration-500 ${
+                      (predictions.recent_avg_accuracy || 0) >= 95 ? 'bg-ok' : 'bg-err'
+                    }`}
+                    style={{ width: `${cglAccPct}%` }}
+                  />
                 </div>
               </div>
+
               {predictions.accuracy_series && predictions.accuracy_series.length >= 2 && (
-                <div className="pt-2 mt-2 border-t border-pencil/10">
-                  <MiniChart data={predictions.accuracy_series} color={CSS.colors.red} label="Accuracy %" />
+                <div className="mt-4 border-t border-vast/10 pt-3">
+                  <MiniChart data={predictions.accuracy_series} tone="text-flare" label="Accuracy %" />
                 </div>
               )}
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="text-xs text-pencil/50 font-hand">Consistency</div>
-                <div className="text-lg font-bold font-marker text-pencil">{predictions.consistency_score?.toFixed(0) || '-'}%</div>
-                <div className="text-[10px] text-pencil/40 font-hand">{predictions.tests_analyzed || 0} tests analyzed</div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="card-flat p-4 text-center">
+                <p className="eyebrow">Consistency</p>
+                <p className="tnum mt-2 font-display text-3xl leading-none">
+                  {predictions.consistency_score?.toFixed(0) || '-'}%
+                </p>
+                <p className="tnum mt-2 text-xs text-vast/50">
+                  {predictions.tests_analyzed || 0} tests analysed
+                </p>
               </div>
-              <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="text-xs text-pencil/50 font-hand">WPM Trend</div>
-                <div className={`text-lg font-bold font-marker flex items-center justify-center gap-1 ${
-                  predictions.wpm_trend === 'improving' ? 'text-green-600' :
-                  predictions.wpm_trend === 'declining' ? 'text-accent' : 'text-pencil/70'
-                }`}>
-                  {predictions.wpm_trend === 'improving' ? <ArrowUp className="w-4 h-4" /> :
-                   predictions.wpm_trend === 'declining' ? <ArrowDown className="w-4 h-4" /> : null}
-                  {predictions.wpm_trend}
-                </div>
-                <div className="text-[10px] text-pencil/40 font-hand">Last {Math.min(predictions.wpm_series?.length || 0, 10)} tests</div>
+
+              <div className="card-flat p-4 text-center">
+                <p className="eyebrow">WPM trend</p>
+                <p className="mt-2">
+                  <span className={`chip capitalize ${trendChip(predictions.wpm_trend)}`}>
+                    {predictions.wpm_trend === 'improving' ? (
+                      <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    ) : predictions.wpm_trend === 'declining' ? (
+                      <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    ) : null}
+                    {predictions.wpm_trend}
+                  </span>
+                </p>
+                <p className="tnum mt-2 text-xs text-vast/50">
+                  Last {Math.min(predictions.wpm_series?.length || 0, 10)} tests
+                </p>
               </div>
-              <div className="bg-white border border-pencil/30 p-3 text-center"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="text-xs text-pencil/50 font-hand">Accuracy Trend</div>
-                <div className={`text-lg font-bold font-marker flex items-center justify-center gap-1 ${
-                  predictions.accuracy_trend === 'improving' ? 'text-green-600' :
-                  predictions.accuracy_trend === 'declining' ? 'text-accent' : 'text-pencil/70'
-                }`}>
-                  {predictions.accuracy_trend === 'improving' ? <ArrowUp className="w-4 h-4" /> :
-                   predictions.accuracy_trend === 'declining' ? <ArrowDown className="w-4 h-4" /> : null}
-                  {predictions.accuracy_trend}
-                </div>
-                <div className="text-[10px] text-pencil/40 font-hand">Last {Math.min(predictions.accuracy_series?.length || 0, 10)} tests</div>
+
+              <div className="card-flat p-4 text-center">
+                <p className="eyebrow">Accuracy trend</p>
+                <p className="mt-2">
+                  <span className={`chip capitalize ${trendChip(predictions.accuracy_trend)}`}>
+                    {predictions.accuracy_trend === 'improving' ? (
+                      <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    ) : predictions.accuracy_trend === 'declining' ? (
+                      <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    ) : null}
+                    {predictions.accuracy_trend}
+                  </span>
+                </p>
+                <p className="tnum mt-2 text-xs text-vast/50">
+                  Last {Math.min(predictions.accuracy_series?.length || 0, 10)} tests
+                </p>
               </div>
             </div>
 
             {predictions.recommendation && (
-              <div className="mt-3 p-3 bg-white border-2 border-pencil/30 text-xs font-hand text-pencil/70 leading-relaxed"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <span className="font-bold text-pencil">Tip: </span>
-                {predictions.recommendation}
+              <div className="card-flat p-4">
+                <p className="eyebrow">Tip</p>
+                <p className="mt-2 text-base leading-relaxed text-vast/70">
+                  {predictions.recommendation}
+                </p>
               </div>
             )}
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Quick Actions */}
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+      {/* ═══════════════════════════════════════════════════════ quick actions */}
+      <section className="mb-12" aria-labelledby="actions-heading" data-reveal>
+        <h2 id="actions-heading" className="mb-4 text-3xl">
+          Start a test
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-3">
           {[
-            { href: ROUTES.examChsl, title: 'SSC CHSL Practice', desc: '10 min, 35 WPM target', icon: <Target className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-1' },
-            { href: ROUTES.examMock, title: 'Mock Test', desc: 'Full exam simulation', icon: <Timer className="w-5 h-5" strokeWidth={3} />, rotate: 'rotate-1' },
-            { href: '/coach', title: 'AI Coach', desc: 'Personalized feedback', icon: <Brain className="w-5 h-5" strokeWidth={3} />, rotate: '-rotate-2' },
+            { href: ROUTES.examChsl, title: 'SSC CHSL Practice', desc: '10 min, 35 WPM target', icon: <Target className="h-5 w-5" strokeWidth={2} /> },
+            { href: ROUTES.examMock, title: 'Mock Test', desc: 'Full exam simulation', icon: <Timer className="h-5 w-5" strokeWidth={2} /> },
+            { href: '/coach', title: 'AI Coach', desc: 'Personalized feedback', icon: <Brain className="h-5 w-5" strokeWidth={2} /> },
           ].map((action) => (
-            <Link key={action.title} href={action.href}
-                  className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-4 ${CSS.shadows.mdHover} transition-all duration-100 group`}
-                  style={{ borderRadius: CSS.radii.md, transform: `rotate(${action.rotate})` }}>
-              <div className="flex items-center space-x-3 mb-2">
-                <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-muted"
-                     style={wobbly}>{action.icon}</div>
-                <h3 className="font-bold text-pencil font-marker">{action.title}</h3>
+            <Link
+              key={action.title}
+              href={action.href}
+              className="card group flex flex-col p-5 transition-transform duration-200 ease-spring hover:-translate-y-1"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 border-vast bg-dawn">
+                  {action.icon}
+                </span>
+                <h3 className="text-2xl">{action.title}</h3>
               </div>
-              <p className="text-sm text-pencil/60 font-hand">{action.desc}</p>
-              <div className="mt-2 flex items-center text-sm font-hand text-pencil/40 group-hover:text-pencil transition-colors">
-                Go <ArrowRight className="w-3 h-3 ml-1" strokeWidth={3} />
-              </div>
+              <p className="mt-3 flex-1 text-base text-vast/60">{action.desc}</p>
+              <span className="mt-5 flex items-center gap-1.5 border-t-2 border-vast/10 pt-3 text-sm text-vast/50 transition-colors group-hover:text-vast">
+                Go
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" strokeWidth={2.2} />
+              </span>
             </Link>
           ))}
         </div>
+      </section>
 
-        {/* Recent Tests */}
-        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm}`}>
-          <div className="px-6 py-4 border-b-2 border-pencil flex items-center space-x-3">
-            <BarChart3 className="w-5 h-5 text-pencil" strokeWidth={3} />
-            <h2 className="text-lg font-bold text-pencil font-marker">Recent Tests</h2>
-          </div>
-          <div className="divide-y-2 divide-pencil/20">
-            {recentTests.length === 0 ? (
-              <div className="p-6 text-center font-hand text-pencil/50">
-                No tests taken yet. Start your first test!
-              </div>
-            ) : (
-              recentTests.slice(page * perPage, (page + 1) * perPage).map((test: any, idx: number) => (
-                <Link key={test.id} href={`/analysis/${test.id}`} className="px-6 py-4 hover:bg-muted/50 transition-colors block">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2.5">
-                      <Sparkles className="w-4 h-4 text-pencil/40" strokeWidth={2.5} />
-                      <span className="font-bold text-pencil font-hand text-base">
-                        {test.mode?.replace('_', ' ').toUpperCase()}
-                      </span>
-                      <span className="text-xs text-pencil/40 font-hand">
-                        {test.date ? new Date(test.date).toLocaleDateString() : ''}
-                      </span>
-                      {test.duration && (
-                        <span className="text-xs text-pencil/40 font-hand flex items-center gap-0.5">
-                          <Clock className="w-3 h-3" strokeWidth={2.5} />
-                          {test.duration}s
+      {/* ════════════════════════════════════════════════════════ recent tests */}
+      <section aria-labelledby="recent-heading" data-reveal>
+        <div className="mb-4 flex items-center gap-2.5">
+          <BarChart3 className="h-5 w-5" strokeWidth={2} />
+          <h2 id="recent-heading" className="text-3xl">
+            Recent tests
+          </h2>
+        </div>
+
+        <div className="card overflow-hidden">
+          {recentTests.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <p className="text-base text-vast/60">No tests yet.</p>
+              <Link href={ROUTES.examChsl} className="btn btn-primary btn-md mt-5">
+                Take your first test
+                <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
+              </Link>
+            </div>
+          ) : (
+            <ul className="divide-y-2 divide-vast/10">
+              {recentTests.slice(page * perPage, (page + 1) * perPage).map((test: any, idx: number) => (
+                <li key={test.id}>
+                  <Link
+                    href={`/analysis/${test.id}`}
+                    className="block px-5 py-4 transition-colors hover:bg-dawn/25"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-base font-semibold">
+                          {test.mode?.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                        <span className="tnum text-sm text-vast/50">
+                          {test.date ? new Date(test.date).toLocaleDateString() : ''}
+                        </span>
+                        {test.duration ? (
+                          <span className="tnum flex items-center gap-1 text-sm text-vast/50">
+                            <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                            {test.duration}s
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`chip ${test.qualified ? 'chip-ok' : 'chip-err'}`}>
+                          {test.qualified ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          )}
+                          {test.qualified ? 'Qualified' : 'Not qualified'}
+                        </span>
+                        {test.xp_earned > 0 && (
+                          <span className="chip chip-glow tnum">+{test.xp_earned} XP</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      <div className="rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center">
+                        <dt className="text-xs text-vast/50">Net WPM</dt>
+                        <dd className="tnum text-base font-semibold">{test.wpm?.toFixed(1)}</dd>
+                      </div>
+                      <div className="rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center">
+                        <dt className="text-xs text-vast/50">Gross WPM</dt>
+                        <dd className="tnum text-base font-semibold">{test.gross_wpm?.toFixed(1) || '-'}</dd>
+                      </div>
+                      <div className="rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center">
+                        <dt className="text-xs text-vast/50">Accuracy</dt>
+                        <dd className="tnum text-base font-semibold">{test.accuracy?.toFixed(1)}%</dd>
+                      </div>
+                      <div className="rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center">
+                        <dt className="text-xs text-vast/50">Errors</dt>
+                        <dd
+                          className={`tnum text-base font-semibold ${
+                            (test.total_errors ?? 0) > 0 ? 'text-err' : ''
+                          }`}
+                        >
+                          {test.total_errors ?? '-'}
+                        </dd>
+                      </div>
+                      <div className="hidden rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center sm:block">
+                        <dt className="text-xs text-vast/50">Backspaces</dt>
+                        <dd className="tnum text-base font-semibold text-vast/70">
+                          {test.backspace_count ?? '-'}
+                        </dd>
+                      </div>
+                      <div className="hidden rounded-lg border border-vast/10 bg-lumen px-2 py-1.5 text-center sm:block">
+                        <dt className="text-xs text-vast/50">Consistency</dt>
+                        <dd className="tnum text-base font-semibold text-vast/70">
+                          {test.consistency_score ? `${test.consistency_score.toFixed(0)}%` : '-'}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {test.wpm >= CHSL_WPM && test.accuracy >= CHSL_ACC ? (
+                        <span className="chip chip-ok">
+                          <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          Qualifies SSC CHSL
+                        </span>
+                      ) : (
+                        <span className="chip tnum">
+                          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          {test.wpm < CHSL_WPM ? `${CHSL_WPM - Math.floor(test.wpm)} WPM short` : ''}
+                          {test.wpm < CHSL_WPM && test.accuracy < CHSL_ACC ? ' + ' : ''}
+                          {test.accuracy < CHSL_ACC
+                            ? `${(CHSL_ACC - (test.accuracy || 0)).toFixed(1)}% accuracy short`
+                            : ''}
                         </span>
                       )}
+                      {idx > 0 && test.wpm && (() => {
+                        const prevWPM = recentTests.slice(page * perPage, (page + 1) * perPage)[idx - 1]?.wpm;
+                        if (!prevWPM || prevWPM === test.wpm) return null;
+                        const improved = test.wpm > prevWPM;
+                        return (
+                          <span className={`chip tnum ${improved ? 'chip-ok' : 'chip-err'}`}>
+                            {improved ? (
+                              <ArrowUp className="h-3 w-3" strokeWidth={2.5} />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" strokeWidth={2.5} />
+                            )}
+                            {Math.abs(test.wpm - prevWPM).toFixed(1)}
+                          </span>
+                        );
+                      })()}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {test.qualified
-                        ? <CheckCircle2 className="w-5 h-5 text-green-600" strokeWidth={3} />
-                        : <XCircle className="w-5 h-5 text-accent" strokeWidth={3} />}
-                      {test.xp_earned > 0 && (
-                        <span className="text-xs font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded">
-                          +{test.xp_earned}XP
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 text-xs font-hand">
-                    <div className="bg-paper rounded p-1.5 text-center">
-                      <div className="text-pencil/40">Net WPM</div>
-                      <div className="font-bold font-mono text-pencil">{test.wpm?.toFixed(1)}</div>
-                    </div>
-                    <div className="bg-paper rounded p-1.5 text-center">
-                      <div className="text-pencil/40">Gross WPM</div>
-                      <div className="font-bold font-mono text-pencil">{test.gross_wpm?.toFixed(1) || '-'}</div>
-                    </div>
-                    <div className="bg-paper rounded p-1.5 text-center">
-                      <div className="text-pencil/40">Accuracy</div>
-                      <div className="font-bold font-mono text-pencil">{test.accuracy?.toFixed(1)}%</div>
-                    </div>
-                    <div className="bg-paper rounded p-1.5 text-center">
-                      <div className="text-pencil/40">Errors</div>
-                      <div className="font-bold font-mono text-accent">{test.total_errors ?? '-'}</div>
-                    </div>
-                    <div className="bg-paper rounded p-1.5 text-center hidden sm:block">
-                      <div className="text-pencil/40">Backspaces</div>
-                      <div className="font-bold font-mono text-pencil/80">{test.backspace_count ?? '-'}</div>
-                    </div>
-                    <div className="bg-paper rounded p-1.5 text-center hidden sm:block">
-                      <div className="text-pencil/40">Consistency</div>
-                      <div className="font-bold font-mono text-pencil/80">{test.consistency_score ? `${test.consistency_score.toFixed(0)}%` : '-'}</div>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    {test.wpm >= 35 && test.accuracy >= 95 ? (
-                      <span className="text-xs text-green-600 font-hand flex items-center gap-0.5">
-                        <CheckCircle2 className="w-3 h-3" strokeWidth={3} />
-                        Qualifies SSC CHSL
-                      </span>
-                    ) : (
-                      <span className="text-xs text-pencil/40 font-hand flex items-center gap-0.5">
-                        <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
-                        {test.wpm < 35 ? `${35 - Math.floor(test.wpm)} WPM short` : ''}
-                        {test.wpm < 35 && test.accuracy < 95 ? ' + ' : ''}
-                        {test.accuracy < 95 ? `${(95 - (test.accuracy || 0)).toFixed(1)}% accuracy short` : ''}
-                      </span>
-                    )}
-                    {idx > 0 && test.wpm && (() => {
-                      const prevWPM = recentTests.slice(page * perPage, (page + 1) * perPage)[idx - 1]?.wpm;
-                      if (!prevWPM || prevWPM === test.wpm) return null;
-                      const improved = test.wpm > prevWPM;
-                      return (
-                        <span className={`text-xs font-hand flex items-center gap-0.5 ${improved ? 'text-green-600' : 'text-accent'}`}>
-                          {improved ? '▲' : '▼'} {Math.abs(test.wpm - prevWPM).toFixed(1)}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {recentTests.length > perPage && (
-            <div className="px-6 py-3 border-t-2 border-pencil/20 flex items-center justify-between">
-              <span className="text-sm font-hand text-pencil/50">
-                Showing {page * perPage + 1}–{Math.min((page + 1) * perPage, recentTests.length)} of {recentTests.length}
-              </span>
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between gap-3 border-t-2 border-vast/10 px-5 py-3">
+              <p className="tnum text-sm text-vast/50">
+                Showing {page * perPage + 1}–{Math.min((page + 1) * perPage, recentTests.length)} of{' '}
+                {recentTests.length}
+              </p>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  style={{ borderRadius: CSS.radii.sm }}
+                  aria-label="Previous page"
+                  className="btn btn-outline btn-sm w-9 px-0"
                 >
-                  <ChevronLeft className="w-4 h-4" strokeWidth={3} />
+                  <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => setPage(p => p + 1)}
                   disabled={(page + 1) * perPage >= recentTests.length}
-                  className="p-1.5 border-2 border-pencil/30 text-pencil/60 hover:text-pencil hover:border-pencil disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  style={{ borderRadius: CSS.radii.sm }}
+                  aria-label="Next page"
+                  className="btn btn-outline btn-sm w-9 px-0"
                 >
-                  <ChevronRight className="w-4 h-4" strokeWidth={3} />
+                  <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
                 </button>
               </div>
             </div>
           )}
         </div>
+      </section>
 
-        {/* XP Detail Modal */}
-        {showXPModal && user && (() => {
-          const xp = user.xp || 0;
-          const rank = getLevelFromXP(xp);
-          const rankIdx = getLevelIndex(xp);
-          const progress = getLevelProgress(xp);
-          const totalTests = analytics?.total_tests || 0;
-          const recentXpTotal = recentTests.slice(0, 10).reduce((s: number, t: any) => s + (t.xp_earned || 0), 0);
-          const avgXpPerTest = totalTests > 0 ? Math.round(xp / totalTests) : 0;
-          const xpBreakdown: { source: string; xp: number; tests: number }[] = (data as any)?.xpBreakdown || [];
-          const lessonXp: number = (data as any)?.lessonXp ?? Math.max(0, xp - xpBreakdown.reduce((s, r) => s + r.xp, 0));
-          const modeLabels: Record<string, string> = {
-            ssc_chsl: 'SSC CHSL',
-            ssc_cgl_dest: 'SSC CGL DEST',
-            ssc_cgl: 'SSC CGL',
-            practice: 'Practice',
-            blind: 'Blind Typing',
-            lesson: 'Lessons',
-          };
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowXPModal(false)}>
-              <div className={`bg-white border-2 border-pencil ${CSS.shadows.md} max-w-lg w-full mx-4 relative overflow-y-auto max-h-[90vh]`}
-                   style={{ borderRadius: CSS.radii.sm }}
-                   onClick={e => e.stopPropagation()}>
-                <div className="p-6">
-                  <button onClick={() => setShowXPModal(false)}
-                          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center border-2 border-pencil/30 text-pencil/50 hover:text-pencil hover:border-pencil transition-colors"
-                          style={{ borderRadius: CSS.radii.sm }}>
-                    <X className="w-4 h-4" strokeWidth={3} />
-                  </button>
+      {/* ═══════════════════════════════════════════════════════════ XP detail */}
+      {showXPModal && user && (() => {
+        const xp = user.xp || 0;
+        const rank = getLevelFromXP(xp);
+        const rankIdx = getLevelIndex(xp);
+        const progress = getLevelProgress(xp);
+        const totalTests = analytics?.total_tests || 0;
+        const recentXpTotal = recentTests.slice(0, 10).reduce((s: number, t: any) => s + (t.xp_earned || 0), 0);
+        const avgXpPerTest = totalTests > 0 ? Math.round(xp / totalTests) : 0;
+        const xpBreakdown: { source: string; xp: number; tests: number }[] = (data as any)?.xpBreakdown || [];
+        const lessonXp: number = (data as any)?.lessonXp ?? Math.max(0, xp - xpBreakdown.reduce((s, r) => s + r.xp, 0));
+        const modeLabels: Record<string, string> = {
+          ssc_chsl: 'SSC CHSL',
+          ssc_cgl_dest: 'SSC CGL DEST',
+          ssc_cgl: 'SSC CGL',
+          practice: 'Practice',
+          blind: 'Blind Typing',
+          lesson: 'Lessons',
+        };
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-vast/50 p-4"
+            onClick={() => setShowXPModal(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="xp-modal-title"
+              className="card relative max-h-[90vh] w-full max-w-lg overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <button
+                  onClick={() => setShowXPModal(false)}
+                  aria-label="Close XP breakdown"
+                  className="btn btn-outline btn-sm absolute right-4 top-4 w-9 px-0"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.5} />
+                </button>
 
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 border-[3px] border-yellow-500 rounded-full shrink-0">
-                      <Zap className="w-8 h-8 text-yellow-600" strokeWidth={3} />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold font-marker text-pencil">{rank}</h2>
-                      <p className="text-sm font-hand text-pencil/50">{xp.toLocaleString()} total XP</p>
-                    </div>
+                <div className="flex items-center gap-4 pr-12">
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-vast bg-glow">
+                    <Zap className="h-6 w-6" strokeWidth={2.2} />
+                  </span>
+                  <div>
+                    <h2 id="xp-modal-title" className="text-3xl">{rank}</h2>
+                    <p className="tnum mt-1 text-sm text-vast/60">
+                      {xp.toLocaleString()} total XP
+                    </p>
                   </div>
+                </div>
 
-                  {progress.next && (
-                    <>
-                      <div className="mb-1 flex items-center justify-between text-sm font-hand">
-                        <span className="text-pencil/60">Next: {progress.next}</span>
-                        <span className="font-semibold text-pencil">{xp - progress.currentXp} / {progress.nextXp - progress.currentXp} XP</span>
+                {progress.next && (
+                  <div className="mt-6">
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="text-vast/60">Next: {progress.next}</span>
+                      <span className="tnum font-semibold">
+                        {xp - progress.currentXp} / {progress.nextXp - progress.currentXp} XP
+                      </span>
+                    </div>
+                    <div
+                      className="mt-2 h-6 w-full overflow-hidden rounded-full border-2 border-vast bg-lumen-dark"
+                      role="progressbar"
+                      aria-valuenow={Math.round(progress.progress)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`Progress to ${progress.next}`}
+                    >
+                      <div
+                        className="flex h-full items-center justify-end bg-glow pr-2 transition-[width] duration-500"
+                        style={{ width: `${progress.progress}%` }}
+                      >
+                        {progress.progress > 15 && (
+                          <span className="tnum text-xs font-semibold">
+                            {progress.progress.toFixed(0)}%
+                          </span>
+                        )}
                       </div>
-                      <div className="w-full h-5 bg-gray-100 rounded-full overflow-hidden border border-pencil/20">
-                        <div className="h-full rounded-full transition-all duration-500 bg-yellow-400 flex items-center justify-end pr-2"
-                             style={{ width: `${progress.progress}%` }}>
-                          {progress.progress > 15 && (
-                            <span className="text-[10px] font-bold text-yellow-800">{progress.progress.toFixed(0)}%</span>
-                          )}
-                        </div>
+                    </div>
+                    <p className="tnum mt-2 text-xs text-vast/50">
+                      {Math.ceil(progress.nextXp - xp)} more XP to reach {progress.next}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-6 grid grid-cols-3 gap-3">
+                  <div className="card-flat p-3 text-center">
+                    <p className="tnum font-display text-2xl leading-none">{totalTests}</p>
+                    <p className="mt-2 text-xs text-vast/50">Tests taken</p>
+                  </div>
+                  <div className="card-flat p-3 text-center">
+                    <p className="tnum font-display text-2xl leading-none">{avgXpPerTest}</p>
+                    <p className="mt-2 text-xs text-vast/50">Avg XP / test</p>
+                  </div>
+                  <div className="card-flat p-3 text-center">
+                    <p className="tnum font-display text-2xl leading-none text-ok">+{recentXpTotal}</p>
+                    <p className="mt-2 text-xs text-vast/50">Last 10 tests XP</p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-xl">XP breakdown</h3>
+                  <div className="mt-3 space-y-1.5">
+                    {lessonXp > 0 && (
+                      <div className="card-flat flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="text-sm text-vast/70">Learn Typing (Lessons)</span>
+                        <span className="tnum text-sm font-semibold">{lessonXp} XP</span>
                       </div>
-                      <p className="text-xs font-hand text-pencil/40 mt-1 mb-5">
-                        {Math.ceil(progress.nextXp - xp)} more XP to reach {progress.next}
-                      </p>
-                    </>
-                  )}
-
-                  <div className="grid grid-cols-3 gap-3 mb-5">
-                    <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: CSS.radii.sm }}>
-                      <div className="text-xl font-bold font-marker text-pencil">{totalTests}</div>
-                      <div className="text-xs font-hand text-pencil/50">Tests Taken</div>
-                    </div>
-                    <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: CSS.radii.sm }}>
-                      <div className="text-xl font-bold font-marker text-pencil">{avgXpPerTest}</div>
-                      <div className="text-xs font-hand text-pencil/50">Avg XP / Test</div>
-                    </div>
-                    <div className="bg-paper border border-pencil/20 p-3 text-center"
-                         style={{ borderRadius: CSS.radii.sm }}>
-                      <div className="text-xl font-bold font-marker text-green-600">+{recentXpTotal}</div>
-                      <div className="text-xs font-hand text-pencil/50">Last 10 Tests XP</div>
-                    </div>
+                    )}
+                    {xpBreakdown.filter(r => r.xp > 0).map((r) => (
+                      <div key={r.source} className="card-flat flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="text-sm text-vast/70">{modeLabels[r.source] || r.source}</span>
+                        <span className="tnum text-sm font-semibold">{r.xp} XP</span>
+                      </div>
+                    ))}
+                    {lessonXp === 0 && xpBreakdown.every(r => r.xp === 0) && (
+                      <p className="py-2 text-sm text-vast/50">No XP earned yet</p>
+                    )}
                   </div>
+                </div>
 
-                  <div className="mb-5">
-                    <h3 className="text-sm font-bold font-hand text-pencil mb-2">XP Breakdown</h3>
-                    <div className="space-y-1.5">
-                      {lessonXp > 0 && (
-                        <div className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                             style={{ borderRadius: CSS.radii.sm }}>
-                          <span className="text-sm font-hand text-pencil/70">Learn Typing (Lessons)</span>
-                          <span className="text-sm font-bold font-mono text-pencil">{lessonXp} XP</span>
-                        </div>
-                      )}
-                      {xpBreakdown.filter(r => r.xp > 0).map((r) => (
-                        <div key={r.source} className="flex items-center justify-between p-2 bg-paper border border-pencil/20"
-                             style={{ borderRadius: CSS.radii.sm }}>
-                          <span className="text-sm font-hand text-pencil/70">{modeLabels[r.source] || r.source}</span>
-                          <span className="text-sm font-bold font-mono text-pencil">{r.xp} XP</span>
-                        </div>
-                      ))}
-                      {lessonXp === 0 && xpBreakdown.every(r => r.xp === 0) && (
-                        <div className="text-sm font-hand text-pencil/40 p-2">No XP earned yet</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border-t-2 border-pencil/10 pt-4">
-                    <h3 className="text-sm font-bold font-hand text-pencil mb-3">Rank Progression</h3>
-                    <div className="space-y-1.5">
-                      {LEVEL_NAMES.map((l, i) => {
-                        const unlocked = xp >= l.minXp;
-                        return (
-                          <div key={l.name}
-                               className={`flex items-center justify-between p-2.5 ${unlocked ? 'bg-yellow-50 border border-yellow-200' : 'bg-paper border border-pencil/10'} ${l.name === rank ? 'ring-2 ring-yellow-400' : ''}`}
-                               style={{ borderRadius: CSS.radii.sm }}>
-                            <div className="flex items-center gap-2.5">
-                              <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold font-mono rounded-full ${unlocked ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-100 text-gray-300'}`}>
-                                {unlocked ? '✓' : i + 1}
-                              </span>
-                              <span className={`text-sm font-hand ${unlocked ? 'text-pencil font-bold' : 'text-pencil/40'}`}>
-                                {l.name}
-                              </span>
-                            </div>
-                            <span className={`text-xs font-hand ${unlocked ? 'text-yellow-600' : 'text-pencil/30'}`}>
-                              {l.minXp === 0 ? 'Start' : `${l.minXp.toLocaleString()} XP`}
+                <div className="mt-6 border-t-2 border-vast/10 pt-5">
+                  <h3 className="text-xl">Rank progression</h3>
+                  <ul className="mt-3 space-y-1.5">
+                    {LEVEL_NAMES.map((l, i) => {
+                      const unlocked = xp >= l.minXp;
+                      const isCurrent = i === rankIdx;
+                      return (
+                        <li
+                          key={l.name}
+                          aria-current={isCurrent ? 'true' : undefined}
+                          className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 ${
+                            isCurrent
+                              ? 'border-2 border-vast bg-dawn'
+                              : unlocked
+                                ? 'border border-vast/15 bg-ok-bg'
+                                : 'border border-vast/10 bg-lumen'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <span
+                              className={`tnum flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                                unlocked ? 'bg-ok text-cream' : 'bg-lumen-dark text-vast/40'
+                              }`}
+                            >
+                              {unlocked ? '✓' : i + 1}
                             </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                            <span className={`text-sm ${unlocked ? 'font-semibold' : 'text-vast/40'}`}>
+                              {l.name}
+                            </span>
+                          </span>
+                          <span className={`tnum text-xs ${unlocked ? 'text-vast/60' : 'text-vast/30'}`}>
+                            {l.minXp === 0 ? 'Start' : `${l.minXp.toLocaleString()} XP`}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               </div>
             </div>
-          );
-        })()}
-
-      </main>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function MiniChart({ data, color, label }: { data: number[]; color: string; label: string }) {
+/**
+ * Sparkline for a short numeric series.
+ *
+ * `tone` is a text-colour utility rather than a raw colour: the line and its
+ * end dots draw with `currentColor`, which keeps every chart colour on the
+ * token palette instead of a hardcoded hex.
+ */
+function MiniChart({ data, tone, label }: { data: number[]; tone: string; label: string }) {
   const values = [...data].reverse();
   if (values.length < 2) return null;
   const max = Math.max(...values, 1);
@@ -676,17 +844,41 @@ function MiniChart({ data, color, label }: { data: number[]; color: string; labe
   }).join(' ');
   return (
     <div>
-      <div className="flex items-center justify-between text-[10px] font-hand mb-1">
-        <span className="text-pencil/40">{label} trend (recent {values.length})</span>
-        <span className="text-pencil/60">{values[values.length - 1].toFixed(1)}</span>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="text-vast/50">{label} trend (recent {values.length})</span>
+        <span className="tnum font-semibold">{values[values.length - 1].toFixed(1)}</span>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8" preserveAspectRatio="none">
-        <polyline fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          points={points} />
+      {/* The label and latest value above already state everything the line
+          encodes, so the chart itself is decorative to a screen reader. */}
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className={`mt-1 h-8 w-full ${tone}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polyline
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+        />
         {values.length >= 2 && (
           <>
-            <circle cx={points.split(' ')[0].split(',')[0]} cy={points.split(' ')[0].split(',')[1]} r="2.5" fill={color} opacity="0.5" />
-            <circle cx={points.split(' ')[values.length - 1].split(',')[0]} cy={points.split(' ')[values.length - 1].split(',')[1]} r="3" fill={color} />
+            <circle
+              cx={points.split(' ')[0].split(',')[0]}
+              cy={points.split(' ')[0].split(',')[1]}
+              r="2.5"
+              fill="currentColor"
+              opacity="0.45"
+            />
+            <circle
+              cx={points.split(' ')[values.length - 1].split(',')[0]}
+              cy={points.split(' ')[values.length - 1].split(',')[1]}
+              r="3"
+              fill="currentColor"
+            />
           </>
         )}
       </svg>

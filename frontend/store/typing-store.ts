@@ -25,6 +25,9 @@ interface TypingState {
   setNavHidden: (hidden: boolean) => void;
 
   startTest: (testId: string, mode: TestMode, content: string, duration: number) => void;
+  /** Attach the server-side test id once registration completes. The test
+   *  starts as 'local' so the candidate is never made to wait for it. */
+  setTestId: (testId: string) => void;
   resumeSession: (params: {
     testId: string;
     mode: TestMode;
@@ -62,6 +65,8 @@ export const useTypingStore = create<TypingState>((set, get) => ({
   navHidden: false,
 
   setNavHidden: (hidden) => set({ navHidden: hidden }),
+
+  setTestId: (testId) => set({ testId }),
 
   startTest: (testId, mode, content, duration) => {
     set({

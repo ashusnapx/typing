@@ -2,19 +2,38 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  LogOut,
+  LayoutDashboard,
+  BarChart3,
+  Shield,
+  Menu,
+  X,
+  ChevronDown,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingStore } from '@/store/typing-store';
-import { useState, useCallback, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { CSS } from '@/lib/config';
-import { User, LogOut, LayoutDashboard, BarChart3, Shield, Menu, X, ChevronRight } from 'lucide-react';
+import { APP } from '@/lib/config';
 
-const wobbly = { borderRadius: CSS.radii.sm };
+/** The two things a visitor is here to do. Everything else lives further in. */
+const PRIMARY = [
+  { href: '/exam', label: 'Tests' },
+  { href: '/learn', label: 'Learn' },
+] as const;
+
+const SECONDARY = [
+  { href: '/coach', label: 'Coach' },
+  { href: '/leaderboard', label: 'Leaderboard' },
+  { href: '/faq', label: 'FAQ' },
+] as const;
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   const navHidden = useTypingStore((s) => s.navHidden);
@@ -22,178 +41,254 @@ export function Navbar() {
   const closeMobile = useCallback(() => setShowMobileMenu(false), []);
 
   useEffect(() => {
-    if (showMobileMenu) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
-    return () => { document.body.style.overflow = ''; };
+    setShowMobileMenu(false);
+    setShowUserMenu(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = showMobileMenu ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [showMobileMenu]);
 
   useEffect(() => {
     if (!showUserMenu) return;
-    const close = () => setShowUserMenu(false);
-    const onScroll = () => close();
-    const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-user-menu]')) close();
+    const onPointerDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setShowUserMenu(false);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    document.addEventListener('mousedown', onMouseDown);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowUserMenu(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
     };
   }, [showUserMenu]);
 
-  if (navHidden) return null;
+  // Sign-in and sign-up are focused, single-task screens: the split layout
+  // carries its own mark, and site navigation only invites people away from
+  // the form they came to fill in.
+  if (navHidden || pathname.startsWith('/auth/')) return null;
 
-  const navLinks = [
-    { href: '/exam/chsl', label: 'SSC CHSL' },
-    { href: '/exam/cgl-dest', label: 'SSC CGL' },
-    { href: '/exam/practice', label: 'Practice' },
-    { href: '/learn', label: 'Learn' },
-    { href: '/coach', label: 'AI Coach' },
-  ];
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-  const userLinks = isAuthenticated && user ? [
-    { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" strokeWidth={2.5} /> },
-    { href: '/dashboard/analytics', label: 'Analytics', icon: <BarChart3 className="w-4 h-4" strokeWidth={2.5} /> },
-    ...(user.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: <Shield className="w-4 h-4" strokeWidth={2.5} /> }] : []),
-  ] : [];
+  const userLinks =
+    isAuthenticated && user
+      ? [
+          { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+          ...(user.role === 'admin'
+            ? [{ href: '/admin', label: 'Admin', icon: Shield }]
+            : []),
+        ]
+      : [];
 
   return (
-    <nav className="sticky top-0 z-50 border-b-2 border-pencil bg-paper">
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="flex justify-between h-16 items-center">
-          <Link
-            href="/"
-            className="flex items-center space-x-3 -rotate-1 hover:rotate-0 transition-transform duration-100"
-          >
-            <Image
-              src="/images/logo.png?v=2"
-              alt="Typing Mania"
-              width={40}
-              height={40}
-              className="w-10 h-10 border-2 border-pencil shadow-hard-sm"
-              style={wobbly}
-            />
-            <div className="flex flex-col leading-tight">
-              <span className="text-xl font-bold text-pencil font-marker -mb-1">Typing Mania</span>
-              <span className="text-xs text-pencil/50 font-hand tracking-wide">by Maths Mania</span>
-            </div>
-          </Link>
+    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5">
+      {/* A floating capsule rather than a full-width bar — the cream ground
+          shows around it, which is what makes the chrome feel light. */}
+      <nav className="mx-auto flex w-full max-w-content items-center gap-3 rounded-2xl border-2 border-vast bg-lumen px-3 py-2.5 sm:gap-4 sm:px-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
+          <Image
+            src={APP.logo}
+            alt=""
+            width={30}
+            height={30}
+            className="h-[30px] w-[30px] rounded-md"
+            priority
+          />
+          <span className="font-display text-xl leading-none tracking-tight">
+            {APP.name}
+          </span>
+        </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map(l => (
-              <Link key={l.href} href={l.href}
-                    className="px-3 py-1.5 text-base text-pencil font-hand hover:bg-muted transition-colors whitespace-nowrap"
-                    style={wobbly}>
-                {l.label}
-              </Link>
-            ))}
-            <span className="w-px h-6 bg-pencil/20 mx-1" />
-            {isAuthenticated && user ? (
-              <div className="relative" data-user-menu>
-                <button onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="flex items-center space-x-2 btn-hand-sm">
-                  <User className="w-4 h-4" strokeWidth={3} />
-                  <span>{user.full_name}</span>
-                  <span className="px-2 py-0.5 text-xs bg-pencil text-paper font-hand rounded-sm">Lvl {user.level}</span>
-                </button>
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border-2 border-pencil shadow-hard py-1" style={wobbly}>
-                    {userLinks.map(l => (
-                      <Link key={l.href} href={l.href}
-                            className="flex items-center space-x-2 px-4 py-2 text-base text-pencil font-hand hover:bg-muted"
-                            onClick={() => { setShowUserMenu(false); }}>
-                        {l.icon}
-                        <span>{l.label}</span>
-                      </Link>
-                    ))}
-                    <button onClick={() => { logout(); setShowUserMenu(false); router.push('/'); }}
-                            className="flex items-center space-x-2 w-full text-left px-4 py-2 text-base text-accent font-hand hover:bg-muted">
-                      <LogOut className="w-4 h-4" strokeWidth={2.5} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Link href="/auth/login" className="btn-hand-sm" style={wobbly}>Login</Link>
-                <Link href="/auth/register" className="btn-hand-sm bg-pencil text-paper hover:bg-accent" style={wobbly}>Register</Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile hamburger */}
-          <button onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="md:hidden flex items-center justify-center w-10 h-10 text-pencil hover:bg-muted transition-colors"
-                  style={wobbly}
-                  aria-label={showMobileMenu ? 'Close menu' : 'Open menu'}>
-            {showMobileMenu ? <X className="w-6 h-6" strokeWidth={3} /> : <Menu className="w-6 h-6" strokeWidth={3} />}
-          </button>
+        {/* Segmented pill for the two primary destinations. */}
+        <div className="segment hidden md:inline-flex">
+          {PRIMARY.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              data-active={isActive(l.href)}
+              className="segment-item"
+            >
+              {l.label}
+            </Link>
+          ))}
         </div>
-      </div>
 
-      {/* Mobile menu overlay */}
-      {showMobileMenu && (
-        <div className="md:hidden fixed inset-0 top-16 z-40 bg-paper/95 backdrop-blur-sm overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-6 py-4 space-y-2">
-            {/* Nav links */}
-            <div className="bg-white border-2 border-pencil shadow-hard-sm divide-y-2 divide-pencil/20" style={wobbly}>
-              {navLinks.map(l => (
-                <Link key={l.href} href={l.href}
-                      onClick={closeMobile}
-                      className="flex items-center justify-between px-5 py-4 text-base text-pencil font-hand hover:bg-muted transition-colors">
-                  <span>{l.label}</span>
-                  <ChevronRight className="w-4 h-4 text-pencil/30" strokeWidth={3} />
-                </Link>
-              ))}
-            </div>
+        <div className="ml-auto hidden items-center gap-5 md:flex">
+          {SECONDARY.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`text-base transition-colors hover:text-vast ${
+                isActive(l.href) ? 'text-vast' : 'text-vast/60'
+              }`}
+            >
+              {l.label}
+            </Link>
+          ))}
 
-            {/* User section */}
-            <div className="bg-white border-2 border-pencil shadow-hard-sm" style={wobbly}>
-              {isAuthenticated && user ? (
-                <div className="divide-y-2 divide-pencil/20">
-                  <div className="px-5 py-3 flex items-center space-x-3">
-                    <div className="w-9 h-9 flex items-center justify-center border-2 border-pencil bg-muted" style={wobbly}>
-                      <User className="w-5 h-5 text-pencil" strokeWidth={3} />
-                    </div>
-                    <div>
-                      <div className="text-base font-bold text-pencil font-hand">{user.full_name}</div>
-                      <div className="text-xs text-pencil/50 font-hand">Lvl {user.level} &middot; {user.xp} XP</div>
-                    </div>
+          {isAuthenticated && user ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu((v) => !v)}
+                aria-expanded={showUserMenu}
+                aria-haspopup="menu"
+                className="btn btn-cream btn-sm gap-2"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-dawn text-[10px] font-bold">
+                  {(user.full_name || 'U').charAt(0).toUpperCase()}
+                </span>
+                <span className="max-w-[8rem] truncate">{user.full_name}</span>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                  strokeWidth={2}
+                />
+              </button>
+
+              {showUserMenu && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border-2 border-vast bg-lumen p-1"
+                >
+                  <div className="border-b-2 border-vast/10 px-3 py-2.5">
+                    <p className="truncate text-sm font-semibold">
+                      {user.full_name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-vast/50">
+                      Level {user.level} · <span className="tnum">{user.xp} XP</span>
+                    </p>
                   </div>
-                  {userLinks.map(l => (
-                    <Link key={l.href} href={l.href}
-                          onClick={closeMobile}
-                          className="flex items-center space-x-3 px-5 py-3 text-base text-pencil font-hand hover:bg-muted transition-colors">
-                      {l.icon}
-                      <span>{l.label}</span>
+                  {userLinks.map((l) => (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      role="menuitem"
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-vast/5"
+                    >
+                      <l.icon className="h-4 w-4" strokeWidth={1.8} />
+                      {l.label}
                     </Link>
                   ))}
-                  <button onClick={() => { logout(); closeMobile(); router.push('/'); }}
-                          className="flex items-center space-x-3 w-full text-left px-5 py-3 text-base text-accent font-hand hover:bg-muted transition-colors">
-                    <LogOut className="w-4 h-4" strokeWidth={2.5} />
-                    <span>Logout</span>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setShowUserMenu(false);
+                      router.push('/');
+                    }}
+                    role="menuitem"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-err transition-colors hover:bg-err-bg"
+                  >
+                    <LogOut className="h-4 w-4" strokeWidth={1.8} />
+                    Sign out
                   </button>
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  <Link href="/auth/login" onClick={closeMobile}
-                        className="block w-full text-center px-4 py-3 border-2 border-pencil text-base font-hand text-pencil hover:bg-muted transition-colors" style={wobbly}>
-                    Login
-                  </Link>
-                  <Link href="/auth/register" onClick={closeMobile}
-                        className="block w-full text-center px-4 py-3 border-2 border-pencil text-base font-hand bg-pencil text-paper hover:bg-accent transition-colors" style={wobbly}>
-                    Register
-                  </Link>
                 </div>
               )}
             </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link href="/auth/login" className="text-base text-vast/60 transition-colors hover:text-vast">
+                Sign in
+              </Link>
+              <Link href="/exam/chsl" className="btn btn-primary btn-sm">
+                Start free test
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => setShowMobileMenu((v) => !v)}
+          className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border-2 border-vast md:hidden"
+          aria-label={showMobileMenu ? 'Close menu' : 'Open menu'}
+          aria-expanded={showMobileMenu}
+        >
+          {showMobileMenu ? (
+            <X className="h-4 w-4" strokeWidth={2.5} />
+          ) : (
+            <Menu className="h-4 w-4" strokeWidth={2.5} />
+          )}
+        </button>
+      </nav>
+
+      {showMobileMenu && (
+        <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 overflow-y-auto bg-lumen px-5 py-6 md:hidden">
+          <div className="space-y-1">
+            {[...PRIMARY, ...SECONDARY].map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={closeMobile}
+                className={`block rounded-xl px-4 py-3 font-display text-3xl transition-colors ${
+                  isActive(l.href) ? 'bg-dawn' : ''
+                }`}
+              >
+                {l.label}
+              </Link>
+            ))}
           </div>
+
+          {isAuthenticated && user ? (
+            <div className="mt-6 space-y-1 border-t-2 border-vast/10 pt-6">
+              <div className="flex items-center gap-3 px-4 pb-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-vast bg-dawn text-sm font-bold">
+                  {(user.full_name || 'U').charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{user.full_name}</p>
+                  <p className="text-xs text-vast/50">
+                    Level {user.level} · <span className="tnum">{user.xp} XP</span>
+                  </p>
+                </div>
+              </div>
+              {userLinks.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={closeMobile}
+                  className="flex items-center gap-3 rounded-xl px-4 py-3"
+                >
+                  <l.icon className="h-4 w-4" strokeWidth={1.8} />
+                  {l.label}
+                </Link>
+              ))}
+              <button
+                onClick={() => {
+                  logout();
+                  closeMobile();
+                  router.push('/');
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-err"
+              >
+                <LogOut className="h-4 w-4" strokeWidth={1.8} />
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3 border-t-2 border-vast/10 pt-6">
+              <Link
+                href="/exam/chsl"
+                onClick={closeMobile}
+                className="btn btn-primary btn-lg w-full"
+              >
+                Start free test
+              </Link>
+              <Link
+                href="/auth/login"
+                onClick={closeMobile}
+                className="btn btn-outline btn-lg w-full"
+              >
+                Sign in
+              </Link>
+            </div>
+          )}
         </div>
       )}
-    </nav>
+    </header>
   );
 }

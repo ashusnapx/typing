@@ -1,8 +1,7 @@
 'use client';
 
 import { PracticeSet } from '@/lib/practice-sets';
-import { ArrowLeft, Timer, Target, BookOpen } from 'lucide-react';
-import { WOBBLY_RADII } from '@/lib/config';
+import { ArrowLeft, ArrowRight, Clock, Target } from 'lucide-react';
 
 interface PracticeSetSelectorProps {
   examName: string;
@@ -13,72 +12,83 @@ interface PracticeSetSelectorProps {
   onBack: () => void;
 }
 
-export default function PracticeSetSelector({ examName, sets, durationMinutes, wpmTarget, onSelect, onBack }: PracticeSetSelectorProps) {
+export default function PracticeSetSelector({
+  examName,
+  sets,
+  durationMinutes,
+  wpmTarget,
+  onSelect,
+  onBack,
+}: PracticeSetSelectorProps) {
   return (
-    <div className="min-h-screen bg-paper">
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        {/* Back */}
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-hand text-pencil/50 hover:text-pencil transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" strokeWidth={3} />
-          Back to Exams
-        </button>
+    <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
+      <button
+        type="button"
+        onClick={onBack}
+        className="btn btn-ghost btn-sm -ml-3.5 mb-8"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+        All tests
+      </button>
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="w-10 h-10 flex items-center justify-center border-2 border-pencil bg-postit"
-              style={{ borderRadius: WOBBLY_RADII.sm }}>
-              <BookOpen className="w-5 h-5 text-pencil" strokeWidth={3} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-pencil font-marker">Select Practice Set</h1>
-              <p className="text-sm text-pencil/60 font-hand">Choose a set to begin the {examName} typing test</p>
-            </div>
-          </div>
-          <div className="flex justify-center gap-6 text-xs font-hand text-pencil/50">
-            <span className="flex items-center gap-1.5">
-              <Timer className="w-3.5 h-3.5" strokeWidth={2.5} /> {durationMinutes} min
-            </span>
-            {wpmTarget ? (
-              <span className="flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5" strokeWidth={2.5} /> {wpmTarget} WPM target
-              </span>
-            ) : null}
-          </div>
-        </div>
+      {/* The exam name sits in the eyebrow rather than the headline: it is a
+          dynamic string, and the italic gesture needs copy we control. */}
+      <p className="eyebrow">{examName}</p>
 
-        {/* Sets Grid */}
-        <div className="flex flex-col gap-3">
-          {sets.map((set, idx) => (
+      <h1 className="mt-4 text-4xl sm:text-5xl">
+        Pick a <em>passage set</em>
+      </h1>
+
+      {/* Sets differ by subject, not by difficulty — the SSC lists are all
+          rated hard — so the lead must not promise a difficulty ramp. */}
+      <p className="mt-5 max-w-lg text-lg text-vast/70">
+        Each set is a different subject. The clock and the speed target stay the
+        same whichever one you pick.
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <span className="chip tnum">
+          <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+          {durationMinutes} min
+        </span>
+        {wpmTarget ? (
+          <span className="chip chip-lilac tnum">
+            <Target className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            {wpmTarget} WPM target
+          </span>
+        ) : null}
+      </div>
+
+      <ol aria-label="Passage sets" className="card mt-10 overflow-hidden">
+        {sets.map((set) => (
+          <li key={set.number} className="border-b-2 border-vast/10 last:border-0">
+            {/* The card clips to its radius, so the focus ring is drawn inside
+                the row — at the default +2px offset the ol crops it. */}
             <button
-              key={set.number}
+              type="button"
               onClick={() => onSelect(set)}
-              className="bg-white border-2 border-pencil p-4 hover:shadow-hard transition-all text-left cursor-pointer group flex items-center gap-4"
-              style={{
-                borderRadius: WOBBLY_RADII.md,
-                transform: `rotate(${idx % 2 === 0 ? '-0.3' : '0.3'}deg)`,
-              }}
+              className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-dawn focus-visible:-outline-offset-2 sm:gap-5 sm:px-6 sm:py-5"
             >
-              {/* Set number badge */}
-              <div className="w-12 h-12 shrink-0 flex items-center justify-center border-2 border-pencil bg-accent text-white font-marker text-lg"
-                style={{ borderRadius: WOBBLY_RADII.sm }}>
+              <span className="tnum flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-vast text-base font-semibold text-lumen">
                 {set.number}
-              </div>
+              </span>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="font-marker text-base text-pencil mb-0.5">{set.title}</div>
-                <div className="font-hand text-sm text-pencil/60">{set.description}</div>
-              </div>
+              <span className="min-w-0 flex-1">
+                <span className="block font-display text-2xl">{set.title}</span>
+                <span className="mt-1.5 block text-base text-vast/60">
+                  {set.description}
+                </span>
+              </span>
 
-              <ArrowLeft className="w-5 h-5 text-pencil/30 rotate-180 group-hover:text-pencil/60 transition-colors shrink-0" strokeWidth={3} />
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-vast/40 transition ease-spring group-hover:translate-x-1 group-hover:text-vast"
+                strokeWidth={2.2}
+                aria-hidden
+              />
             </button>
-          ))}
-        </div>
-      </main>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

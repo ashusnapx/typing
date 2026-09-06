@@ -1,77 +1,72 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Keyboard } from 'lucide-react';
-import { CSS } from '@/lib/config';
+import { AlertTriangle } from 'lucide-react';
 import { getCapsLocked, subscribeCapsLock } from '@/lib/caps-lock-tracker';
 
 interface CapsLockNoticeProps {
+  /** The drill text, used to decide whether Caps Lock is actually wanted. */
+  text?: string;
+  /** @deprecated Pass `text` instead — see the note below. */
   lessonNeedsUppercase?: boolean;
   compact?: boolean;
 }
 
 /**
- * Simple Caps Lock indicator:
- * - lessonNeedsUppercase=true  → Caps Lock should be ON
- * - lessonNeedsUppercase=false → Caps Lock should be OFF
+ * Caps Lock warning.
+ *
+ * The previous version demanded "Turn Caps Lock ON" whenever the drill text
+ * contained any capital letter at all. That is wrong and actively harmful:
+ * sentence-case text like "The Reserve Bank of India" is typed with Shift, and
+ * Caps Lock ON would produce "tHE rESERVE bANK OF iNDIA" — turning a
+ * capitalisation lesson into a guaranteed failure.
+ *
+ * Caps Lock is only wanted when the text is essentially ALL CAPS. Otherwise the
+ * only thing worth saying is: Caps Lock is on, and it shouldn't be.
  */
-export function CapsLockNotice({ lessonNeedsUppercase = false, compact = false }: CapsLockNoticeProps) {
+function wantsCapsLock(text: string): boolean {
+  const letters = text.replace(/[^A-Za-z]/g, '');
+  if (letters.length < 8) return false;
+  const upper = letters.replace(/[^A-Z]/g, '').length;
+  return upper / letters.length > 0.85;
+}
+
+export function CapsLockNotice({
+  text,
+  lessonNeedsUppercase,
+  compact = false,
+}: CapsLockNoticeProps) {
   const [mounted, setMounted] = useState(false);
   const capsOn = useSyncExternalStore(subscribeCapsLock, getCapsLocked, () => null);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!mounted || capsOn === null) return null;
 
-  const isCorrect = lessonNeedsUppercase ? capsOn === true : capsOn === false;
+  const needsCaps =
+    typeof text === 'string' ? wantsCapsLock(text) : !!lessonNeedsUppercase;
 
-  if (isCorrect) {
-    if (compact) return null;
-    return (
-      <div className="bg-green-50 border-2 border-green-300 p-3 flex items-center gap-3"
-        style={{ borderRadius: CSS.radii.sm }}>
-        <div className="w-8 h-8 flex items-center justify-center bg-green-100 border-2 border-green-300 rounded-full shrink-0">
-          <Keyboard className="w-4 h-4 text-green-700" strokeWidth={3} />
-        </div>
-        <p className="font-bold text-green-800 font-marker text-sm">
-          {lessonNeedsUppercase ? 'Caps Lock is ON ✓' : 'Caps Lock is OFF ✓'}
-        </p>
-      </div>
-    );
-  }
+  // Nothing to say when the state already matches.
+  if (needsCaps === capsOn) return null;
 
-  // Wrong state — warn
-  const wantText = lessonNeedsUppercase ? 'ON' : 'OFF';
-
-  if (compact) {
-    return (
-      <div className="bg-red-50 border-2 border-red-400 px-3 py-2 flex items-center gap-2"
-        style={{ borderRadius: CSS.radii.sm, animation: 'caps-blink 1.5s ease-in-out infinite' }}>
-        <style>{`@keyframes caps-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-        <div className="w-6 h-6 flex items-center justify-center bg-red-100 border-2 border-red-400 rounded-full shrink-0">
-          <Keyboard className="w-3 h-3 text-red-700" strokeWidth={3} />
-        </div>
-        <p className="font-bold text-red-800 font-marker text-xs">
-          Turn Caps Lock {wantText}
-        </p>
-      </div>
-    );
-  }
+  const message = needsCaps
+    ? 'This drill is in capitals — turn Caps Lock on.'
+    : 'Caps Lock is on. Turn it off and use Shift for capitals.';
 
   return (
-    <div className="bg-red-50 border-2 border-red-400 p-4 shadow-hard-sm flex items-start gap-3"
-      style={{ borderRadius: CSS.radii.sm, animation: 'caps-blink 1.5s ease-in-out infinite' }}>
-      <style>{`@keyframes caps-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-      <div className="w-10 h-10 flex items-center justify-center bg-red-100 border-2 border-red-400 rounded-full shrink-0">
-        <Keyboard className="w-5 h-5 text-red-700" strokeWidth={3} />
-      </div>
-      <div>
-        <p className="font-bold text-red-800 font-marker text-base">
-          Turn Caps Lock {wantText}
-        </p>
-        <p className="text-red-600 font-hand text-sm mt-1">
-          Press <kbd className="px-1.5 py-0.5 bg-white border border-red-400 rounded text-red-800 font-mono text-xs">Caps Lock</kbd> key to turn it {wantText}
-        </p>
-      </div>
+    <div
+      role="status"
+      className={`flex items-center gap-2 rounded-lg border-2 border-warn/25 bg-warn-bg text-warn ${
+        compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm'
+      }`}
+    >
+      <AlertTriangle
+        className={compact ? 'h-3.5 w-3.5 shrink-0' : 'h-4 w-4 shrink-0'}
+        strokeWidth={2}
+      />
+      <span>{message}</span>
     </div>
   );
 }

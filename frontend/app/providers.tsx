@@ -4,20 +4,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useRef, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { CSS } from '@/lib/config';
 import { initCapsLockTracker } from '@/lib/caps-lock-tracker';
 import { useAuthStore } from '@/store/auth-store';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { syncManager } from '@/lib/offline/sync-manager';
+import { PRIVATE_ROUTE_PREFIXES, isPrivateRoute } from '@/lib/route-access';
 
+/** Guards only the routes that genuinely need an account.
+ *
+ *  Everything else — including every exam and lesson — is open. An aspirant
+ *  evaluating the tool must be able to finish a full test before being asked
+ *  for an email; the sign-up ask belongs on the results screen, where the
+ *  thing being saved is visible and worth saving. */
 function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoading, isAuthenticated, loadUser } = useAuthStore();
   const called = useRef(false);
-  const publicPaths = ['/', '/auth/login', '/auth/register', '/auth/callback', '/faq', '/about', '/contact', '/privacy', '/terms', '/learn', '/blog', '/coach'];
-
-  const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith('/exam/lesson/') || pathname.startsWith('/exam/'));
+  const isPrivate = isPrivateRoute(pathname);
 
   useEffect(() => {
     if (called.current) return;
@@ -26,35 +30,39 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   useEffect(() => {
-    if (!isPublic && !isLoading && !isAuthenticated) {
-      router.replace('/auth/login');
+    if (isPrivate && !isLoading && !isAuthenticated) {
+      const next = encodeURIComponent(pathname);
+      router.replace(`/auth/login?next=${next}`);
     }
-  }, [isPublic, isLoading, isAuthenticated, router]);
+  }, [isPrivate, isLoading, isAuthenticated, pathname, router]);
 
-  if (!isPublic && !isLoading && !isAuthenticated) {
-    return null;
-  }
+  if (isPrivate && !isLoading && !isAuthenticated) return null;
 
   return <>{children}</>;
 }
 
 function ScrollToTop() {
   const pathname = usePathname();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000,
-        gcTime: 5 * 60 * 1000,
-        retry: 1,
-        refetchOnWindowFocus: false,
-      },
-    },
-  }));
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000,
+            gcTime: 5 * 60 * 1000,
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
 
   useEffect(() => {
     initCapsLockTracker();
@@ -65,24 +73,27 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <ScrollToTop />
-        <AuthGate>
-          {children}
-        </AuthGate>
+        <AuthGate>{children}</AuthGate>
       </ErrorBoundary>
       <Toaster
-        position="top-right"
+        position="bottom-center"
         toastOptions={{
-          duration: 3000,
+          duration: 3200,
+          className: 'tm-toast',
           style: {
-            background: '#2d2d2d',
-            color: '#fdfbf7',
-            fontFamily: 'Patrick Hand, cursive',
-            border: '3px solid #2d2d2d',
-            borderRadius: CSS.radii.sm,
-            boxShadow: '4px 4px 0px 0px #2d2d2d',
+            background: 'rgb(var(--ink))',
+            color: 'rgb(var(--text-inverse))',
+            fontSize: '13px',
+            fontWeight: 500,
+            borderRadius: '10px',
+            padding: '10px 14px',
+            boxShadow: 'var(--shadow-lg)',
+            maxWidth: '90vw',
           },
         }}
       />
     </QueryClientProvider>
   );
 }
+
+export { PRIVATE_ROUTE_PREFIXES };

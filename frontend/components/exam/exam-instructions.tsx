@@ -1,255 +1,350 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth-store';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Clock,
+  Target,
+  FileText,
+  Delete,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react';
 import { getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs, FULL_MISTAKES, HALF_MISTAKES } from '@/lib/exam-config';
-import { ROUTES } from '@/lib/config';
 import { TestMode } from '@/types';
 import { PracticeSet } from '@/lib/practice-sets';
-
-const NAVY = '#003366';
-const ACCENT = '#cc0000';
-const GRAY = '#f5f5f5';
-const BORDER = '#dcdcdc';
-const TEXT = '#222222';
 
 interface ExamInstructionsProps {
   mode: TestMode;
   durationSeconds: number;
+  wpmTarget?: number;
   lang?: 'english' | 'hindi';
   onBegin: () => void;
   selectedSet?: PracticeSet;
 }
 
-export function ExamInstructions({ mode, durationSeconds, lang = 'english', onBegin, selectedSet }: ExamInstructionsProps) {
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const [agreed, setAgreed] = useState(false);
+/** Modes that reproduce exam conditions keep the declaration checkbox — the
+ *  ritual is part of what is being rehearsed. Practice and lessons skip it;
+ *  a wall of text between a learner and a drill is pure drop-off. */
+const FORMAL_MODES = new Set([
+  'ssc_chsl',
+  'ssc_cgl_dest',
+  'ssc_hindi',
+  'mock',
+  'tcs_ion_replica',
+]);
 
-  const specs = getExamSpecs(mode);
-  const examTitle = getModeDisplayName(mode);
-  const isSscChsl = mode === 'ssc_chsl';
-  const isSscCgl = mode === 'ssc_cgl_dest';
-
-  const durationLabel = durationSeconds >= 60
-    ? `${Math.floor(durationSeconds / 60)} Minutes`
-    : `${durationSeconds} Secs`;
+function Disclosure({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Poppins, sans-serif', color: TEXT, display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <div style={{
-        height: 64, background: NAVY, display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', padding: '0 32px', flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>EDUQUITY</div>
-          <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.3)' }} />
-          <div style={{ color: '#fff', fontSize: 15, fontWeight: 500, opacity: 0.9 }}>{examTitle}</div>
-        </div>
-        <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Skill Test</div>
-      </div>
-
-      {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 0 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 40px' }}>
-          {/* Candidate Info */}
-          <div style={{
-            background: '#f0f4f8', border: `1px solid ${BORDER}`, borderRadius: 6,
-            padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 24, marginBottom: 28,
-          }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: '50%', background: NAVY,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 24, fontWeight: 600,
-            }}>
-              {user?.full_name?.[0] || 'C'}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{user?.full_name || 'Candidate'}</div>
-              <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>Roll No: {user?.id?.slice(0, 8).toUpperCase() || 'XXXXXX'}</div>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: 13, color: '#666' }}>
-              <div>Duration: <strong>{durationLabel}</strong></div>
-              <div>Language: <strong>{lang === 'hindi' ? 'Hindi' : 'English'}</strong></div>
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: NAVY, margin: '0 0 4px' }}>{examTitle}</h1>
-          {selectedSet && (
-            <div style={{ fontSize: 15, fontWeight: 500, color: '#555', marginBottom: 20 }}>
-              Practice Set {selectedSet.number}: {selectedSet.title}
-            </div>
-          )}
-
-          {/* ===== INSTRUCTIONS ===== */}
-          <Section title="1. Test Overview">
-            <p style={pStyle}>
-              This is a <strong>qualifying skill test</strong> as per SSC norms. No marks are added to the merit,
-              but <strong style={{ color: ACCENT }}>passing is mandatory</strong> for final selection.
-              The passage contains approximately <strong>2,000 key depressions</strong> on general topics.
-            </p>
-            <p style={pStyle}>
-              Duration: <strong>{durationLabel}</strong> | Auto-submits when timer expires.
-            </p>
-          </Section>
-
-          <Section title="2. Speed Requirements">
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Post</th>
-                  <th style={thStyle}>Speed Required</th>
-                  <th style={thStyle}>Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isSscCgl ? (
-                  <tr>
-                    <td style={tdStyle}>Tax Assistant / Compiler</td>
-                    <td style={tdStyle}>~27 WPM (8,000 KDPH)</td>
-                    <td style={tdStyle}>15 minutes</td>
-                  </tr>
-                ) : isSscChsl ? (
-                  <>
-                    <tr><td style={tdStyle}>LDC / JSA / PA / SA</td><td style={tdStyle}>35 WPM English / 30 WPM Hindi</td><td style={tdStyle}>10 minutes</td></tr>
-                    <tr><td style={tdStyle}>DEO</td><td style={tdStyle}>~27 WPM (8,000 KDPH)</td><td style={tdStyle}>15 minutes</td></tr>
-                  </>
-                ) : (
-                  <tr><td style={tdStyle}>DEO (CAG)</td><td style={tdStyle}>~50 WPM (15,000 KDPH)</td><td style={tdStyle}>15 minutes</td></tr>
-                )}
-              </tbody>
-            </table>
-          </Section>
-
-          <Section title="3. Qualifying Standards (Category-wise)">
-            <table style={tableStyle}>
-              <thead>
-                <tr><th style={thStyle}>Category</th><th style={thStyle}>Max Error %</th></tr>
-              </thead>
-              <tbody>
-                <tr><td style={tdStyle}>Unreserved (UR)</td><td style={tdStyle}>≤{specs?.errorAllowanceGeneral ?? 20}%</td></tr>
-                <tr><td style={tdStyle}>OBC / EWS</td><td style={tdStyle}>≤{specs?.errorAllowanceObcEws ?? 25}%</td></tr>
-                <tr><td style={tdStyle}>SC / ST</td><td style={tdStyle}>≤{specs?.errorAllowanceScSt ?? 30}%</td></tr>
-              </tbody>
-            </table>
-          </Section>
-
-          <Section title="4. Error Marking">
-            <p style={pStyle}><strong>Full Mistakes (1 error each):</strong></p>
-            <ul style={ulStyle}>
-              {FULL_MISTAKES.map((m, i) => <li key={i} style={liStyle}>{m}</li>)}
-            </ul>
-            <p style={{ ...pStyle, marginTop: 12 }}><strong>Half Mistakes (0.5 error each):</strong></p>
-            <ul style={ulStyle}>
-              {HALF_MISTAKES.map((m, i) => <li key={i} style={liStyle}>{m}</li>)}
-            </ul>
-            <div style={{
-              marginTop: 12, padding: '10px 16px', background: '#f0fdf4',
-              border: '1px solid #16a34a', borderRadius: 6, fontSize: 14, color: '#166534',
-            }}>
-              <strong>Formula:</strong> Total Errors = Full Mistakes + (Half Mistakes ÷ 2)<br />
-              Error % = (Total Errors ÷ Total Key Depressions) × 100
-            </div>
-          </Section>
-
-          <Section title="5. Key Rules">
-            <ul style={ulStyle}>
-              <li style={liStyle}>Use <strong>Tab key</strong> for paragraph start — manual spaces count as half mistake.</li>
-              <li style={liStyle}>Only <strong>one space</strong> after punctuation marks.</li>
-              <li style={liStyle}>Type words, numbers, and symbols <strong>exactly as shown</strong>.</li>
-              <li style={liStyle}><strong>Backspace is allowed</strong> for corrections during the test.</li>
-              <li style={liStyle}>Do <strong>not retype</strong> after completing the passage once. Use remaining time for revisions.</li>
-              <li style={liStyle}>Test <strong>auto-ends</strong> when the timer runs out. No manual submission needed.</li>
-            </ul>
-          </Section>
-
-          <Section title="6. Instructions">
-            <ul style={ulStyle}>
-              <li style={liStyle}>Select your <strong>language medium</strong> as opted in your application.</li>
-              <li style={liStyle}>Read the passage displayed on the screen and type in the text area below.</li>
-              <li style={liStyle}>Formatting errors are penalized. Follow the passage style strictly.</li>
-              <li style={liStyle}>Use revision time wisely — check for spelling, spacing, and punctuation errors.</li>
-              <li style={liStyle}>Maintain a <strong>quiet environment</strong> and stable internet connection.</li>
-            </ul>
-          </Section>
-
-          {/* References */}
-          <Section title="References">
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>
-              <strong>Sources:</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                {specs?.citations?.map((url, i) => (
-                  <li key={i}><a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>{url}</a></li>
-                ))}
-                <li><a href="https://ssc.gov.in" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>ssc.gov.in</a></li>
-              </ul>
-            </div>
-          </Section>
-
-          {/* Declaration */}
-          <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 20, marginTop: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 15, color: TEXT }}>
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                style={{ width: 18, height: 18, accentColor: NAVY, cursor: 'pointer' }}
-              />
-              I have read and understood all the instructions.
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        height: 72, background: '#fff', borderTop: `1px solid ${BORDER}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 32px', flexShrink: 0,
-      }}>
+    <div className="border-b-2 border-vast/10 last:border-0">
+      {/* Heading-wrapped trigger so the reference material is navigable by
+          heading, and the panel stays mounted so aria-controls always resolves. */}
+      <h3 className="text-xl">
         <button
-          onClick={() => router.push(ROUTES.dashboard)}
-          style={{
-            padding: '8px 28px', background: '#fff', border: `1px solid ${BORDER}`,
-            borderRadius: 4, fontSize: 14, fontWeight: 600, color: TEXT, cursor: 'pointer',
-          }}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex w-full items-center gap-3 py-4 text-left"
         >
-          Back
+          {title}
+          <ChevronDown
+            className={`ml-auto h-4 w-4 shrink-0 text-vast/40 transition-transform ${
+              open ? 'rotate-180' : ''
+            }`}
+            strokeWidth={2}
+          />
         </button>
-        <button
-          onClick={onBegin}
-          disabled={!agreed}
-          style={{
-            padding: '12px 0', width: 220, background: agreed ? NAVY : '#bbb',
-            border: 'none', borderRadius: 4, fontSize: 15, fontWeight: 600, color: '#fff',
-            cursor: agreed ? 'pointer' : 'not-allowed',
-          }}
-        >
-          I Agree & Start Test
-        </button>
+      </h3>
+      <div
+        id={panelId}
+        hidden={!open}
+        className="pb-4 text-base leading-relaxed text-vast/70"
+      >
+        {children}
       </div>
     </div>
   );
 }
 
-const pStyle: React.CSSProperties = { fontSize: 15, lineHeight: 1.7, color: TEXT, margin: '0 0 8px' };
-const ulStyle: React.CSSProperties = { padding: 0, margin: '4px 0 0', listStyle: 'none' };
-const liStyle: React.CSSProperties = {
-  fontSize: 15, lineHeight: 1.7, color: TEXT, paddingLeft: 20, position: 'relative',
-  marginBottom: 2,
-};
-const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14, marginTop: 8, marginBottom: 8 };
-const thStyle: React.CSSProperties = { border: `1px solid ${BORDER}`, padding: '8px 12px', background: GRAY, fontWeight: 600, textAlign: 'left', color: TEXT };
-const tdStyle: React.CSSProperties = { border: `1px solid ${BORDER}`, padding: '8px 12px', color: TEXT };
+export function ExamInstructions({
+  mode,
+  durationSeconds,
+  wpmTarget,
+  lang = 'english',
+  onBegin,
+  selectedSet,
+}: ExamInstructionsProps) {
+  const router = useRouter();
+  const specs = getExamSpecs(mode);
+  const requiresDeclaration = FORMAL_MODES.has(mode);
+  const [agreed, setAgreed] = useState(!requiresDeclaration);
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const examTitle = getModeDisplayName(mode);
+  const minutes = Math.round(durationSeconds / 60);
+  const backspaceAllowed = specs ? specs.backspaceAllowed : true;
+
+  // Hindi, mock and TCS-ION have no spec row of their own, so the category
+  // allowances fall back to the DEST defaults rather than disappearing — a
+  // screen that asks you to sign a declaration must show the standard it is
+  // asking you to accept.
+  const allowance = {
+    general: specs?.errorAllowanceGeneral ?? 20,
+    obcEws: specs?.errorAllowanceObcEws ?? 25,
+    scSt: specs?.errorAllowanceScSt ?? 30,
+  };
+  const citations = [...(specs?.citations ?? []), 'https://ssc.gov.in'];
+
+  // Training modes have no SSC spec of their own, so they fall back to the
+  // target the route was configured with rather than rendering a dash.
+  const speedTarget =
+    specs?.qualifyingNature === 'speed_wpm'
+      ? `${lang === 'hindi' ? (specs.hindiSpeedWpm ?? specs.englishSpeedWpm) : specs.englishSpeedWpm} WPM`
+      : specs
+        ? `${specs.englishKdph.toLocaleString('en-IN')} KDPH`
+        : wpmTarget
+          ? `${wpmTarget} WPM`
+          : '—';
+
+  // Enter starts the test once the declaration is satisfied — the same
+  // muscle memory the rest of the app uses.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || !agreed) return;
+      // Enter belongs to whatever control has focus first — Cancel, the
+      // disclosure triggers and the source links all activate on it. Only
+      // claim the key when focus is sitting on the page itself.
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (
+        target?.closest('a, button, input, select, textarea, [contenteditable="true"]')
+      ) {
+        return;
+      }
+      e.preventDefault();
+      onBegin();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [agreed, onBegin]);
+
+  const facts = [
+    { icon: Clock, label: 'Duration', value: `${minutes} minutes` },
+    { icon: Target, label: 'Target speed', value: speedTarget },
+    {
+      icon: FileText,
+      label: 'Passage',
+      value: specs
+        ? `${specs.passageKeyDepressions[0].toLocaleString('en-IN')}–${specs.passageKeyDepressions[1].toLocaleString('en-IN')} KD`
+        : '≈2,000 KD',
+    },
+    {
+      icon: Delete,
+      label: 'Backspace',
+      value: backspaceAllowed ? 'Allowed' : 'Disabled',
+      tone: backspaceAllowed ? '' : 'err',
+    },
+  ] as const;
+
   return (
-    <div style={{ marginBottom: 20 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 6 }}>{title}</h2>
-      {children}
+    /* The doorway between the two registers: cream ground and a serif headline
+       from the site, but no slabs, no colour blocks and no motion — the next
+       screen is a timed test. */
+    <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
+      <button
+        onClick={() => router.push('/exam')}
+        className="btn btn-ghost btn-sm -ml-3 mb-6"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+        All tests
+      </button>
+
+      <p className="eyebrow">Before you begin</p>
+      <h1 className="mt-4 text-4xl sm:text-5xl">{examTitle}</h1>
+      <p className="mt-4 text-lg text-vast/60">
+        {selectedSet ? (
+          `Set ${selectedSet.number} · ${selectedSet.title}`
+        ) : lang === 'hindi' ? (
+          <>
+            <span className="font-hindi" lang="hi">
+              हिंदी
+            </span>{' '}
+            medium
+          </>
+        ) : (
+          'English medium'
+        )}
+        {requiresDeclaration && ' · Qualifying skill test'}
+      </p>
+
+      {/* The four numbers that actually change how you type. */}
+      <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {facts.map((f) => (
+          <div key={f.label} className="card p-4">
+            <dt className="eyebrow flex items-center gap-1.5">
+              <f.icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              {f.label}
+            </dt>
+            <dd
+              className={`tnum mt-2.5 text-md font-semibold ${
+                'tone' in f && f.tone === 'err' ? 'text-err' : ''
+              }`}
+            >
+              {f.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {requiresDeclaration && (
+        /* Lilac is the system's "read this" fill — the one place on this screen
+           that is allowed to raise its voice. */
+        <div className="card mt-4 flex gap-3 bg-dawn p-4">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+          <p className="text-base leading-relaxed text-vast/70">
+            This test is <strong className="font-semibold text-vast">qualifying only</strong>{' '}
+            — it adds no marks to your merit, but you must clear it. Your errors
+            must stay under{' '}
+            <strong className="tnum font-semibold text-vast">
+              {allowance.general}%
+            </strong>{' '}
+            (UR), <span className="tnum">{allowance.obcEws}%</span>{' '}
+            (OBC/EWS), or <span className="tnum">{allowance.scSt}%</span> (SC/ST).
+          </p>
+        </div>
+      )}
+
+      {/* Everything below is reference material, collapsed by default. */}
+      <div className="card mt-4 px-5">
+        <Disclosure title="How mistakes are counted" defaultOpen={requiresDeclaration}>
+          <p className="mb-3">
+            <strong className="font-semibold text-vast">Full mistakes</strong> count
+            as 1 error each:
+          </p>
+          <ul className="ml-4 list-disc space-y-1">
+            {FULL_MISTAKES.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+          <p className="mb-3 mt-4">
+            <strong className="font-semibold text-vast">Half mistakes</strong> count
+            as 0.5 each:
+          </p>
+          <ul className="ml-4 list-disc space-y-1">
+            {HALF_MISTAKES.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+          <div className="mt-4 rounded-lg border border-vast/15 bg-lumen p-3.5 font-mono text-xs leading-relaxed text-vast">
+            Total errors = full + (half ÷ 2)
+            <br />
+            Error % = (total errors ÷ key depressions) × 100
+          </div>
+        </Disclosure>
+
+        <Disclosure title="Rules that cost people marks">
+          <ul className="ml-4 list-disc space-y-1.5">
+            <li>
+              Use the <strong className="font-semibold text-vast">Tab key</strong> to
+              start a paragraph. Manual spaces count as a half mistake.
+            </li>
+            <li>Exactly one space after punctuation.</li>
+            <li>Type words, numbers and symbols exactly as shown.</li>
+            <li>
+              {backspaceAllowed
+                ? 'Backspace is allowed — but every correction costs you time.'
+                : 'Backspace is disabled. A mistake stays on the page.'}
+            </li>
+            <li>
+              Do not retype the passage after finishing it once. Use the
+              remaining time to revise.
+            </li>
+            <li>The test auto-submits when the timer expires.</li>
+          </ul>
+        </Disclosure>
+
+        <Disclosure title="How the test runs">
+          <ul className="ml-4 list-disc space-y-1.5">
+            <li>Your medium is the one you opted for in your application.</li>
+            <li>Read the passage on screen and type it into the box below it.</li>
+            <li>Formatting is marked. Follow the layout of the passage exactly.</li>
+            <li>
+              Spend whatever time is left checking spelling, spacing and
+              punctuation.
+            </li>
+            <li>Sit somewhere quiet and check your connection before you start.</li>
+          </ul>
+        </Disclosure>
+
+        {requiresDeclaration ? (
+          <Disclosure title="Source">
+            {specs?.source ? <p className="mb-2">{specs.source}</p> : null}
+            <ul className="space-y-1">
+              {citations.map((url) => (
+                <li key={url}>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 break-all font-medium text-fathom underline underline-offset-4 hover:no-underline"
+                  >
+                    {url}
+                    <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        ) : null}
+      </div>
+
+      {requiresDeclaration && (
+        <label className="card mt-4 flex cursor-pointer items-center gap-3 p-4 text-base">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="h-4 w-4 shrink-0 cursor-pointer accent-vast"
+          />
+          I have read and understood the instructions.
+        </label>
+      )}
+
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+        <button
+          onClick={() => router.push('/exam')}
+          className="btn btn-outline btn-lg sm:w-auto"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onBegin}
+          disabled={!agreed}
+          className="btn btn-primary btn-lg flex-1"
+        >
+          Start test
+          <kbd className="kbd ml-1 hidden sm:inline-flex" aria-hidden>
+            ↵
+          </kbd>
+        </button>
+      </div>
+
+      <p className="mt-4 text-center text-sm text-vast/50">
+        The timer starts the moment you press start.
+      </p>
     </div>
   );
 }

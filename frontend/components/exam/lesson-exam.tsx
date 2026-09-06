@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
-import { formatTime, calculateWPM, calculateAccuracy, getModeDisplayName, normalizeCase } from '@/lib/utils';
+import { formatTime, calculateWPM, calculateAccuracy } from '@/lib/utils';
 import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
-import { api } from '@/lib/api';
 import { useUpdateProfile } from '@/lib/queries';
 import { blastConfetti } from '@/lib/confetti';
-import { CSS, ROUTES } from '@/lib/config';
+import { ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
 import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
 import KeyboardSVG from '@/components/learn/keyboard-svg';
@@ -21,8 +20,8 @@ import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
 
 import {
-  Timer, Target, CheckCircle2, XCircle, RotateCcw,
-  BarChart3, Keyboard, GraduationCap, ArrowLeft, ArrowRight, MousePointer2,
+  Check, CheckCircle2, XCircle, RotateCcw,
+  Keyboard, ArrowLeft, ArrowRight,
 } from 'lucide-react';
 
 interface LessonExamProps {
@@ -43,6 +42,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const store = useTypingStore();
   const authStore = useAuthStore();
   const updateProfileMutation = useUpdateProfile();
+  const [backspaceBlocked, setBackspaceBlocked] = useState(false);
   const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, true, lesson.drillType === 'letters');
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
   const [countdown, setCountdown] = useState(3);
@@ -56,11 +56,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   }, [phase]);
 
   const isMouseLesson = lesson.targetWpm === 0 && lesson.keys.some(k => k.includes('click') || k.includes('scroll'));
-  const sampleText = normalizeCase(
-    lesson.sampleText
-      .replace(/\bSpace\b/g, ' ')
-      .replace(/\bEnter\b/g, '\n'),
-  );
+  // Curriculum text is authored with deliberate casing — the capitalisation
+  // drills depend on it exactly. normalizeCase() exists to repair badly-cased
+  // imported passages and would flatten "The Reserve Bank of India" to
+  // "The reserve bank of india", destroying the very lesson being taught.
+  const sampleText = lesson.sampleText
+    .replace(/\bSpace\b/g, ' ')
+    .replace(/\bEnter\b/g, '\n');
 
   const [mouseActions, setMouseActions] = useState<Set<string>>(new Set());
   const [mouseStep, setMouseStep] = useState(0);
@@ -190,219 +192,309 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     };
   }, [isMouseLesson, phase, handleMouseAction]);
 
+  // Stage 4 lessons reproduce interfaces where editing is disabled. Blocking
+  // the key here (rather than filtering afterwards) is the point of the drill:
+  // the learner has to feel that a mistake is permanent.
+  useEffect(() => {
+    if (!lesson.noBackspace || phase !== 'typing') return;
+    let timer: number | undefined;
+    const block = (e: KeyboardEvent) => {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        e.stopPropagation();
+        setBackspaceBlocked(true);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => setBackspaceBlocked(false), 900);
+      }
+    };
+    window.addEventListener('keydown', block, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', block, true);
+    };
+  }, [lesson.noBackspace, phase]);
+
   const lessonKeys = lesson.keys || [];
 
+  /* ══════════════════════════════════════════════════════ ready — expressive */
   if (phase === 'ready') {
     const isHindi = lessonKeys.some(k => k.includes('hindi') || k === 'hi' || lesson.id.includes('hindi'));
+    const facts = [
+      ...(isMouseLesson ? [] : [
+        { label: 'Target speed', value: lesson.targetWpm ? `${lesson.targetWpm} WPM` : 'No target' },
+        { label: 'Min accuracy', value: `${lesson.minAccuracy}%` },
+      ]),
+      { label: 'Duration', value: `${Math.round(lesson.durationSec / 60)} min` },
+      { label: 'Reward', value: `+${lesson.xpReward} XP` },
+    ];
+
     return (
-      <div className="min-h-screen bg-paper">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <button onClick={() => router.push(ROUTES.learn)} className="flex items-center space-x-2 text-pencil/50 hover:text-pencil font-hand mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Back to Lessons
-          </button>
+      <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
+        <button onClick={() => router.push(ROUTES.learn)} className="btn btn-ghost btn-sm -ml-3 mb-8">
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+          All lessons
+        </button>
 
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-postit border-2 border-pencil mb-4"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              {isMouseLesson
-                ? <MousePointer2 className="w-8 h-8 text-pencil" strokeWidth={3} />
-                : <GraduationCap className="w-8 h-8 text-pencil" strokeWidth={3} />}
-            </div>
-            <h1 className="text-3xl font-bold text-pencil font-marker">{lesson.title}</h1>
-            <p className="text-lg text-pencil/60 font-hand mt-2">{levelName}</p>
+        <p className="eyebrow">{levelName}</p>
+        <h1 className="mt-3 text-4xl sm:text-5xl">{lesson.title}</h1>
+
+        {(lesson.noBackspace || lesson.hidePositionHighlight) && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {lesson.noBackspace && <span className="chip chip-err">Backspace disabled</span>}
+            {lesson.hidePositionHighlight && <span className="chip">No word highlight</span>}
           </div>
+        )}
 
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-postit border-2 border-pencil p-6 shadow-hard-sm"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <h3 className="font-bold text-pencil font-marker mb-2">Instruction</h3>
-              <p className="text-pencil/80 font-hand text-base leading-relaxed">{lesson.instruction}</p>
-            </div>
-            <div className="bg-white border-2 border-pencil p-4 shadow-hard-sm"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-pencil/40 font-hand uppercase tracking-wider">Lesson Info</span>
-              </div>
-              <div className="space-y-2">
-                {!isMouseLesson && (
-                  <>
-                    <div className="flex items-center justify-between text-sm font-hand">
-                      <span className="text-pencil/60">Target Speed</span>
-                      <span className="font-bold text-pencil">{lesson.targetWpm} WPM</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm font-hand">
-                      <span className="text-pencil/60">Min Accuracy</span>
-                      <span className="font-bold text-pencil">{lesson.minAccuracy}%</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex items-center justify-between text-sm font-hand">
-                  <span className="text-pencil/60">Duration</span>
-                  <span className="font-bold text-pencil">{Math.round(lesson.durationSec / 60)} min</span>
-                </div>
-                <div className="flex items-center justify-between text-sm font-hand">
-                  <span className="text-pencil/60">XP Reward</span>
-                  <span className="font-bold text-green-600">+{lesson.xpReward} XP</span>
-                </div>
-              </div>
-            </div>
+        <p className="mt-6 max-w-prose text-lg leading-relaxed text-vast/70">
+          {lesson.instruction}
+        </p>
+
+        {/* The Commission's rule, stated before the drill so the learner knows
+            what is being trained rather than just what to type. Set as a
+            margin note — the teaching voice, not another boxed callout. */}
+        {lesson.rule && (
+          <div className="mt-8 border-l-2 border-vast pl-5">
+            <p className="eyebrow">SSC rule</p>
+            <p className="mt-2 max-w-prose text-lg leading-relaxed">{lesson.rule}</p>
           </div>
+        )}
 
-          {!isMouseLesson && (
-            <div className="bg-white border-2 border-pencil p-6 mb-6 shadow-hard-sm"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <div className="text-xs text-pencil/40 font-hand mb-3 uppercase tracking-wider">Practice Text Preview</div>
-              <p className="font-mono text-sm leading-relaxed text-pencil/70 select-none">
-                {sampleText.substring(0, 200)}{sampleText.length > 200 ? '...' : ''}
-              </p>
+        {lesson.trap && (
+          <div className="mt-6 border-l-2 border-flare pl-5">
+            <p className="eyebrow">The trap</p>
+            <p className="mt-2 max-w-prose text-base leading-relaxed text-vast/70">
+              {lesson.trap}
+            </p>
+          </div>
+        )}
+
+        <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {facts.map(f => (
+            <div key={f.label} className="card-flat px-4 py-3.5">
+              <dt className="eyebrow">{f.label}</dt>
+              <dd className="tnum mt-1.5 font-display text-2xl leading-none">{f.value}</dd>
             </div>
-          )}
+          ))}
+        </dl>
 
-          {!isMouseLesson && (
-            <div className="mb-6">
-              <CapsLockNotice lessonNeedsUppercase={/[A-Z]/.test(sampleText)} />
+        {!isMouseLesson && (
+          <div className="card mt-4 overflow-hidden">
+            <div className="border-b-2 border-vast bg-lumen px-4 py-2.5">
+              <span className="eyebrow">What you will type</span>
             </div>
-          )}
+            <p className="select-none px-5 py-5 text-lg leading-[1.85] text-vast/60">
+              {sampleText.substring(0, 220)}{sampleText.length > 220 ? '…' : ''}
+            </p>
+          </div>
+        )}
 
-          {isHindi && <div className="mb-6"><HindiKeyboardGuide /></div>}
+        {!isMouseLesson && (
+          <div className="mt-4">
+            <CapsLockNotice text={sampleText} />
+          </div>
+        )}
 
-          <button onClick={startLesson} className="btn-hand w-full max-w-md mx-auto block text-center text-lg py-4">
-            {isMouseLesson ? 'Start Mouse Practice' : 'Start Lesson'}
-          </button>
-        </div>
+        {isHindi && <div className="mt-4"><HindiKeyboardGuide /></div>}
+
+        <button onClick={startLesson} className="btn btn-primary btn-lg mt-8 w-full">
+          {isMouseLesson ? 'Start mouse practice' : 'Start lesson'}
+        </button>
+        <p className="mt-4 text-center text-base text-vast/50">
+          {lesson.psychTip}
+        </p>
       </div>
     );
   }
 
+  /* ═══════════════════════════════════════════════════ countdown — expressive */
   if (phase === 'countdown') {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-paper">
-        <div className="text-center">
-          <div className="text-8xl font-bold text-pencil font-marker animate-pulse">{countdown}</div>
-          <p className="mt-4 text-2xl text-pencil/60 font-hand">Get ready...</p>
-        </div>
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-5 text-center">
+        <p className="eyebrow">Starting in</p>
+        {/* The live region is the stable wrapper — a screen reader only
+            announces a change if the region existed beforehand, so the keyed
+            (remounted) digit has to sit inside it. */}
+        <p role="status" aria-live="assertive" className="mt-4">
+          <span
+            key={countdown}
+            className="tnum animate-rise block font-display text-8xl leading-none"
+          >
+            {countdown}
+          </span>
+        </p>
+        <p className="mt-8 text-lg text-vast/60">Hands on the home row.</p>
       </div>
     );
   }
 
+  /* ═════════════════════════════════════════════════════ result — expressive */
   if (phase === 'result' && result) {
     const passed = result.net_wpm >= result.goal_wpm && result.accuracy >= result.goal_acc;
+    const nextId = getNextLessonId(lesson.id);
+    // Say which of the two bars was missed, rather than a generic "keep going".
+    const missed = !passed
+      ? [
+          result.net_wpm < result.goal_wpm
+            ? `${(result.goal_wpm - result.net_wpm).toFixed(1)} WPM short of ${result.goal_wpm}`
+            : null,
+          result.accuracy < result.goal_acc
+            ? `${(result.goal_acc - result.accuracy).toFixed(1)} points below ${result.goal_acc}% accuracy`
+            : null,
+        ].filter(Boolean)
+      : [];
+
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center p-4">
-        <div className="max-w-lg w-full card-hand-lg p-8 -rotate-[0.5deg] hover:rotate-0 transition-transform">
-          <div className="text-center mb-8">
-            <div className={`inline-flex items-center justify-center w-20 h-20 border-[3px] border-pencil mb-4 ${passed ? 'bg-postit' : 'bg-red-50'}`}
-                 style={{ borderRadius: CSS.radii.sm }}>
-              {passed
-                ? <CheckCircle2 className="w-10 h-10 text-green-600" strokeWidth={3} />
-                : <XCircle className="w-10 h-10 text-accent" strokeWidth={3} />}
-            </div>
-            <h2 className="text-2xl font-bold text-pencil font-marker">{passed ? 'Lesson Passed!' : 'Keep Practicing'}</h2>
-            <p className="mt-1 text-base text-pencil/60 font-hand">{lesson.title}</p>
-          </div>
+      <div className="mx-auto w-full max-w-xl px-5 py-10 sm:px-8 sm:py-16">
+        <div className="animate-rise">
+          <span className={`chip ${passed ? 'chip-ok' : 'chip-err'}`}>
+            {passed
+              ? <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+              : <XCircle className="h-3.5 w-3.5" strokeWidth={2.5} />}
+            {passed ? 'Cleared' : 'Below the bar'}
+          </span>
 
-          <div className={`grid ${isMouseLesson ? 'grid-cols-1' : 'grid-cols-3'} gap-3 mb-6`}>
-            {!isMouseLesson && (
-              <div className="text-center p-3 border-2 border-pencil bg-postit"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="text-3xl font-bold text-pencil font-marker">{result.net_wpm.toFixed(1)}</div>
-                <div className="text-sm text-pencil/60 font-hand">WPM (goal: {result.goal_wpm})</div>
-              </div>
-            )}
-            {!isMouseLesson && (
-              <div className="text-center p-3 border-2 border-pencil bg-green-50"
-                   style={{ borderRadius: CSS.radii.sm }}>
-                <div className="text-3xl font-bold text-pencil font-marker">{result.accuracy.toFixed(1)}%</div>
-                <div className="text-sm text-pencil/60 font-hand">Accuracy (goal: {result.goal_acc}%)</div>
-              </div>
-            )}
-            <div className="text-center p-3 border-2 border-pencil bg-yellow-50"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <div className="text-3xl font-bold text-green-600 font-marker">+{result.xp_earned}</div>
-              <div className="text-sm text-pencil/60 font-hand">XP Earned</div>
-            </div>
-          </div>
-
-          <div className="flex space-x-4">
-            {passed && getNextLessonId(lesson.id) && (
-              <button onClick={() => router.push(`${ROUTES.examLesson}/${getNextLessonId(lesson.id)}`)} className="btn-hand flex-1">
-                <ArrowRight className="w-4 h-4 mr-2" strokeWidth={3} /> Next Lesson
-              </button>
-            )}
-            <button onClick={() => window.location.reload()} className={`btn-hand ${passed ? 'flex-1' : 'flex-1'}`}>
-              <RotateCcw className="w-4 h-4 mr-2" strokeWidth={3} /> Retry
-            </button>
-            <button onClick={() => router.push(ROUTES.learn)} className="btn-hand-secondary flex-1">
-              <BarChart3 className="w-4 h-4 mr-2" strokeWidth={3} /> All Lessons
-            </button>
-          </div>
+          <h1 className="mt-5 text-4xl sm:text-5xl">
+            {passed ? <>Lesson <em>cleared</em></> : <>Not there <em>yet</em></>}
+          </h1>
+          <p className="mt-3 text-base text-vast/50">{lesson.title}</p>
         </div>
+
+        {missed.length > 0 && (
+          <p className="mt-6 text-lg leading-relaxed text-vast/70">
+            You were {missed.join(', and ')}.
+          </p>
+        )}
+
+        <dl className={`mt-8 grid gap-3 ${isMouseLesson ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          {!isMouseLesson && (
+            <div className="card-flat px-4 py-4">
+              <dt className="eyebrow">WPM</dt>
+              <dd className="mt-1.5">
+                <span className={`tnum font-display text-3xl leading-none ${result.net_wpm >= result.goal_wpm ? 'text-ok' : 'text-err'}`}>
+                  {result.net_wpm.toFixed(1)}
+                </span>
+                <span className="mt-1.5 block text-sm text-vast/50">goal {result.goal_wpm}</span>
+              </dd>
+            </div>
+          )}
+          {!isMouseLesson && (
+            <div className="card-flat px-4 py-4">
+              <dt className="eyebrow">Accuracy</dt>
+              <dd className="mt-1.5">
+                <span className={`tnum font-display text-3xl leading-none ${result.accuracy >= result.goal_acc ? 'text-ok' : 'text-err'}`}>
+                  {result.accuracy.toFixed(1)}%
+                </span>
+                <span className="mt-1.5 block text-sm text-vast/50">goal {result.goal_acc}%</span>
+              </dd>
+            </div>
+          )}
+          <div className="card-flat px-4 py-4">
+            <dt className="eyebrow">XP earned</dt>
+            <dd className="tnum mt-1.5 font-display text-3xl leading-none">
+              +{result.xp_earned}
+            </dd>
+          </div>
+        </dl>
+
+        {lesson.psychTip && (
+          <div className="mt-8 border-l-2 border-vast pl-5">
+            <p className="max-w-prose text-base leading-relaxed text-vast/70">{lesson.psychTip}</p>
+          </div>
+        )}
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          {passed && nextId ? (
+            <button onClick={() => router.push(`${ROUTES.examLesson}/${nextId}`)} className="btn btn-primary btn-lg flex-1">
+              Next lesson
+              <ArrowRight className="h-4 w-4" strokeWidth={2} />
+            </button>
+          ) : (
+            <button onClick={() => window.location.reload()} className="btn btn-primary btn-lg flex-1">
+              <RotateCcw className="h-4 w-4" strokeWidth={2} />
+              Try again
+            </button>
+          )}
+          <button onClick={() => router.push(ROUTES.learn)} className="btn btn-outline btn-lg flex-1">
+            All lessons
+          </button>
+        </div>
+        {passed && nextId && (
+          <button onClick={() => window.location.reload()} className="btn btn-ghost btn-md mt-3 w-full">
+            <RotateCcw className="h-4 w-4" strokeWidth={2} />
+            Repeat this lesson
+          </button>
+        )}
       </div>
     );
   }
 
-  // ===== MOUSE PRACTICE MODE =====
+  /* ═══════════════════════════════════════════ mouse practice — expressive */
   if (isMouseLesson) {
     return (
-      <div className="min-h-screen bg-paper">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => store.completeTest()} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
-              <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Exit
+      <div className="min-h-screen bg-lumen">
+        <div className="mx-auto w-full max-w-content px-5 py-6 sm:px-8">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <button onClick={() => store.completeTest()} className="btn btn-ghost btn-sm -ml-3">
+              <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+              Exit
             </button>
-            <div className="text-sm font-hand text-pencil/40">{levelName} &mdash; {lesson.title}</div>
+            <p className="truncate text-base text-vast/50">
+              {levelName} &mdash; {lesson.title}
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-postit border-2 border-pencil p-6 shadow-hard-sm"
-                 style={{ borderRadius: CSS.radii.sm }}>
-              <h3 className="font-bold text-pencil font-marker mb-3 text-lg">Mouse Practice</h3>
-              <div className="space-y-3">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="card p-6">
+              <h2 className="text-3xl">Mouse practice</h2>
+              <ol className="mt-6 space-y-3">
                 {MOUSE_STEPS.map((step, i) => {
                   const done = mouseActions.has(step.action);
                   const active = mouseStep === i;
                   return (
-                    <div key={step.action}
-                      className={`flex items-center space-x-3 p-3 border-2 transition-all ${
-                        done ? 'bg-green-50 border-green-300' :
-                        active ? 'bg-blue-50 border-blue-pen animate-pulse' :
-                        'bg-white border-pencil/20'
+                    <li
+                      key={step.action}
+                      aria-current={active ? 'step' : undefined}
+                      className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-colors ${
+                        done ? 'border-ok bg-ok-bg' :
+                        active ? 'border-vast bg-dawn' :
+                        'border-vast/15 bg-lumen'
                       }`}
-                      style={{ borderRadius: CSS.radii.sm }}
                     >
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 text-sm font-bold font-marker ${
-                        done ? 'bg-green-500 text-white border-green-500' :
-                        active ? 'bg-blue-pen text-white border-blue-pen' :
-                        'bg-pencil/5 text-pencil/40 border-pencil/30'
+                      <span className={`tnum flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+                        done ? 'border-ok bg-ok text-lumen' :
+                        active ? 'border-vast bg-lumen' :
+                        'border-vast/25 text-vast/40'
                       }`}>
-                        {done ? '✓' : i + 1}
-                      </div>
-                      <div>
-                        <p className={`font-hand text-base ${done ? 'text-green-700 line-through' : active ? 'text-pencil font-bold' : 'text-pencil/50'}`}>
+                        {done ? <Check className="h-4 w-4" strokeWidth={3} /> : i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={`text-base ${done ? 'text-ok line-through' : active ? 'font-semibold' : 'text-vast/50'}`}>
                           {step.label}
                         </p>
-                        {active && <p className="text-xs text-blue-pen/70 font-hand">Abhi karein...</p>}
+                        {active && <p className="mt-0.5 text-sm text-vast/50">Abhi karein</p>}
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             </div>
 
-            <div>
+            <div className="card-flat flex items-center justify-center p-4">
               <MouseSVG pressedKeys={Array.from(mouseActions)} />
             </div>
           </div>
 
-          <div className="mt-6 text-center text-sm font-hand text-pencil/40">
-            {mouseStep >= MOUSE_STEPS.length ? 'Practice complete! ✅' : `${mouseStep} / ${MOUSE_STEPS.length} steps done`}
-          </div>
+          <p className="tnum mt-8 text-center text-base text-vast/50" role="status">
+            {mouseStep >= MOUSE_STEPS.length
+              ? 'Practice complete.'
+              : `${mouseStep} of ${MOUSE_STEPS.length} steps done`}
+          </p>
         </div>
       </div>
     );
   }
 
-  // ===== TYPING MODE =====
+  /* ══════════════════════════════════════════════════ typing — focus surface */
   const correctChars = typedContent.split('').filter((c, i) => c === originalContent[i]).length;
   const totalChars = typedContent.length;
   const currentWpm = elapsedSeconds > 0 ? calculateWPM(totalChars, elapsedSeconds) : 0;
@@ -411,73 +503,129 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const nextChar = originalContent[typedContent.length] || null;
   const keysPreview = typedContent.split('').slice(-50);
   const isHindi = false;
+  const progressPct = originalContent.length
+    ? Math.min(100, (typedContent.length / originalContent.length) * 100)
+    : 0;
 
   return (
-    <div ref={containerRef} tabIndex={-1} className="h-screen bg-paper flex flex-col overflow-hidden focus:outline-none">
-      <div className="shrink-0 max-w-6xl mx-auto w-full px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={() => router.push(ROUTES.learn)} className="text-sm font-hand text-pencil/40 hover:text-pencil flex items-center space-x-1 transition-colors">
-            <ArrowLeft className="w-4 h-4" strokeWidth={3} /> Exit
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      className="flex h-screen flex-col overflow-hidden bg-lumen focus:outline-none"
+    >
+      {/* ---- chrome ---- */}
+      {/* Hairline borders, no slabs: nothing here should compete with the
+          passage the candidate is reading. */}
+      <header className="shrink-0 border-b border-vast/10">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-5 py-2.5">
+          <button
+            onClick={() => router.push(ROUTES.learn)}
+            className="btn btn-ghost btn-sm -ml-3"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+            Exit
           </button>
-          <div className="text-sm font-hand text-pencil/40">{levelName} &mdash; {lesson.title}</div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowKeyboard(!showKeyboard)}
-              className={`flex items-center space-x-1 px-3 py-1.5 border-2 border-pencil/30 text-sm font-hand transition-colors ${
-                showKeyboard ? 'bg-pencil/10 text-pencil' : 'text-pencil/40 hover:text-pencil'
-              }`}
-              style={{ borderRadius: CSS.radii.sm }}
-            >
-              <Keyboard className="w-4 h-4" strokeWidth={3} />
-              <span>Keys</span>
-            </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-sm font-medium">{lesson.title}</p>
+            <p className="truncate text-xs text-vast/50">{levelName}</p>
           </div>
+          <button
+            onClick={() => setShowKeyboard(!showKeyboard)}
+            aria-pressed={showKeyboard}
+            className={`btn btn-sm ${showKeyboard ? 'btn-cream' : 'btn-ghost'}`}
+          >
+            <Keyboard className="h-4 w-4" strokeWidth={2} />
+            <span className="hidden sm:inline">Keys</span>
+          </button>
         </div>
 
-        <div className="flex items-center justify-between text-pencil/60 font-hand text-base">
-          <div className="flex items-center space-x-4">
-            <span className={`font-bold font-marker text-lg ${currentWpm >= lesson.targetWpm ? 'text-green-600' : ''}`}>
-              {currentWpm} <span className="text-sm font-hand font-normal">wpm</span>
+        {/* Progress through the drill text. */}
+        <div
+          className="h-0.5 w-full bg-lumen-dark"
+          role="progressbar"
+          aria-label="Drill progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progressPct)}
+        >
+          <div
+            className="h-full bg-vast transition-[width] duration-200"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </header>
+
+      {/* ---- live metrics ---- */}
+      <div className="shrink-0 border-b border-vast/10">
+        <div className="mx-auto flex w-full max-w-5xl items-baseline gap-6 px-5 py-2">
+          <span className="flex items-baseline gap-1.5">
+            <span className={`tnum text-lg font-semibold ${currentWpm >= lesson.targetWpm && lesson.targetWpm > 0 ? 'text-ok' : ''}`}>
+              {currentWpm}
             </span>
-            <span className={`font-bold font-marker text-lg ${currentAccuracy >= lesson.minAccuracy ? 'text-green-600' : currentAccuracy >= 80 ? 'text-yellow-600' : 'text-red-500'}`}>
-              {currentAccuracy}% <span className="text-sm font-hand font-normal">acc</span>
+            <span className="text-xs text-vast/50">wpm</span>
+          </span>
+          <span className="flex items-baseline gap-1.5">
+            <span className={`tnum text-lg font-semibold ${
+              currentAccuracy >= lesson.minAccuracy ? 'text-ok' : currentAccuracy >= 80 ? 'text-warn' : 'text-err'
+            }`}>
+              {currentAccuracy}%
             </span>
-            <span className="flex items-center space-x-1 font-mono text-lg">
-              <Timer className="w-4 h-4" strokeWidth={3} />
-              <span className={remainingTime <= 30 ? 'text-red-500 font-bold' : ''}>{formatTime(remainingTime)}</span>
+            <span className="text-xs text-vast/50">acc</span>
+          </span>
+          <span className="ml-auto flex items-baseline gap-1.5">
+            <span className={`tnum text-lg font-semibold ${remainingTime <= 30 ? 'text-err' : ''}`}>
+              {formatTime(remainingTime)}
             </span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <Target className="w-4 h-4" strokeWidth={3} />
-            <span>Goal: {lesson.targetWpm} WPM / {lesson.minAccuracy}% acc</span>
-          </div>
+            <span className="text-xs text-vast/50">left</span>
+          </span>
+          <span className="tnum hidden text-xs text-vast/50 sm:inline">
+            goal {lesson.targetWpm} wpm · {lesson.minAccuracy}%
+          </span>
         </div>
       </div>
 
-      <div className="flex-[2] min-h-0 max-w-6xl mx-auto w-full px-4 pb-1 flex flex-col">
+      {/* A blocked backspace has to be felt, not silently swallowed. */}
+      {backspaceBlocked && (
+        <div
+          role="status"
+          className="animate-rise mx-auto mt-3 flex w-full max-w-5xl items-center gap-2 rounded-lg border-2 border-err/30 bg-err-bg px-4 py-2 text-sm text-err"
+        >
+          <XCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
+          Backspace is disabled in this lesson — keep going.
+        </div>
+      )}
+
+      {/* ---- the drill ---- */}
+      <div className="mx-auto flex w-full max-w-5xl flex-[2] flex-col overflow-hidden px-5 pb-1 pt-4">
         {isHindi && <HindiKeyboardGuide />}
         <TypingDisplay
           originalContent={originalContent}
           typedContent={typedContent}
           isActive={phase === 'typing'}
         />
-        <div className="mt-2 text-sm font-hand text-pencil/40 shrink-0">
-          {typedContent.length} / {originalContent.length} chars
-        </div>
+        <p className="tnum mt-2 shrink-0 text-xs text-vast/40">
+          {typedContent.length} / {originalContent.length} characters
+        </p>
       </div>
 
-      <div className="flex-[3] min-h-0 max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col">
-        <div className="shrink-0 mb-1">
-          <CapsLockNotice lessonNeedsUppercase={/[A-Z]/.test(sampleText)} compact />
+      <div className="mx-auto flex w-full max-w-5xl flex-[3] flex-col overflow-hidden px-5 pb-4">
+        <div className="mb-1 shrink-0">
+          <CapsLockNotice text={sampleText} compact />
         </div>
-        {showKeyboard && (
-          <div className="flex-1 min-h-0 flex items-center justify-center">
-            <div className="w-full max-w-4xl h-full">
-              <KeyboardSVG expectedChar={nextChar} typedHistory={keysPreview} keystrokeEvents={keystrokeEvents} showLegend={false} />
+        {showKeyboard ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="h-full w-full max-w-4xl">
+              <KeyboardSVG
+                expectedChar={nextChar}
+                typedHistory={keysPreview}
+                keystrokeEvents={keystrokeEvents}
+                showLegend={false}
+              />
             </div>
           </div>
+        ) : (
+          <div className="min-h-0 flex-1" />
         )}
-        {!showKeyboard && <div className="flex-1 min-h-0" />}
       </div>
     </div>
   );

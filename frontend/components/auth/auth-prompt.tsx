@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { Mail, Lock, Eye, EyeOff, User, X } from 'lucide-react';
-import { CSS, ROUTES } from '@/lib/config';
+import { Eye, EyeOff, X } from 'lucide-react';
+import { APP } from '@/lib/config';
 
 interface AuthPromptProps {
   onClose: () => void;
@@ -28,7 +27,7 @@ export function AuthPrompt({ onClose, onSuccess }: AuthPromptProps) {
     setLoading(true);
     try {
       await login(email, password);
-      toast.success('Signed in! Starting your test...');
+      toast.success('Signed in — starting your test');
       onSuccess();
     } catch (err: any) {
       toast.error(err.message || 'Login failed');
@@ -42,7 +41,7 @@ export function AuthPrompt({ onClose, onSuccess }: AuthPromptProps) {
     setLoading(true);
     try {
       await register(email, password, name);
-      toast.success('Account created! Starting your test...');
+      toast.success('Account created — starting your test');
       onSuccess();
     } catch (err: any) {
       if (err.message === 'confirmation_email_sent') {
@@ -56,132 +55,199 @@ export function AuthPrompt({ onClose, onSuccess }: AuthPromptProps) {
     }
   };
 
+  /** The show/hide control is identical in both panels, so it is built once
+   *  rather than duplicated across them. */
+  const passwordToggle = (
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      tabIndex={-1}
+      aria-label={showPassword ? 'Hide password' : 'Show password'}
+      className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-vast/50 transition-colors hover:text-vast"
+    >
+      {showPassword ? (
+        <EyeOff className="h-4 w-4" strokeWidth={2} />
+      ) : (
+        <Eye className="h-4 w-4" strokeWidth={2} />
+      )}
+    </button>
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-w-md w-full bg-white border-2 border-pencil shadow-hard p-6 relative" style={{ borderRadius: CSS.radii.sm }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-vast/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-prompt-title"
+    >
+      <div className="card relative w-full max-w-md p-6 sm:p-7">
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-pencil/40 hover:text-pencil"
+          aria-label="Close"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-md text-vast/40 transition-colors hover:text-vast"
         >
-          <X className="w-5 h-5" strokeWidth={2.5} />
+          <X className="h-5 w-5" strokeWidth={2.2} />
         </button>
 
-        <div className="text-center mb-5">
+        <div className="text-center">
           <Image
-            src="/images/logo.png?v=2"
-            alt="Typing Mania"
+            src={APP.logo}
+            alt=""
             width={36}
             height={36}
-            className="w-9 h-9 mx-auto mb-2 border border-pencil"
-            style={{ borderRadius: CSS.radii.sm }}
+            className="mx-auto h-9 w-9 rounded-lg border-2 border-vast"
           />
-          <h2 className="text-lg font-bold text-pencil font-marker">
-            {tab === 'login' ? 'Sign in to start' : 'Create account to start'}
+          <h2 id="auth-prompt-title" className="mt-4 text-3xl">
+            {tab === 'login' ? (
+              <>
+                Sign in to <em>start</em>
+              </>
+            ) : (
+              <>
+                Create an <em>account</em>
+              </>
+            )}
           </h2>
-          <p className="text-sm text-pencil/60 font-hand mt-0.5">
-            {tab === 'login' ? 'Continue your SSC typing practice' : 'Track your progress & qualify for SSC'}
+          <p className="mt-3 text-base text-vast/60">
+            {tab === 'login'
+              ? 'Continue your SSC typing practice.'
+              : 'Track your progress and measure yourself against the SSC bar.'}
           </p>
         </div>
 
-        <div className="flex mb-4 border-2 border-pencil" style={{ borderRadius: CSS.radii.sm }}>
+        {/* Only the selected panel is mounted, so aria-controls is set on the
+            selected tab alone — an idref to an absent node is worse than none. */}
+        <div className="segment mt-5 flex w-full" role="tablist" aria-label="Sign in or sign up">
           <button
+            id="auth-tab-login"
+            role="tab"
+            type="button"
+            aria-selected={tab === 'login'}
+            aria-controls={tab === 'login' ? 'auth-panel-login' : undefined}
             onClick={() => setTab('login')}
-            className={`flex-1 py-2 text-sm font-bold font-hand transition-colors ${tab === 'login' ? 'bg-pencil text-white' : 'bg-white text-pencil'}`}
+            className="segment-item flex-1"
           >
-            Sign In
+            Sign in
           </button>
           <button
+            id="auth-tab-signup"
+            role="tab"
+            type="button"
+            aria-selected={tab === 'signup'}
+            aria-controls={tab === 'signup' ? 'auth-panel-signup' : undefined}
             onClick={() => setTab('signup')}
-            className={`flex-1 py-2 text-sm font-bold font-hand transition-colors ${tab === 'signup' ? 'bg-pencil text-white' : 'bg-white text-pencil'}`}
+            className="segment-item flex-1"
           >
-            Sign Up
+            Sign up
           </button>
         </div>
 
         {tab === 'login' ? (
-          <form onSubmit={handleLogin} className="space-y-3">
+          <form
+            id="auth-panel-login"
+            role="tabpanel"
+            aria-labelledby="auth-tab-login"
+            onSubmit={handleLogin}
+            className="mt-5 space-y-3"
+          >
+            <label htmlFor="auth-login-email" className="sr-only">
+              Email
+            </label>
             <input
+              id="auth-login-email"
               type="email"
-              placeholder="your@email.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-hand w-full text-sm"
+              className="field"
               required
               autoComplete="email"
               disabled={loading}
             />
             <div className="relative">
+              <label htmlFor="auth-login-password" className="sr-only">
+                Password
+              </label>
               <input
+                id="auth-login-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-hand w-full text-sm pr-10"
+                className="field pr-11"
                 required
                 autoComplete="current-password"
                 disabled={loading}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-pencil/40 hover:text-pencil"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              {passwordToggle}
             </div>
-            <button type="submit" disabled={loading} className="btn-hand w-full text-base py-3">
-              {loading ? 'Signing in...' : 'Sign In'}
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleSignup} className="space-y-3">
+          <form
+            id="auth-panel-signup"
+            role="tabpanel"
+            aria-labelledby="auth-tab-signup"
+            onSubmit={handleSignup}
+            className="mt-5 space-y-3"
+          >
+            <label htmlFor="auth-signup-name" className="sr-only">
+              Full name
+            </label>
             <input
+              id="auth-signup-name"
               type="text"
               placeholder="Your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="input-hand w-full text-sm"
+              className="field"
               required
               autoComplete="name"
               disabled={loading}
             />
+            <label htmlFor="auth-signup-email" className="sr-only">
+              Email
+            </label>
             <input
+              id="auth-signup-email"
               type="email"
-              placeholder="your@email.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-hand w-full text-sm"
+              className="field"
               required
               autoComplete="email"
               disabled={loading}
             />
             <div className="relative">
+              <label htmlFor="auth-signup-password" className="sr-only">
+                Password
+              </label>
               <input
+                id="auth-signup-password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password (min 6 chars)"
+                placeholder="Password — at least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-hand w-full text-sm pr-10"
+                className="field pr-11"
                 required
                 minLength={6}
                 autoComplete="new-password"
                 disabled={loading}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-pencil/40 hover:text-pencil"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              {passwordToggle}
             </div>
-            <button type="submit" disabled={loading} className="btn-hand w-full text-base py-3">
-              {loading ? 'Creating account...' : 'Create Account'}
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
+              {loading ? 'Creating account…' : 'Create account'}
             </button>
           </form>
         )}
+
+        <p className="mt-5 text-center text-sm text-vast/50">
+          You don&apos;t need an account to practise — close this and keep typing.
+        </p>
       </div>
     </div>
   );

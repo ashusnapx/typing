@@ -1,31 +1,42 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, forwardRef, useId } from 'react';
 import { cn } from '@/lib/utils';
-import { CSS, WOBBLY_RADII } from '@/lib/config';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  error?: string;
+  hint?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, id, ...props }, ref) => {
+  ({ className, label, error, hint, id, ...props }, ref) => {
+    const generated = useId();
+    const inputId = id ?? generated;
+    const describedBy = error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined;
+
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {label && (
-          <label htmlFor={id} className="block text-base font-bold text-pencil font-hand">
+          <label htmlFor={inputId} className="block text-sm font-medium">
             {label}
           </label>
         )}
         <input
           ref={ref}
-          id={id}
-          className={cn(
-            'w-full px-4 py-3 bg-white border-2 border-pencil font-hand text-lg text-pencil placeholder:text-pencil/40',
-            'transition-all duration-100 focus:border-blue-pen focus:outline-none focus:ring-2 focus:ring-blue-pen/20',
-            className
-          )}
-          style={{ borderRadius: CSS.radii.sm }}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={cn('field', className)}
           {...props}
         />
+        {error ? (
+          <p id={`${inputId}-error`} role="alert" className="text-xs text-err">
+            {error}
+          </p>
+        ) : hint ? (
+          <p id={`${inputId}-hint`} className="text-xs text-content-subtle">
+            {hint}
+          </p>
+        ) : null}
       </div>
     );
   }

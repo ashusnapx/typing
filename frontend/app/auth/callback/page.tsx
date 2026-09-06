@@ -108,7 +108,7 @@ export default function AuthCallbackPage() {
           <p className="text-base text-pencil/60 font-hand mb-6">{errorMsg}</p>
           <button
             onClick={() => router.push(ROUTES.authLogin)}
-            className="btn-hand inline-block text-lg px-8 py-3"
+            className="btn btn-primary btn-lg"
           >
             Try Again
           </button>

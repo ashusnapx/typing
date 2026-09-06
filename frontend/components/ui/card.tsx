@@ -1,46 +1,24 @@
 import { HTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
-import { CSS, WOBBLY_RADII } from '@/lib/config';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'postit' | 'elevated';
+  /** Retained for API compatibility; the paper-craft decorations are retired. */
   decoration?: 'tape' | 'tack' | 'none';
 }
 
-const variantStyles = {
-  default: `bg-white border-pencil ${CSS.shadows.sm}`,
-  postit: `bg-postit border-pencil ${CSS.shadows.sm}`,
-  elevated: `bg-white border-pencil ${CSS.shadows.md}`,
+const VARIANTS: Record<NonNullable<CardProps['variant']>, string> = {
+  default: 'surface',
+  postit: 'surface bg-brand-wash',
+  elevated: 'surface-raised',
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant = 'default', decoration = 'none', children, style, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          'border-2 relative',
-          variantStyles[variant],
-          className
-        )}
-        style={{
-          borderRadius: CSS.radii.md,
-          ...style,
-        }}
-        {...props}
-      >
-        {decoration === 'tape' && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/10 rotate-[-3deg]" />
-        )}
-        {decoration === 'tack' && (
-          <div
-            className={`absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 bg-accent rounded-full border-2 border-pencil ${CSS.shadows.sm}`}
-          />
-        )}
-        {children}
-      </div>
-    );
-  }
+  ({ className, variant = 'default', decoration, children, ...props }, ref) => (
+    <div ref={ref} className={cn('relative', VARIANTS[variant], className)} {...props}>
+      {children}
+    </div>
+  )
 );
 
 Card.displayName = 'Card';

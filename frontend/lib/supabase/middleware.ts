@@ -1,33 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
-const PUBLIC_ROUTES = [
-  '/', '/auth/callback', '/health',
-  '/api/trpc', '/api/inngest',
-  '/exam', '/learn', '/about', '/faq', '/contact', '/privacy', '/terms',
-  '/blog', '/coach', '/dashboard', '/leaderboard',
-];
-
-function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some(route =>
-    pathname === route || pathname.startsWith(route + '/')
-  );
-}
-
-function isAuthPage(pathname: string): boolean {
-  return pathname === '/auth/login' || pathname === '/auth/register';
-}
+import { isPrivateRoute, isAuthPage } from '@/lib/route-access'
 
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip auth check entirely for static assets
-  if (pathname.startsWith('/_next')) {
+  // Static assets and API routes never need a session lookup here.
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api/')) {
     return NextResponse.next({ request });
   }
 
-  // Public routes (except login/register) — skip Supabase call entirely
-  if (isPublicRoute(pathname) && !isAuthPage(pathname)) {
+  // Open routes skip the Supabase round-trip entirely. This is the common
+  // case — every exam, lesson and marketing page — so it stays off the
+  // critical path.
+  if (!isPrivateRoute(pathname) && !isAuthPage(pathname)) {
     return NextResponse.next({ request });
   }
 
@@ -55,15 +41,13 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getUser()
   const user = data?.user
 
-  // Auth pages: let them through (login/register should always render)
-  if (isAuthPage(pathname)) {
-    return supabaseResponse;
-  }
+  // Login and register always render, signed in or not.
+  if (isAuthPage(pathname)) return supabaseResponse;
 
-  // Protected route + no user → redirect to login
-  if (!user && !isPublicRoute(pathname)) {
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
+    url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 

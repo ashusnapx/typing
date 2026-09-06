@@ -22,6 +22,9 @@ export function useNewTypingEngine(
   const lastCharTimeRef = useRef<number>(0);
   const keystrokeEventsRef = useRef<EngineKeystroke[]>([]);
 
+  const hindiBufferRef = useRef('');
+  const prevTextareaValueRef = useRef('');
+
   const wpmRef = useRef(0);
   const accuracyRef = useRef(100);
 
@@ -197,12 +200,29 @@ export function useNewTypingEngine(
       backspacesRef.current++;
     }
 
-    typedTextRef.current = val;
-    positionRef.current = val.length;
+    let typedVal = val;
+
+    if (lang === 'hindi') {
+      const prevRaw = prevTextareaValueRef.current;
+      if (val.length > prevRaw.length) {
+        const added = val.slice(prevRaw.length);
+        hindiBufferRef.current += added;
+      } else if (val.length < prevRaw.length) {
+        const trimCount = prevRaw.length - val.length;
+        hindiBufferRef.current = hindiBufferRef.current.slice(0, -trimCount);
+      } else {
+        hindiBufferRef.current = val;
+      }
+      prevTextareaValueRef.current = val;
+      typedVal = transliterateEnglishToHindi(hindiBufferRef.current);
+    }
+
+    typedTextRef.current = typedVal;
+    positionRef.current = typedVal.length;
 
     let mistakes = 0;
-    for (let i = 0; i < val.length; i++) {
-      if (val[i] !== originalContent[i]) {
+    for (let i = 0; i < typedVal.length; i++) {
+      if (typedVal[i] !== originalContent[i]) {
         mistakes++;
       }
     }
@@ -226,7 +246,7 @@ export function useNewTypingEngine(
       sessionManager.current.stopAutoSave();
       TypingSessionManager.clearSession('current_active_session');
     }
-  }, [originalContent, completeTest]);
+  }, [originalContent, completeTest, lang]);
 
   const resumeEngineSession = useCallback((session: any) => {
     typedTextRef.current = session.typedText;

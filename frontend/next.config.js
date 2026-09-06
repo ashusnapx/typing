@@ -1,5 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const API_ORIGINS = API_URL ? ` ${new URL(API_URL).origin}` : '';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ORIGINS = SUPABASE_URL ? ` ${new URL(SUPABASE_URL).origin}` : '';
 
 const cspHeader = `
   default-src 'self';
@@ -7,7 +9,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' blob: data: https:;
   font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;
-  connect-src 'self'${API_ORIGINS} https://awfqpmgshuicrfiwyvhy.supabase.co;
+  connect-src 'self'${API_ORIGINS}${SUPABASE_ORIGINS};
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -17,6 +19,7 @@ const cspHeader = `
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  transpilePackages: ['react-hot-toast'],
 
   images: {
     localPatterns: [

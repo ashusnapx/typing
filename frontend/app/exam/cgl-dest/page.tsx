@@ -1,13 +1,22 @@
 import { TypingExam } from '@/components/exam/typing-exam';
+import { getPassagePool } from '@/lib/passages/server';
 
-export const dynamic = 'force-dynamic';
+// Passages change only when we ship a migration, so the page is cached rather
+// than rebuilt per request. This route previously used `force-dynamic`, which
+// opted every exam out of caching AND still left the passage fetch to run in
+// the browser after hydration.
+export const revalidate = 3600;
 
-export default function SSCGOLDESTPage() {
+export default async function SSCCglDestPage() {
+  // Fetched here so the client starts with the passage already in hand.
+  const passagePool = await getPassagePool();
+
   return (
     <TypingExam
       mode="ssc_cgl_dest"
       durationSeconds={900}
       wpmTarget={0}
+      passagePool={passagePool}
     />
   );
 }

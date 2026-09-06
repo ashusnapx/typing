@@ -23,40 +23,34 @@ interface WordInfo {
   status: 'correct' | 'partial' | 'wrong' | 'missed' | 'extra';
 }
 
-const statusStyles: Record<string, { color: string; deco: string }> = {
-  correct: { color: '#16a34a', deco: 'none' },
-  partial: { color: '#ea580c', deco: 'line-through' },
-  wrong: { color: '#dc2626', deco: 'line-through' },
-  missed: { color: '#bbb', deco: 'line-through' },
-  extra: { color: '#dc2626', deco: 'underline' },
+/** Token classes, not hexes — the result screen renders a legend from the same
+ *  vocabulary, and hardcoded colours here meant the legend named one colour
+ *  while the passage painted another. */
+const STATUS_CLASS: Record<WordInfo['status'], string> = {
+  correct: 'text-ok',
+  partial: 'text-warn font-semibold line-through',
+  wrong: 'text-err font-semibold line-through',
+  missed: 'text-vast/35 font-semibold line-through',
+  extra: 'text-err font-semibold underline',
 };
 
 function renderWords(words: WordInfo[], plain = false) {
   if (plain) {
     // Render original passage as plain text — no colors, no strikethrough, no markers
     return words.map((w, i) => (
-      <span key={i} style={{ marginRight: 4, whiteSpace: 'pre-wrap' }}>
+      <span key={i} className="mr-1 whitespace-pre-wrap">
         {w.text}{' '}
       </span>
     ));
   }
-  return words.map((w, i) => {
-    const s = statusStyles[w.status];
-    return (
-      <span
-        key={i}
-        style={{
-          color: s.color,
-          textDecoration: s.deco === 'none' ? undefined : s.deco,
-          fontWeight: w.status === 'correct' ? 400 : 600,
-          marginRight: 4,
-          whiteSpace: 'pre-wrap',
-        }}
-      >
-        {w.text || (w.status === 'missed' ? '___' : '')}{' '}
-      </span>
-    );
-  });
+  return words.map((w, i) => (
+    <span
+      key={i}
+      className={`mr-1 whitespace-pre-wrap ${STATUS_CLASS[w.status]}`}
+    >
+      {w.text || (w.status === 'missed' ? '___' : '')}{' '}
+    </span>
+  ));
 }
 
 export function buildWordDisplay(original: string, typed: string) {
@@ -183,24 +177,29 @@ export function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export default function PassageDiffView({ original, typed }: { original: string; typed: string }) {
+export default function PassageDiffView({ original, typed, lang = 'english' }: { original: string; typed: string; lang?: 'english' | 'hindi' }) {
   const { origDisplay, typedDisplay } = buildWordDisplay(original, typed);
+  const diffFont = lang === 'hindi'
+    ? 'var(--font-devanagari), "Noto Sans Devanagari", "Mangal", sans-serif'
+    : "'Courier New', monospace";
 
   return (
-    <div style={{ display: 'flex', gap: 20 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-          Original Passage
-        </div>
-        <div style={{ fontSize: 14, lineHeight: 2, fontFamily: "'Courier New', monospace", background: '#fafafa', padding: 12, borderRadius: 6, border: '1px solid #e5e5e5' }}>
+    <div className="grid gap-5 sm:grid-cols-2">
+      <div className="min-w-0">
+        <div className="eyebrow mb-2">Original passage</div>
+        <div
+          className="rounded-lg border-2 border-vast/10 bg-lumen p-3 text-sm leading-loose"
+          style={{ fontFamily: diffFont }}
+        >
           {renderWords(origDisplay, true)}
         </div>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-          You Typed
-        </div>
-        <div style={{ fontSize: 14, lineHeight: 2, fontFamily: "'Courier New', monospace", background: '#fafafa', padding: 12, borderRadius: 6, border: '1px solid #e5e5e5' }}>
+      <div className="min-w-0">
+        <div className="eyebrow mb-2">You typed</div>
+        <div
+          className="rounded-lg border-2 border-vast/10 bg-lumen p-3 text-sm leading-loose"
+          style={{ fontFamily: diffFont }}
+        >
           {renderWords(typedDisplay)}
         </div>
       </div>

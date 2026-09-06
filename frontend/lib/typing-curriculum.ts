@@ -1,5 +1,50 @@
 import { FingerZone } from '@/components/learn/keyboard-layout';
 
+/**
+ * SSC TYPING CURRICULUM
+ * =====================
+ *
+ * The previous curriculum was a generic typing tutor — home row, top row,
+ * bottom row, numbers, words, passages — with SSC branding on top. Every
+ * competitor ships that same sequence. It teaches typing. It does not teach
+ * passing the SSC skill test, which is a different skill.
+ *
+ * What actually fails candidates, per the Commission's own evaluation
+ * guidelines, is not raw speed. It is errors they do not know are errors:
+ *
+ *   - HALF MISTAKES (0.5 each) they were never taught to see — capitalisation,
+ *     punctuation, spacing, transposed words, and using spaces instead of Tab
+ *     at a paragraph start.
+ *   - FULL MISTAKES (1 each) from omitting a figure, or leaving a word
+ *     half-typed when the timer runs out mid-word.
+ *   - LOSING THEIR PLACE, because the real TCS-iON interface offers no word
+ *     highlighting and no auto-scroll.
+ *   - ENDURANCE COLLAPSE in the last third of a 10 or 15 minute passage.
+ *
+ * No typing tutor drills any of that. So the curriculum is organised in six
+ * stages, and the whole middle of it — Stage 3 — is error mechanics.
+ *
+ * Key order in Stage 1 is by LETTER FREQUENCY rather than by keyboard row.
+ * E T A O I N make up roughly half of written English, so a frequency order
+ * reaches real words by the fourth lesson instead of the twelfth, which is
+ * where beginners usually quit.
+ */
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** Which SSC error a Stage 3 drill is engineered to expose. */
+export type MistakeFocus =
+  | 'capitalisation'
+  | 'punctuation'
+  | 'spacing'
+  | 'figures'
+  | 'paragraph'
+  | 'transposition'
+  | 'spelling'
+  | 'omission';
+
 export interface Lesson {
   id: string;
   title: string;
@@ -12,9 +57,29 @@ export interface Lesson {
   xpReward: number;
   fingerZones: FingerZone[];
   newKeys: string[];
-  drillType: 'letters' | 'bigrams' | 'trigrams' | 'words' | 'sentences' | 'passage' | 'exam';
+  drillType:
+    | 'letters'
+    | 'bigrams'
+    | 'trigrams'
+    | 'words'
+    | 'sentences'
+    | 'passage'
+    | 'exam';
   psychTip: string;
   warmupText: string;
+
+  /* ---- SSC-specific ---- */
+
+  /** The error type this drill trains against, for Stage 3 lessons. */
+  focus?: MistakeFocus;
+  /** The rule as the Commission states it. Shown before the drill starts. */
+  rule?: string;
+  /** The specific trap planted in `sampleText`, revealed in the debrief. */
+  trap?: string;
+  /** Disable backspace, reproducing the stricter exam interfaces. */
+  noBackspace?: boolean;
+  /** Hide the word highlight, as the real TCS-iON interface does. */
+  hidePositionHighlight?: boolean;
 }
 
 export interface Level {
@@ -23,992 +88,906 @@ export interface Level {
   subtitle: string;
   description: string;
   icon: string;
+  /** Which of the six stages this level belongs to. */
+  stage: 0 | 1 | 2 | 3 | 4 | 5;
   lessons: Lesson[];
 }
 
-export const LEVELS: Level[] = [
-  // ─── Level 0: Computer Parichay ───────────────────────────────────────────
+export const STAGES = [
   {
     id: 0,
-    name: "Computer Parichay",
-    subtitle: "Computer kaise chalayein?",
-    description: "Agar aapne kabhi computer nahi chhua hai, to pehle yeh seekhein — mouse kaise chalayein, keyboard kaise pakdein, aur posture kaisa hona chahiye.",
-    icon: "Monitor",
-    lessons: [
-      {
-        id: "l0-mouse",
-        title: "Mouse Chalana Seekhein",
-        instruction: "Mouse ko right hand se pakdein. Index finger left button par, middle finger right button par. Buttons click aur scroll kijiye.",
-        keys: ["left-click", "right-click", "scroll"],
-        sampleText: "Click karein. Double-click karein. Scroll karein.",
-        targetWpm: 0,
-        minAccuracy: 0,
-        durationSec: 60,
-        xpReward: 10,
-        fingerZones: ['ri', 'rm'],
-        newKeys: [],
-        drillType: 'letters',
-        psychTip: "Mouse pakadne me muscles ko bilkul dheela rakhein, haath me tanaav na hone dein.",
-        warmupText: "Click click scroll."
-      },
-      {
-        id: "l0-posture",
-        title: "Sahi Posture aur Hand Alignment",
-        instruction: "Seedhe baitho. Elbows ko 90 degree par rakho. Ungliyaan home row par rakhein bina dabaye.",
-        keys: ["A", "S", "D", "F", "J", "K", "L", ";"],
-        sampleText: "ASDF JKL; ASDF JKL;",
-        targetWpm: 0,
-        minAccuracy: 60,
-        durationSec: 90,
-        xpReward: 10,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
-        newKeys: ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'],
-        drillType: 'letters',
-        psychTip: "Screen ko thoda door rakhein taaki aankhon par zor na pade. Har 20 minute me door dekhein.",
-        warmupText: "asdf jkl;"
-      },
-      {
-        id: "l0-keys",
-        title: "Home Row Par Ungliyaan Set Karein",
-        instruction: "Apni left index finger ko 'F' par aur right index finger ko 'J' par rakhein (bumpy ridges feel karein). Baki ungliyaan side keys par rakhein.",
-        keys: ["A", "S", "D", "F", "J", "K", "L", ";"],
-        sampleText: "f j f j a s d f j k l ; f j",
-        targetWpm: 0,
-        minAccuracy: 70,
-        durationSec: 120,
-        xpReward: 10,
-        fingerZones: ['li', 'ri', 'lp', 'lr', 'lm', 'rm', 'rr', 'rp'],
-        newKeys: [],
-        drillType: 'letters',
-        psychTip: "Key F aur J par bane chote bumps aapko bina dekhe keyboard alignment check karne me madad karte hain.",
-        warmupText: "ff jj asdf jkl;"
-      }
-    ]
+    name: 'Shuruaat',
+    english: 'Getting set up',
+    blurb: 'Never touched a keyboard? Start here. Posture, hand position, home row.',
   },
-
-  // ─── Level 1: Home Row — Left Hand ────────────────────────────────────────
   {
     id: 1,
-    name: "Home Row — Left Hand",
-    subtitle: "Left hand ki muscle memory",
-    description: "Apne baayein haath ki ungliyon ko active karein. A, S, D, F aur G keys par control haasil karein.",
-    icon: "ChevronLeft",
-    lessons: [
-      {
-        id: "l1-left-intro",
-        title: "A S D F Introduction",
-        instruction: "Left hand fingers: pinky se A, ring se S, middle se D, index se F dabayein.",
-        keys: ["a", "s", "d", "f"],
-        sampleText: "a s d f a s d f asdf asdf a s d f",
-        targetWpm: 10,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 20,
-        fingerZones: ['lp', 'lr', 'lm', 'li'],
-        newKeys: ['a', 's', 'd', 'f'],
-        drillType: 'letters',
-        psychTip: "Bina dekhe dabane ki koshish karein. Har key dabane ke baad ungli ko halka rakhein.",
-        warmupText: "aaaa ssss dddd ffff"
-      },
-      {
-        id: "l1-g-key",
-        title: "G Key and Spacebar",
-        instruction: "Fingers ko home position par rakhein. F finger ko right shift karke G dabayein aur wapas F par layein. Thumb se Spacebar.",
-        keys: ["g", " "],
-        sampleText: "f g f g a f g a s d f g g a s d f g",
-        targetWpm: 12,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 20,
-        fingerZones: ['li', 'thumb'],
-        newKeys: ['g', ' '],
-        drillType: 'letters',
-        psychTip: "G dabane ke baad index finger ko wapas F index ridge par laana zaroori hai.",
-        warmupText: "fg fg a s d f g"
-      },
-      {
-        id: "l1-left-words",
-        title: "Left Hand Words",
-        instruction: "Sirf left hand keys se bane words ko type karein. Space dabana na bhulein.",
-        keys: ["a", "s", "d", "f", "g"],
-        sampleText: "sad dad fad gas gag add fads dads gags",
-        targetWpm: 15,
-        minAccuracy: 90,
-        durationSec: 150,
-        xpReward: 25,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Aksharon ko dimaag me pronounce karein taaki unki position muscle memory me absorb ho sake.",
-        warmupText: "sad dad gas add"
-      }
-    ]
+    name: 'Keyboard',
+    english: 'Learn every key',
+    blurb:
+      'Keys in order of how often they appear in real passages, so you reach real words fast.',
   },
-
-  // ─── Level 2: Home Row — Right Hand ───────────────────────────────────────
   {
     id: 2,
-    name: "Home Row — Right Hand",
-    subtitle: "Right hand ki muscle memory",
-    description: "Apne daayein haath ki ungliyon ko active karein. J, K, L, Semicolon aur H keys par grip banayein.",
-    icon: "ChevronRight",
-    lessons: [
-      {
-        id: "l2-right-intro",
-        title: "J K L Sem-Colon",
-        instruction: "Right hand fingers: index se J, middle se K, ring se L, pinky se semicolon (;) dabayein.",
-        keys: ["j", "k", "l", ";"],
-        sampleText: "j k l ; j k l ; jkl; jkl; j k l ;",
-        targetWpm: 10,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 20,
-        fingerZones: ['ri', 'rm', 'rr', 'rp'],
-        newKeys: ['j', 'k', 'l', ';'],
-        drillType: 'letters',
-        psychTip: "Bina keyboard dekhe apne right pinky se semicolon (;) press karein.",
-        warmupText: "jjkk ll;;"
-      },
-      {
-        id: "l2-h-key",
-        title: "H Key Introduction",
-        instruction: "J index finger ko left side shift karke H dabayein aur wapas J index position par layein.",
-        keys: ["h"],
-        sampleText: "j h j h j h j k l h j h k l h ;",
-        targetWpm: 12,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 20,
-        fingerZones: ['ri'],
-        newKeys: ['h'],
-        drillType: 'letters',
-        psychTip: "G aur H dono center keys hain, left index G par aur right index H par stretch hoti hai.",
-        warmupText: "jh jh jklh"
-      },
-      {
-        id: "l2-right-words",
-        title: "Right Hand Words",
-        instruction: "Right hand se type hone wale words ki practice karein.",
-        keys: ["j", "k", "l", ";", "h"],
-        sampleText: "all hall hill lill kild kill halls hills",
-        targetWpm: 15,
-        minAccuracy: 90,
-        durationSec: 150,
-        xpReward: 25,
-        fingerZones: ['ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Kild aur hill jaise shabdon me right ring aur middle finger ki alternate speed badhayein.",
-        warmupText: "hall hill kill all"
-      }
-    ]
+    name: 'Fluency',
+    english: 'Build rhythm',
+    blurb: 'The words and letter pairs that make up most of an SSC passage.',
   },
-
-  // ─── Level 3: Home Row — Combined ─────────────────────────────────────────
   {
     id: 3,
-    name: "Home Row — Combined",
-    subtitle: "Dono haath ek sath",
-    description: "Ab dono haatho ki home row keys ko milakar poore words aur simple sentences banana seekhein.",
-    icon: "Keyboard",
-    lessons: [
-      {
-        id: "l3-combined-intro",
-        title: "Home Row Coordination",
-        instruction: "Left aur Right haath ki keys ko coordinate karein. Sahi ungli se sahi key hit karein.",
-        keys: ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
-        sampleText: "a j s k d l f ; g h a s d f g h j k l ;",
-        targetWpm: 15,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
-        newKeys: [],
-        drillType: 'letters',
-        psychTip: "Dono haathon ka coordination typing me fluency aur balance laata hai.",
-        warmupText: "asdfg hjkl;"
-      },
-      {
-        id: "l3-combined-words",
-        title: "Home Row Full Words",
-        instruction: "Home row ke sabhi aksharon se bane mixed words type karein.",
-        keys: ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
-        sampleText: "ash dash flash glad slag glass slash salad hash",
-        targetWpm: 18,
-        minAccuracy: 92,
-        durationSec: 150,
-        xpReward: 30,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Glad aur salad type karte samay rhythm banayein, speed slow na hone dein.",
-        warmupText: "glad salad glass dash"
-      },
-      {
-        id: "l3-combined-sentences",
-        title: "Home Row Sentences",
-        instruction: "Sahi spaces ke sath home row se bane short phrases type karein.",
-        keys: ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
-        sampleText: "a sad dad, a glad lad, a glass flask, slag glass",
-        targetWpm: 20,
-        minAccuracy: 92,
-        durationSec: 180,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'sentences',
-        psychTip: "Comma (,) aur spaces ke time coordination par dhyaan dein.",
-        warmupText: "a sad dad glad lad"
-      }
-    ]
+    name: 'Mistake Mechanics',
+    english: 'Stop losing marks',
+    blurb:
+      'The half and full mistakes that fail candidates who type fast enough. Nobody else teaches this.',
   },
-
-  // ─── Level 4: Top Row — Introduction ──────────────────────────────────────
   {
     id: 4,
-    name: "Top Row — Introduction",
-    subtitle: "High frequency keys",
-    description: "Top row par finger reaches ki shuruat karein, sabse pehle sabse zyada use hone wale akshar E, T, I, O aur U seekhein.",
-    icon: "ArrowUpLeft",
-    lessons: [
-      {
-        id: "l4-et-intro",
-        title: "E and T Keys (Left Reach)",
-        instruction: "Home F finger ko upper left slide karke T aur D finger ko slide karke E dabayein.",
-        keys: ["e", "t"],
-        sampleText: "d e d e f t f t e t e t d e f t e t e t",
-        targetWpm: 15,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['lm', 'li'],
-        newKeys: ['e', 't'],
-        drillType: 'letters',
-        psychTip: "E aur T English me sabse common letters hain. In par grip sabse solid honi chahiye.",
-        warmupText: "dede ftft etet"
-      },
-      {
-        id: "l4-io-intro",
-        title: "I and O Keys (Right Reach)",
-        instruction: "K finger se up slide karke I aur L finger se up slide karke O dabayein.",
-        keys: ["i", "o"],
-        sampleText: "k i k i l o l o i o i o k i l o i o i o",
-        targetWpm: 15,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['rm', 'rr'],
-        newKeys: ['i', 'o'],
-        drillType: 'letters',
-        psychTip: "I aur O dabane ke baad ungliyon ko waapas home keys K aur L par aane ka aabhyaas karayein.",
-        warmupText: "kiki lolo ioio"
-      },
-      {
-        id: "l4-u-key",
-        title: "U Key Introduction",
-        instruction: "J index finger ko upper left slide karke U dabayein aur wapas home J position par layein.",
-        keys: ["u"],
-        sampleText: "j u j u j u j u j u t u t u i u i u j u u i u",
-        targetWpm: 18,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['ri'],
-        newKeys: ['u'],
-        drillType: 'letters',
-        psychTip: "U key index finger ke extension control par chalte hain, strict muscle placement rakhein.",
-        warmupText: "juju tutu iuiu"
-      },
-      {
-        id: "l4-high-freq-words",
-        title: "High Frequency Words",
-        instruction: "E, T, I, O, U aur home row keys se bane words type karein.",
-        keys: ["e", "t", "i", "o", "u"],
-        sampleText: "the to it he you she oil site tilt kite auto suit tie toe",
-        targetWpm: 22,
-        minAccuracy: 92,
-        durationSec: 150,
-        xpReward: 30,
-        fingerZones: ['lm', 'li', 'rm', 'rr', 'ri', 'lp', 'lr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "The, you, she jaise small words me spacing double na hone dein.",
-        warmupText: "the to he you it"
-      }
-    ]
+    name: 'Exam Conditions',
+    english: 'Type like it is the real thing',
+    blurb:
+      'No highlighting, no backspace, full duration. Trains what the real interface takes away.',
   },
-
-  // ─── Level 5: Top Row — Mastery ───────────────────────────────────────────
   {
     id: 5,
-    name: "Top Row — Mastery",
-    subtitle: "Complete Top Row",
-    description: "Q, W, R, Y aur P keys ko introduce karein taaki aapki top row mastery complete ho sake.",
-    icon: "ArrowUpRight",
-    lessons: [
-      {
-        id: "l5-qw-intro",
-        title: "Q and W Keys (Left Pinky & Ring)",
-        instruction: "Left Pinky (A) se slide karke Q aur Left Ring (S) se slide karke W press karein.",
-        keys: ["q", "w"],
-        sampleText: "a q a q s w s w q w q w a q s w q w",
-        targetWpm: 15,
-        minAccuracy: 88,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['lp', 'lr'],
-        newKeys: ['q', 'w'],
-        drillType: 'letters',
-        psychTip: "Q aur W ke liye pinky aur ring finger ka movement thoda ajeeb lag sakta hai. Dheere badhein.",
-        warmupText: "aqaq swsw qwqw"
-      },
-      {
-        id: "l5-ryp-intro",
-        title: "R, Y and P Keys",
-        instruction: "F se R, J se Y aur right pinky (;) se slide karke P dabayein.",
-        keys: ["r", "y", "p"],
-        sampleText: "f r f y j y j p p y r r p y y r p",
-        targetWpm: 18,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['li', 'ri', 'rp'],
-        newKeys: ['r', 'y', 'p'],
-        drillType: 'letters',
-        psychTip: "P dabate samay hand position twist na karein, sirf pinky finger slide karein.",
-        warmupText: "fr jyp ryp"
-      },
-      {
-        id: "l5-top-words",
-        title: "Top Row Vocabulary",
-        instruction: "Top row aur Home row ke combination se bane shabdon ka abhyas karein.",
-        keys: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-        sampleText: "type query write power quiet route proud youth proper priority",
-        targetWpm: 22,
-        minAccuracy: 92,
-        durationSec: 150,
-        xpReward: 30,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Quiet, write, power jaise commonly misspelled shabdon par vishesh dhyan dein.",
-        warmupText: "type query write power"
-      }
-    ]
+    name: 'Your Post',
+    english: 'Hit your actual bar',
+    blurb: 'Full mocks scored against the speed and error cap for the post you applied to.',
   },
+] as const;
 
-  // ─── Level 6: Bottom Row ──────────────────────────────────────────────────
-  {
-    id: 6,
-    name: "Bottom Row",
-    subtitle: "Inward curls and reaches",
-    description: "Z, X, C, V, B, N aur M keys ko seekhein. Yeh ungliyon ko andar ki taraf modkar (curl) type hoti hain.",
-    icon: "ArrowDown",
-    lessons: [
-      {
-        id: "l6-zxcv-intro",
-        title: "Z X C V Keys (Left Hand)",
-        instruction: "Left pinky se Z, ring se X, middle se C, index se V press karein. Har key andar curl hoti hai.",
-        keys: ["z", "x", "c", "v"],
-        sampleText: "a z a z s x s x d c d c f v f v z x c v z x c v",
-        targetWpm: 15,
-        minAccuracy: 88,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['lp', 'lr', 'lm', 'li'],
-        newKeys: ['z', 'x', 'c', 'v'],
-        drillType: 'letters',
-        psychTip: "Z aur X dabaate samay wrist ko desktop par rest karne dein taaki fingers easily curl ho sakein.",
-        warmupText: "azax sdcv zxcv"
-      },
-      {
-        id: "l6-bnm-intro",
-        title: "B N M Keys (Right Hand reaches)",
-        instruction: "Left index se V ke baad stretch karke B, right index se N aur M, comma/dot ring and pinky fingers se seekhein.",
-        keys: ["b", "n", "m", ",", "."],
-        sampleText: "f b f n j n j m j m j n j b m , m . n , m .",
-        targetWpm: 18,
-        minAccuracy: 90,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['li', 'ri', 'rm', 'rr', 'rp'],
-        newKeys: ['b', 'n', 'm', ',', '.'],
-        drillType: 'letters',
-        psychTip: "B aur N center positions hain. Index fingers ko stretching alignment me set rakhein.",
-        warmupText: "fbn jnm bnm"
-      },
-      {
-        id: "l6-bottom-words",
-        title: "Bottom Row Words",
-        instruction: "Bottom row keys aur other row keys se mix words type karein.",
-        keys: ["z", "x", "c", "v", "b", "n", "m", ",", "."],
-        sampleText: "zinc box cat van ban net man zone zero come back menu next",
-        targetWpm: 22,
-        minAccuracy: 90,
-        durationSec: 150,
-        xpReward: 30,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Come, back, net shabdon ko type karte samay speed normal rakhein.",
-        warmupText: "zinc box cat net man"
-      },
-      {
-        id: "l6-all-rows-combined",
-        title: "All Rows Combined",
-        instruction: "Teenon rows se bane short sentences type karein.",
-        keys: ["a", "q", "z", "s", "w", "x", "d", "e", "c", "f", "r", "v", "j", "u", "m"],
-        sampleText: "the quick brown fox jumps over the lazy dog.",
-        targetWpm: 25,
-        minAccuracy: 92,
-        durationSec: 180,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'sentences',
-        psychTip: "Yeh pan-gram hai, isme A se Z tak ke sabhi letters aate hain. Accurately type karein.",
-        warmupText: "the quick brown fox"
-      }
-    ]
-  },
+/* -------------------------------------------------------------------------- */
+/*  Helper to keep lesson definitions readable                                */
+/* -------------------------------------------------------------------------- */
 
-  // ─── Level 7: Numbers & Symbols ───────────────────────────────────────────
-  {
-    id: 7,
-    name: "Numbers, Symbols & Shift",
-    subtitle: "Complete keyboard coverage",
-    description: "Numbers (0-9), saari punctuation marks, brackets, special characters, aur Shift key (uppercase) ki comprehensive practice — koi bhi key chhootni nahi chahiye.",
-    icon: "Hash",
-    lessons: [
-      {
-        id: "l7-num-left",
-        title: "Left Hand Numbers (1-5)",
-        instruction: "Pinky se 1, ring se 2, middle se 3, index se 4 aur 5 dabayein. Top-row ke upar wali line.",
-        keys: ["1", "2", "3", "4", "5"],
-        sampleText: "a 1 s 2 d 3 f 4 f 5 1 2 3 4 5 132 453 542",
-        targetWpm: 15,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['lp', 'lr', 'lm', 'li'],
-        newKeys: ['1', '2', '3', '4', '5'],
-        drillType: 'letters',
-        psychTip: "Numbers dabane ke baad ungliyon ko home row par lana mat bhulein.",
-        warmupText: "1 2 3 4 5"
-      },
-      {
-        id: "l7-num-right",
-        title: "Right Hand Numbers (6-0)",
-        instruction: "Index se 6 aur 7, middle se 8, ring se 9, pinky se 0 dabayein.",
-        keys: ["6", "7", "8", "9", "0"],
-        sampleText: "j 6 j 7 k 8 l 9 ; 0 6 7 8 9 0 786 908 679",
-        targetWpm: 15,
-        minAccuracy: 85,
-        durationSec: 120,
-        xpReward: 25,
-        fingerZones: ['ri', 'rm', 'rr', 'rp'],
-        newKeys: ['6', '7', '8', '9', '0'],
-        drillType: 'letters',
-        psychTip: "Right hand numeric placement thoda high stretching demand karta hai, relax and stretch.",
-        warmupText: "6 7 8 9 0"
-      },
-      {
-        id: "l7-symbols",
-        title: "Common Symbols and Punctuation",
-        instruction: "Shift key ke sath aur bhi symbols type karein: colon (:), apostrophe ('), quotes (\"), underscore (_), plus (+), caret (^), asterisk (*).",
-        keys: ["-", "=", "?", "/", "!", ":", "'", "\"", "_", "+", "^", "*"],
-        sampleText: "name: 'India' + $100. 100%_pass? a^b*c. date: 01/01/2026!",
-        targetWpm: 18,
-        minAccuracy: 88,
-        durationSec: 150,
-        xpReward: 30,
-        fingerZones: ['rp', 'lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'thumb'],
-        newKeys: [':', "'", '"', '_', '+', '^', '*'],
-        drillType: 'sentences',
-        psychTip: "Colon (:) right pinky se Shift+semicolon dabayein. Apostrophe (') bina Shift ke right pinky. Underscore (_) Shift+minus.",
-        warmupText: "name: 'text' _under +plus"
-      },
-      {
-        id: "l7-ssc-symbols",
-        title: "SSC Special Format Exercises",
-        instruction: "SSC exams me aane wale date, currency, aur percentage formats ki practice karein.",
-        keys: ["%", "(", ")", "/", "@", "#", "$", "&"],
-        sampleText: "date: 24/06/2026, price: $45.00, tax: 18%, mail: info@ssc.in",
-        targetWpm: 20,
-        minAccuracy: 90,
-        durationSec: 180,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: ['%', '(', ')', '@', '#', '$', '&'],
-        drillType: 'sentences',
-        psychTip: "Special formats me keyboard par glance le sakte hain agar muscle memory weak lag rahi ho.",
-        warmupText: "date 24/06/2026 18%"
-      },
-      {
-        id: "l7-brackets",
-        title: "Brackets, Braces and Special Keys",
-        instruction: "Square brackets [], curly braces {}, backslash (\\), pipe (|), angle brackets <>, aur tilde (~) type karein.",
-        keys: ["[", "]", "{", "}", "\\", "|", "<", ">", "~"],
-        sampleText: "file [data] {name} path\\to\\file. a<b | c>d. ~tilde~ [nested {brackets}]",
-        targetWpm: 18,
-        minAccuracy: 88,
-        durationSec: 150,
-        xpReward: 35,
-        fingerZones: ['lp', 'rp', 'li', 'ri', 'rm', 'rr', 'thumb'],
-        newKeys: ['[', ']', '{', '}', '\\', '|', '<', '>', '~'],
-        drillType: 'sentences',
-        psychTip: "Square brackets left pinky se, curly braces Shift+dono se. Backslash (\\) right pinky ke upar, Shift se pipe (|).",
-        warmupText: "[data] {name} file\\path"
-      },
-      {
-        id: "l7-shift-uppercase",
-        title: "Shift Key and Uppercase Letters",
-        instruction: "Shift key daba kar uppercase letters (A-Z) type karein. Proper nouns, sentence starts, aur abbreviations me ye zaroori hai.",
-        keys: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
-        sampleText: "The Government of India Act was passed in 1935. Mr. Sharma and Dr. Patel attended the SSC CHSL Exam in New Delhi on Monday.",
-        targetWpm: 20,
-        minAccuracy: 88,
-        durationSec: 150,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
-        drillType: 'sentences',
-        psychTip: "Left Shift right-hand keys ke liye, Right Shift left-hand keys ke liye. Dono haath ka coordination zaroori hai — ek haath Shift dabaaye, dusra letter hit kare.",
-        warmupText: "The India Act SSC CHSL"
-      }
-    ]
-  },
+type LessonInput = Partial<Lesson> &
+  Pick<Lesson, 'id' | 'title' | 'instruction' | 'sampleText'>;
 
-  // ─── Level 8: Common Word Fluency ─────────────────────────────────────────
-  {
-    id: 8,
-    name: "Common Word Fluency",
-    subtitle: "Speed and bigram automaticity",
-    description: "English language ke top 200 high-frequency words aur essential bigrams/trigrams seekhein.",
-    icon: "Zap",
-    lessons: [
-      {
-        id: "l8-top-50",
-        title: "Top 50 English Words",
-        instruction: "Top 50 words ko bina soche automatic flow me type karein.",
-        keys: [],
-        sampleText: "the of to and a in is it you that he was for on are as with his they I",
-        targetWpm: 25,
-        minAccuracy: 92,
-        durationSec: 120,
-        xpReward: 30,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Chote words ko letter by letter padhne ke bajaye ek poore unit ke roop me type karein.",
-        warmupText: "the of to and a"
-      },
-      {
-        id: "l8-top-100",
-        title: "Top 100 English Words",
-        instruction: "Fluency badhane ke liye next tier high-frequency words type karein.",
-        keys: [],
-        sampleText: "at be this have from or one had by word but not what all were we when your can said",
-        targetWpm: 28,
-        minAccuracy: 94,
-        durationSec: 150,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "WPM target thoda high hai. Apne normal rhythm se thoda faster push karein.",
-        warmupText: "at be this have from"
-      },
-      {
-        id: "l8-bigrams",
-        title: "Bigram Muscle Focus",
-        instruction: "Common letter-pairs (th, he, in, er, an, re, on, at, en, es) par speed badhayein.",
-        keys: [],
-        sampleText: "that then there health here enter and clean trend other line when send standard",
-        targetWpm: 30,
-        minAccuracy: 94,
-        durationSec: 120,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'bigrams',
-        psychTip: "Bigrams physical combinations hain. Jab 'th' likhein to dono ungliyan lagatar act karni chahiye.",
-        warmupText: "th he in er an"
-      },
-      {
-        id: "l8-trigrams",
-        title: "Trigram Master Flow",
-        instruction: "Common letter-triplets (the, and, ing, ent, ion, her, for, tha) ki practice karein.",
-        keys: [],
-        sampleText: "there another standing standard client nation option other force that think interface",
-        targetWpm: 32,
-        minAccuracy: 94,
-        durationSec: 150,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'trigrams',
-        psychTip: "'ing' aur 'ion' jaise suffixes ke liye fingers ready positions me rakhein.",
-        warmupText: "the and ing ent ion"
-      }
-    ]
-  },
+function lesson(input: LessonInput): Lesson {
+  return {
+    keys: [],
+    targetWpm: 0,
+    minAccuracy: 90,
+    durationSec: 120,
+    xpReward: 20,
+    fingerZones: [],
+    newKeys: [],
+    drillType: 'words',
+    psychTip: '',
+    warmupText: '',
+    ...input,
+  };
+}
 
-  // ─── Level 9: SSC Vocabulary ──────────────────────────────────────────────
-  {
-    id: 9,
-    name: "SSC Vocabulary",
-    subtitle: "Official exam vocabulary",
-    description: "SSC typing tests (CGL, CHSL, Steno) me aksar aane wale sarkari aur administrative shabdon ki practice karein.",
-    icon: "Award",
-    lessons: [
-      {
-        id: "l9-official",
-        title: "Administrative Terminology",
-        instruction: "Government offices me use hone wale terms ko bina galti ke type karein.",
-        keys: [],
-        sampleText: "government department administration authority application document section circular notification register general",
-        targetWpm: 25,
-        minAccuracy: 95,
-        durationSec: 150,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "SSC exam me 95% accuracy mandatory hai, isliye speed se zyada focus zero-mistakes par karein.",
-        warmupText: "government department administration"
-      },
-      {
-        id: "l9-legal",
-        title: "Constitutional and Legal Words",
-        instruction: "Sambaadhadhik aur nyayik shabdon par haath tez karein.",
-        keys: [],
-        sampleText: "constitution parliament committee commission article schedule act regulation judicial court order judgment petitioner",
-        targetWpm: 28,
-        minAccuracy: 95,
-        durationSec: 150,
-        xpReward: 35,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Parliament aur constitution type karte samay capital letters (Shift) ka use carefully karein.",
-        warmupText: "constitution parliament committee"
-      },
-      {
-        id: "l9-finance",
-        title: "Financial and Budgetary Terms",
-        instruction: "Finance, audit aur accounts se related terms ki practice karein.",
-        keys: [],
-        sampleText: "finance budget revenue expenditure audit account transaction pension payment salary allowance treasury ledger",
-        targetWpm: 28,
-        minAccuracy: 95,
-        durationSec: 150,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Expenditure aur transaction long words hain, inko divide karke smooth rhythm me likhein.",
-        warmupText: "finance budget revenue audit"
-      },
-      {
-        id: "l9-combined-ssc",
-        title: "SSC Complex Paragraph Words",
-        instruction: "Official correspondences me use hone wale high-level vocabularies seekhein.",
-        keys: [],
-        sampleText: "implementation correspondence memorandum representations qualifications candidates appointments verification eligibility criteria instruction guidelines",
-        targetWpm: 30,
-        minAccuracy: 95,
-        durationSec: 180,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'words',
-        psychTip: "Bade shabdon me spelling mistake hone ke chances high hote hain. Patience se har key check karein.",
-        warmupText: "implementation candidates verification"
-      }
-    ]
-  },
+/* -------------------------------------------------------------------------- */
+/*  The curriculum                                                            */
+/* -------------------------------------------------------------------------- */
 
-  // ─── Level 10: Passage Endurance ──────────────────────────────────────────
+export const LEVELS: Level[] = [
+  /* ══════════════════════ STAGE 0 — SHURUAAT ══════════════════════════════ */
   {
-    id: 10,
-    name: "Passage Endurance",
-    subtitle: "Endurance and mental stamina",
-    description: "Apna focus aur endurance badhayein. Long passages bina thake aur bina focus loose kiye type karein.",
-    icon: "ShieldAlert",
+    id: 0,
+    stage: 0,
+    name: 'Bilkul Shuruaat',
+    subtitle: 'Kabhi keyboard nahi chhua? Yahan se shuru karein',
+    description:
+      'Baithne ka tareeka, haath ki position, aur home row. Yeh teen cheezein theek ho gayin to speed apne aap aayegi.',
+    icon: 'Monitor',
     lessons: [
-      {
-        id: "l10-p1",
-        title: "Medium Passage 1 — Governance",
-        instruction: "Sarkari governance se related passage type karein. Strict accuracy maintiain karein.",
-        keys: [],
-        sampleText: "The administration of the state is carried out through various departments. Each department is headed by an officer who ensures that the rules and regulations are followed. The circulars issued by the government must be registered and stored in the main office database for future reference.",
-        targetWpm: 28,
-        minAccuracy: 95,
-        durationSec: 180,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Endurance build karne ke liye elbows ko physical stress na dein, posture correct rakhein.",
-        warmupText: "The administration of the state"
-      },
-      {
-        id: "l10-p2",
-        title: "Medium Passage 2 — Public Service",
-        instruction: "Public service commission reports se related paragraph type karein.",
-        keys: [],
-        sampleText: "Candidates who qualify in the preliminary examinations are eligible to appear for the mains. The verification of documents is done at the local district centers. The commission has issued strict guidelines regarding the verification process to avoid any discrepancies or delay in appointment.",
-        targetWpm: 30,
-        minAccuracy: 95,
-        durationSec: 180,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Dheere-dheere aapki muscles paragraph read karke automatic key hits coordinate karne lagengi.",
-        warmupText: "Candidates who qualify"
-      },
-      {
-        id: "l10-p3",
-        title: "Long Passage 1 — India's Judiciary",
-        instruction: "Indian Judiciary system par ek lamba paragraph. Strict SSC accuracy targets.",
-        keys: [],
-        sampleText: "The Supreme Court of India is the highest judicial forum and final court of appeal under the Constitution. It consists of the Chief Justice and other judges appointed by the President. The High Courts are the principal civil courts of original jurisdiction in each state. The judicial system is responsible for protecting the fundamental rights of every citizen.",
-        targetWpm: 30,
-        minAccuracy: 95,
-        durationSec: 240,
-        xpReward: 50,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Bade passage me break mat lein. Apne breathing flow ko normalized rakhein.",
-        warmupText: "The Supreme Court of India"
-      },
-      {
-        id: "l10-p4",
-        title: "Long Passage 2 — Economic Development",
-        instruction: "Desh ke economic systems aur budgets par passage. Punctuation aur numerals mixed.",
-        keys: [],
-        sampleText: "The Union Budget is presented every year in the Parliament on the first day of February. It contains the estimates of government revenue and expenditure for the upcoming fiscal year. In 2026, the government focused heavily on infrastructure development, allocation of funds for rural employment schemes, and digitizing rural treasury systems.",
-        targetWpm: 32,
-        minAccuracy: 95,
-        durationSec: 240,
-        xpReward: 50,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Numeric figures (2026, first) type karte samay normal typing speed se scroll down na karein.",
-        warmupText: "The Union Budget is presented"
-      }
-    ]
-  },
-
-  // ─── Level 11: Speed Building ─────────────────────────────────────────────
-  {
-    id: 11,
-    name: "Speed Building",
-    subtitle: "Milestones and speed run challenges",
-    description: "Alag-alag milestones (30 WPM, 35 WPM, 40 WPM) ko target karke apni raw speed badhayein.",
-    icon: "Gauge",
-    lessons: [
-      {
-        id: "l11-s1",
-        title: "30 WPM Speed Challenge",
-        instruction: "Is lesson me WPM 30 cross karna zaroori hai. Simple but fast vocabulary.",
-        keys: [],
-        sampleText: "we should make sure that all the systems are working in a proper way to get the best result from our team.",
-        targetWpm: 30,
-        minAccuracy: 93,
+      lesson({
+        id: 's0-posture',
+        title: 'Baithne ka sahi tareeka',
+        instruction:
+          'Seedhe baithein. Kohni 90 degree par. Kalaai (wrist) table par tiki na ho — hawa mein rahe. Screen aankhon ke level par.',
+        rule: 'Galat posture 10 minute ke baad speed 20% tak gira deta hai. Yeh sabse sasta sudhaar hai.',
+        keys: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'],
+        sampleText: 'asdf jkl; asdf jkl; asdf jkl;',
+        warmupText: 'asdf jkl;',
         durationSec: 90,
-        xpReward: 40,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
+        minAccuracy: 70,
+        xpReward: 10,
+        drillType: 'letters',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        newKeys: ['a', 's', 'd', 'f', 'j', 'k', 'l', ';'],
+        psychTip:
+          'Har 20 minute par 20 second ke liye 20 feet door dekhein. Aankhein thakengi nahi.',
+      }),
+      lesson({
+        id: 's0-anchor',
+        title: 'F aur J — bina dekhe wapas aana',
+        instruction:
+          'F aur J par chhote ubhaar (bumps) hote hain. Index ungliyaan wahan rakhein. Aankh band karke bhi wapas wahin aana seekhein.',
+        rule:
+          'Exam mein keyboard dekhne ka waqt nahi milta. F aur J hi aapka anchor hain.',
+        keys: ['F', 'J'],
+        sampleText: 'ff jj ff jj fj fj jf jf ffjj jjff fj jf',
+        warmupText: 'ff jj',
+        durationSec: 90,
+        minAccuracy: 80,
+        xpReward: 10,
+        drillType: 'letters',
+        fingerZones: ['li', 'ri'],
         newKeys: [],
-        drillType: 'passage',
-        psychTip: "Pehle 10-15 seconds accuracy high rakhein. Jab flow ban jaye to fingers ko slip hone dein.",
-        warmupText: "we should make sure that"
-      },
-      {
-        id: "l11-s2",
-        title: "35 WPM SSC CHSL Target",
-        instruction: "SSC CHSL qualifying speed target (35 WPM). Accuracy target: 95%.",
-        keys: [],
-        sampleText: "The department had issued a new circular containing instructions regarding the appointments of qualified candidates for this project.",
-        targetWpm: 35,
-        minAccuracy: 95,
-        durationSec: 100,
-        xpReward: 45,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Ye target clear karne par aap SSC CHSL typing pass kar sakte hain! Focus 100%!",
-        warmupText: "The department had issued"
-      },
-      {
-        id: "l11-s3",
-        title: "40 WPM CGL Buffer Challenge",
-        instruction: "SSC CGL me pass hone ke liye 35+ high speed buffer ki zaroorat hoti hai. 40 WPM achieve karein.",
-        keys: [],
-        sampleText: "The central committee has recommended standard updates in the verification protocols to ensure complete transparency across all judicial audits.",
-        targetWpm: 40,
-        minAccuracy: 95,
+        psychTip:
+          'Ungli key par rakhein, dabayein nahi. Halka sa touch — muscle memory isi se banti hai.',
+      }),
+      lesson({
+        id: 's0-home',
+        title: 'Home row — aath ungliyaan',
+        instruction:
+          'Baayan haath A S D F par, daayan haath J K L ; par. Angootha (thumb) spacebar par. Keyboard neeche mat dekhein.',
+        keys: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'],
+        sampleText:
+          'as df jk l; sad lad fad ask lass fall half glass sash flask',
+        warmupText: 'asdf jkl; asdf jkl;',
         durationSec: 120,
-        xpReward: 50,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "40 WPM lane ke liye spacebar aur next key ke beech ka delay zero hona chahiye.",
-        warmupText: "The central committee has recommended"
-      },
-      {
-        id: "l11-s4",
-        title: "45 WPM Elite Speed Master",
-        instruction: "High level speed run. 45 WPM reach karein aur master certificate unlock karein.",
-        keys: [],
-        sampleText: "It is essential to understand the basic requirements of the official examination system to prepare effectively and achieve maximum speed without losing accuracy.",
-        targetWpm: 45,
-        minAccuracy: 96,
-        durationSec: 120,
-        xpReward: 60,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'passage',
-        psychTip: "Apne fingers ko lightweight feel karayein. Keyboard hits bilkul smooth taps hone chahiye.",
-        warmupText: "It is essential to understand"
-      }
-    ]
+        minAccuracy: 85,
+        targetWpm: 10,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        newKeys: ['g', 'h'],
+        psychTip:
+          'Speed abhi bilkul mat sochein. Sirf sahi ungli, sahi key. Speed baad mein free mein milegi.',
+      }),
+    ],
   },
 
-  // ─── Level 12: Exam Simulation ────────────────────────────────────────────
+  /* ══════════════════════ STAGE 1 — KEYBOARD ══════════════════════════════ */
   {
-    id: 12,
-    name: "Exam Simulation",
-    subtitle: "Real SSC Mock Tests",
-    description: "Pure CGL/CHSL pattern par full-length mock tests type karein. Strict SSC calculations applicable.",
-    icon: "FileText",
+    id: 1,
+    stage: 1,
+    name: 'Sabse Zaroori Akshar',
+    subtitle: 'E T A O I N — aadhi English inhi se banti hai',
+    description:
+      'Row ke hisaab se nahi, istemal ke hisaab se. In chhe akshar ke baad aap asli shabd type kar payenge.',
+    icon: 'Zap',
     lessons: [
-      {
-        id: "l12-m1",
-        title: "SSC CGL Mock Test 1",
-        instruction: "SSC CGL strict mock test. Net Speed target 35 WPM, Max mistakes 5%.",
-        keys: [],
-        sampleText: "The Constitution of India is the supreme law of the land. It lays down the framework that defines the fundamental political principles, structures, procedures, powers, and duties of government institutions. It also sets out the fundamental rights, directive principles, and duties of citizens. It is the longest written constitution of any country. The drafting committee was headed by Dr. B. R. Ambedkar, who is widely regarded as the chief architect of the Indian Constitution. The document was approved on twenty-six November nineteen forty-nine and came into force on twenty-six January nineteen fifty, making India a republic.",
-        targetWpm: 35,
+      lesson({
+        id: 's1-e-t',
+        title: 'E aur T',
+        instruction:
+          'E aur T English ke sabse zyada istemal hone wale akshar hain. Baayein haath ki middle aur index ungli upar jaati hai — home row par turant wapas.',
+        keys: ['e', 't'],
+        newKeys: ['e', 't'],
+        sampleText:
+          'ee tt et te teet tea eat ate the set let get feet tell tale state',
+        warmupText: 'ee tt et te',
+        durationSec: 120,
+        minAccuracy: 88,
+        targetWpm: 12,
+        drillType: 'letters',
+        fingerZones: ['lm', 'li'],
+        psychTip:
+          'Ungli upar jaakar wapas home row par aani chahiye. Wahan tik mat jaayein.',
+      }),
+      lesson({
+        id: 's1-a-o-i-n',
+        title: 'O, I aur N',
+        instruction:
+          'Daayan haath ab kaam karega. O aur I upar, N neeche. E T A ke saath milakar aadhi English tayyar.',
+        keys: ['o', 'i', 'n'],
+        newKeys: ['o', 'i', 'n'],
+        sampleText:
+          'on in no not one ten tin ion note into lion lost line loan intent nation',
+        warmupText: 'oo ii nn on in no',
+        durationSec: 120,
+        minAccuracy: 88,
+        targetWpm: 14,
+        drillType: 'words',
+        fingerZones: ['rr', 'rm', 'ri'],
+        psychTip:
+          'Ab aap asli shabd type kar rahe hain. Yeh 12 lesson baad nahi, abhi ho raha hai.',
+      }),
+      lesson({
+        id: 's1-r-s-h',
+        title: 'R, S aur H',
+        instruction:
+          'R baayein index ki reach hai, S home row par, H daayein index ki inward reach.',
+        keys: ['r', 's', 'h'],
+        newKeys: ['r'],
+        sampleText:
+          'her his has she the this that there their share short north earth honest',
+        warmupText: 'rr ss hh her his has',
+        durationSec: 120,
+        minAccuracy: 88,
+        targetWpm: 16,
+        drillType: 'words',
+        fingerZones: ['li', 'lr', 'ri'],
+        psychTip:
+          '"the", "this", "that", "there" — SSC passage mein yeh shabd sabse zyada aate hain.',
+      }),
+      lesson({
+        id: 's1-l-d-c-u',
+        title: 'L, D, C aur U',
+        instruction:
+          'C neeche ki taraf middle ungli se, U daayein index ki upar reach.',
+        keys: ['l', 'd', 'c', 'u'],
+        newKeys: ['c', 'u'],
+        sampleText:
+          'could should would include conduct district council culture educate current',
+        warmupText: 'cc uu dd ll cud clue',
+        durationSec: 150,
+        minAccuracy: 88,
+        targetWpm: 18,
+        drillType: 'words',
+        fingerZones: ['lm', 'ri', 'rr'],
+        psychTip:
+          'C ke liye ungli andar aur neeche mudti hai. Poora haath mat hilayein.',
+      }),
+      lesson({
+        id: 's1-m-p-g-w',
+        title: 'M, P, G aur W',
+        instruction:
+          'W baayein ring ungli upar, P daayein chhoti ungli (pinky) upar — yeh sabse mushkil reach hai.',
+        keys: ['m', 'p', 'g', 'w'],
+        newKeys: ['m', 'p', 'w'],
+        sampleText:
+          'programme employment government management improve support power group we',
+        warmupText: 'mm pp gg ww map pug',
+        durationSec: 150,
+        minAccuracy: 87,
+        targetWpm: 20,
+        drillType: 'words',
+        fingerZones: ['rm', 'rp', 'li', 'lr'],
+        psychTip:
+          'Pinky se P dabate waqt poora haath mat ghumayein. Sirf ungli badhayein.',
+      }),
+      lesson({
+        id: 's1-y-b-v-k',
+        title: 'Y, B, V aur K',
+        instruction:
+          'B aur Y dono index ungli ki lambi reach hain — inhi par log sabse zyada galti karte hain.',
+        keys: ['y', 'b', 'v', 'k'],
+        newKeys: ['y', 'b', 'v'],
+        sampleText:
+          'by very body every may your they above believe available develop budget',
+        warmupText: 'yy bb vv kk buy vary',
+        durationSec: 150,
+        minAccuracy: 87,
+        targetWpm: 20,
+        drillType: 'words',
+        fingerZones: ['ri', 'li', 'lm', 'rm'],
+        psychTip:
+          'B ke liye baayan index andar aur neeche jaata hai. Daayein haath se B mat dabayein.',
+      }),
+      lesson({
+        id: 's1-f-j-x-q-z',
+        title: 'X, Q, J aur Z — akhri paanch',
+        instruction:
+          'Yeh sabse kam istemal hote hain, par exam ke passage mein aa sakte hain. Chhod diye to poori mistake.',
+        keys: ['x', 'q', 'j', 'z'],
+        newKeys: ['x', 'q', 'z'],
+        sampleText:
+          'tax quality equal require export index adjust major project zone size quota',
+        warmupText: 'xx qq jj zz tax zoo',
+        durationSec: 150,
+        minAccuracy: 87,
+        targetWpm: 20,
+        drillType: 'words',
+        fingerZones: ['lr', 'lp', 'ri', 'lp'],
+        psychTip:
+          'Q aur Z pinky se. Pinky kamzor hoti hai — isliye inhe alag se practise karna padta hai.',
+      }),
+      lesson({
+        id: 's1-shift',
+        title: 'Shift — capital akshar',
+        instruction:
+          'Ulte haath ka Shift dabayein. Baayan akshar chahiye to daayan Shift, daayan akshar chahiye to baayan Shift.',
+        rule:
+          'Galat capital ya chhota akshar = AADHI mistake (0.5). Hindi mein yeh laagu nahi hota.',
+        keys: ['Shift'],
+        newKeys: ['Shift'],
+        sampleText:
+          'India Delhi Parliament Supreme Court Reserve Bank of India Ministry of Finance',
+        warmupText: 'Aa Bb Cc Dd Ee',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 22,
+        drillType: 'words',
+        fingerZones: ['lp', 'rp'],
+        psychTip:
+          'Ek hi haath se Shift aur akshar dono dabana speed todta hai. Ulta haath istemal karein.',
+      }),
+      lesson({
+        id: 's1-numbers',
+        title: 'Number row — 0 se 9',
+        instruction:
+          'Numbers ke liye ungli home row se seedhi upar jaati hai. Bina dekhe. Yeh mushkil hai — dheere shuru karein.',
+        rule:
+          'Passage ka koi bhi ank (figure) chhod dena POORI mistake hai (1). Numbers sabse mehngi galti hain.',
+        keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+        newKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+        sampleText:
+          '2026 1947 15 minutes 8000 key depressions 35 wpm 10500 per hour 7% 20%',
+        warmupText: '12345 67890',
+        durationSec: 180,
+        minAccuracy: 92,
+        targetWpm: 20,
+        drillType: 'letters',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Number type karte waqt log neeche dekh lete hain. Wahin se place kho jaati hai.',
+      }),
+      lesson({
+        id: 's1-punctuation-keys',
+        title: 'Chinh (punctuation) keys',
+        instruction:
+          'Comma, full stop, semicolon, hyphen, brackets aur inverted commas. Sab pinky aur ring ungli se.',
+        rule:
+          'Chinh chhootna, extra lagana ya galat lagana = AADHI mistake (0.5) har baar.',
+        keys: [',', '.', ';', ':', '-', '(', ')', "'", '"', '?'],
+        newKeys: [',', '.', ';', ':', '-', '(', ')', '?'],
+        sampleText:
+          'the Act, 1950; sub-section (2) of section 4: "law and order" — is it clear?',
+        warmupText: ', . ; : - ( ) ?',
+        durationSec: 180,
+        minAccuracy: 90,
+        targetWpm: 22,
+        drillType: 'sentences',
+        fingerZones: ['rm', 'rr', 'rp'],
+        psychTip:
+          'Legal aur government passage chinh se bhare hote hain. Yahi sabse zyada aadhi mistake deta hai.',
+      }),
+    ],
+  },
+
+  /* ══════════════════════ STAGE 2 — FLUENCY ═══════════════════════════════ */
+  {
+    id: 2,
+    stage: 2,
+    name: 'Rawaani',
+    subtitle: 'Shabd aur jodiyaan jo baar baar aati hain',
+    description:
+      'Ab akshar nahi, poore shabd ek jhatke mein. SSC passage ke 60% shabd inhi 200 mein se hote hain.',
+    icon: 'Waves',
+    lessons: [
+      lesson({
+        id: 's2-top100',
+        title: 'Top 100 shabd',
+        instruction:
+          'Yeh 100 shabd har passage mein aate hain. Inhe sochna nahi padna chahiye — ungliyaan apne aap chalein.',
+        sampleText:
+          'the of and to in a is that it for was as with be by on not he this are but from or have an they which one you were all we there her she him has been would their said each',
+        warmupText: 'the of and to in',
+        durationSec: 180,
+        minAccuracy: 93,
+        targetWpm: 25,
+        xpReward: 25,
+        drillType: 'words',
+        psychTip:
+          'In shabdon par sochna band karein. Jaise apna naam likhte hain — bina soche.',
+      }),
+      lesson({
+        id: 's2-bigrams',
+        title: 'Do-akshar jodiyaan',
+        instruction:
+          'th, he, in, er, an, re, on, at, en, nd — yeh jodiyaan ek hi movement mein aani chahiye.',
+        sampleText:
+          'th he in er an re on at en nd ti es or te of ed is it al ar st to nt ng se ha as ou io',
+        warmupText: 'th he in er an',
+        durationSec: 150,
+        minAccuracy: 92,
+        targetWpm: 28,
+        drillType: 'bigrams',
+        psychTip:
+          'Jodi ko ek unit maanein, do alag key nahi. Yahi se 30+ WPM aati hai.',
+      }),
+      lesson({
+        id: 's2-govt-vocab',
+        title: 'Sarkari shabdavali',
+        instruction:
+          'Governance, economy aur policy ke shabd — SSC passage inhi se bhare hote hain.',
+        sampleText:
+          'government development implementation administration commission department policy scheme beneficiary infrastructure sustainable employment agriculture education healthcare',
+        warmupText: 'government policy scheme',
+        durationSec: 180,
+        minAccuracy: 92,
+        targetWpm: 28,
+        xpReward: 25,
+        drillType: 'words',
+        psychTip:
+          'Lambe shabd dar lagte hain par unme rhythm hota hai. Tukdon mein todein: im-ple-men-ta-tion.',
+      }),
+      lesson({
+        id: 's2-legal-vocab',
+        title: 'Kanooni aur samvaidhanik shabd',
+        instruction:
+          'Constitution, judiciary aur legal terms — CGL ke passage mein aksar aate hain.',
+        sampleText:
+          'constitution judiciary legislature jurisdiction amendment fundamental provisions tribunal petitioner respondent ordinance parliamentary sovereignty',
+        warmupText: 'constitution judiciary',
+        durationSec: 180,
+        minAccuracy: 92,
+        targetWpm: 28,
+        xpReward: 25,
+        drillType: 'words',
+        psychTip:
+          'Yeh shabd spelling mistake ke liye khatarnak hain — aur spelling POORI mistake hai.',
+      }),
+      lesson({
+        id: 's2-sentences',
+        title: 'Poore vaakya',
+        instruction:
+          'Ab poore vaakya. Capital akshar, comma aur full stop sab dhyaan se.',
+        sampleText:
+          'The Government of India launched the scheme in 2015. It aims to provide affordable housing to all citizens by the year 2026. The Ministry has allocated funds for this purpose.',
+        warmupText: 'The Government of India',
+        durationSec: 180,
+        minAccuracy: 93,
+        targetWpm: 30,
+        xpReward: 30,
+        drillType: 'sentences',
+        psychTip:
+          'Vaakya ke aakhir mein full stop, phir EK space. Do space aadhi mistake hai.',
+      }),
+    ],
+  },
+
+  /* ══════════════════════ STAGE 3 — MISTAKE MECHANICS ═════════════════════ */
+  {
+    id: 3,
+    stage: 3,
+    name: 'Galti Ki Mechanics',
+    subtitle: 'Jo galtiyaan aapko pata hi nahi ki galti hain',
+    description:
+      'Speed theek hone ke baad bhi log fail hote hain — half mistakes ki wajah se. Yeh stage sirf yahan hai. Kisi aur platform par nahi milega.',
+    icon: 'Target',
+    lessons: [
+      lesson({
+        id: 's3-capitals',
+        title: 'Capital akshar',
+        focus: 'capitalisation',
+        instruction:
+          'Har proper noun, har vaakya ka pehla akshar. Passage mein jaisa hai bilkul waisa.',
+        rule:
+          'Chhote ki jagah capital ya capital ki jagah chhota = AADHI mistake (0.5). Hindi mein laagu nahi.',
+        trap:
+          'Is drill mein 14 capital akshar hain. Log aam taur par 3-4 chhod dete hain — beech ke shabdon mein.',
+        sampleText:
+          'The Reserve Bank of India, in consultation with the Ministry of Finance, issued the Master Circular on Priority Sector Lending in New Delhi on Monday.',
+        warmupText: 'The Reserve Bank of India',
+        durationSec: 150,
+        minAccuracy: 96,
+        targetWpm: 28,
+        xpReward: 35,
+        drillType: 'sentences',
+        psychTip:
+          'Speed badhte hi Shift chhoot jaata hai. Yahan speed se zyada capital par dhyaan dein.',
+      }),
+      lesson({
+        id: 's3-punctuation',
+        title: 'Chinh — comma, full stop, semicolon',
+        focus: 'punctuation',
+        instruction:
+          'Har chinh wahi, waisa hi. Ek bhi chhoota ya extra laga to aadhi mistake.',
+        rule:
+          'Chinh chhootna, extra lagana ya galat jagah lagana = AADHI mistake (0.5) har baar.',
+        trap:
+          'Is vaakya mein 19 chinh hain, semicolon aur colon sameth. Semicolon sabse zyada chhootta hai.',
+        sampleText:
+          'Under section 3(1), the following persons are eligible: officers of Group "A"; employees with five years\' service; and, subject to approval, contractual staff — provided they apply before 31.03.2026.',
+        warmupText: ', . ; : ( ) " \' -',
+        durationSec: 180,
+        minAccuracy: 96,
+        targetWpm: 26,
+        xpReward: 35,
+        drillType: 'sentences',
+        psychTip:
+          'Chinh par ungli slow ho jaati hai — theek hai. Ek chhoota chinh ek aadhi mistake hai.',
+      }),
+      lesson({
+        id: 's3-spacing',
+        title: 'Space — ek, hamesha ek',
+        focus: 'spacing',
+        instruction:
+          'Har shabd ke beech thik ek space. Chinh ke baad bhi ek. Shabd ke beech mein space bilkul nahi.',
+        rule:
+          'Shabdon ke beech space na hona ("Ihope"), ya shabd ke andar extra space ("I h ave") = AADHI mistake.',
+        trap:
+          'Full stop ke baad do space dabana sabse aam aadat hai — typewriter zamane se. Yahan har baar aadhi mistake.',
+        sampleText:
+          'He said that the policy would be reviewed. The committee met on Tuesday. It submitted its report. The Ministry accepted the recommendations. Work began immediately.',
+        warmupText: 'one two three four',
+        durationSec: 150,
+        minAccuracy: 97,
+        targetWpm: 30,
+        xpReward: 35,
+        drillType: 'sentences',
+        psychTip:
+          'Angootha ek baar. Purani typing class mein do space sikhaya jaata tha — SSC mein wo galat hai.',
+      }),
+      lesson({
+        id: 's3-figures',
+        title: 'Ank aur aankde',
+        focus: 'figures',
+        instruction:
+          'Har number, har percentage, har taareekh bilkul waisi. Ek ank chhoota to poori mistake.',
+        rule:
+          'Koi bhi shabd, ank ya aankda chhod dena = POORI mistake (1). Yeh sabse mehngi galti hai.',
+        trap:
+          'Is passage mein 16 alag ank hain. Number type karte waqt log keyboard dekh lete hain aur agla shabd chhod dete hain.',
+        sampleText:
+          'The budget for 2025-26 allocated Rs. 1,48,000 crore, an increase of 12.5% over the revised estimate of Rs. 1,31,500 crore for 2024-25, covering 28 States and 8 Union Territories.',
+        warmupText: '2026 12.5% 1,48,000',
+        durationSec: 180,
+        minAccuracy: 97,
+        targetWpm: 24,
+        xpReward: 40,
+        drillType: 'sentences',
+        psychTip:
+          'Number aate hi speed 30% girayein. Ek ank ki galti poori mistake hai — risk mat lein.',
+      }),
+      lesson({
+        id: 's3-paragraph',
+        title: 'Paragraph — Tab, space nahi',
+        focus: 'paragraph',
+        instruction:
+          'Naya paragraph shuru karte waqt Tab key dabayein. Space bar se indent karna galat hai.',
+        rule:
+          'Paragraph ke shuru mein Tab ki jagah manual space = AADHI mistake.',
+        trap:
+          'Is drill mein teen paragraph hain. Har ek Tab se shuru hona chahiye.',
+        sampleText:
+          'The scheme was launched to support small farmers.\n\tIt provides direct income support to eligible beneficiaries.\n\tThe amount is transferred in three equal instalments every year.',
+        warmupText: 'Tab dabayein, phir likhein',
+        durationSec: 150,
         minAccuracy: 95,
+        targetWpm: 26,
+        xpReward: 35,
+        drillType: 'passage',
+        psychTip:
+          'Tab ek baar. Chaar space nahi. Yeh chhoti baat har paragraph par aadhi mistake bachati hai.',
+      }),
+      lesson({
+        id: 's3-transposition',
+        title: 'Shabdon ka kram',
+        focus: 'transposition',
+        instruction:
+          'Shabd usi kram mein jis kram mein passage mein hain. Aage-peeche karna bhi galti hai.',
+        rule:
+          'Shabdon ka kram badalna ("hope I" jagah "I hope") = AADHI mistake.',
+        trap:
+          'Jab aap aage padhte hain aur peeche type karte hain, dimaag shabd swap kar deta hai. Yahan wahi hota hai.',
+        sampleText:
+          'It is hereby notified that the said order shall come into force with effect from the date on which it is published in the Official Gazette of India.',
+        warmupText: 'It is hereby notified',
+        durationSec: 150,
+        minAccuracy: 96,
+        targetWpm: 28,
+        xpReward: 35,
+        drillType: 'sentences',
+        psychTip:
+          'Ek-do shabd aage padhein, us se zyada nahi. Zyada aage padhoge to kram gadbada jaayega.',
+      }),
+      lesson({
+        id: 's3-spelling',
+        title: 'Spelling — poori mistake',
+        focus: 'spelling',
+        instruction:
+          'Lambe sarkari shabd sahi spelling ke saath. Ek akshar galat, poori mistake.',
+        rule:
+          'Spelling ki galti (akshar dohrana, chhodna ya badalna) = POORI mistake (1), aadhi nahi.',
+        trap:
+          '"accommodation", "recommendation", "committee" — double letters wale shabd sabse zyada galat hote hain.',
+        sampleText:
+          'The committee recommended immediate accommodation for the personnel. The recommendation was accepted and the necessary arrangements were made accordingly.',
+        warmupText: 'committee recommendation accommodation',
+        durationSec: 150,
+        minAccuracy: 97,
+        targetWpm: 26,
+        xpReward: 40,
+        drillType: 'words',
+        psychTip:
+          'Double letter wale shabd dheere type karein. Spelling aadhi nahi, POORI mistake hai.',
+      }),
+      lesson({
+        id: 's3-gauntlet',
+        title: 'Half-mistake gauntlet',
+        focus: 'omission',
+        instruction:
+          'Is passage mein har tarah ka jaal hai — capital, chinh, space, ank, paragraph, kram. Sab ek saath.',
+        rule:
+          'Kul galti = poori mistakes + (aadhi mistakes ÷ 2). Error % = (kul galti ÷ key depressions) × 100.',
+        trap:
+          'Yahan ek saath sab kuch hai. Pehli baar mein 95% se upar aana mushkil hai — yahi asli exam hai.',
+        sampleText:
+          'The Union Cabinet, chaired by the Prime Minister, approved the proposal on 14.02.2026.\n\tUnder the revised scheme, Rs. 2,340 crore will be released in two instalments; the first instalment (60%) is due by 30th June, and the balance thereafter.\n\tState Governments must submit utilisation certificates within 90 days, failing which further releases shall be withheld.',
+        warmupText: 'The Union Cabinet approved',
+        durationSec: 240,
+        minAccuracy: 95,
+        targetWpm: 28,
+        xpReward: 60,
+        drillType: 'passage',
+        psychTip:
+          'Yeh lesson jaan bujh kar mushkil hai. Yahan ki har galti exam mein bachi hui mistake hai.',
+      }),
+    ],
+  },
+
+  /* ══════════════════════ STAGE 4 — EXAM CONDITIONS ═══════════════════════ */
+  {
+    id: 4,
+    stage: 4,
+    name: 'Exam Jaisi Halat',
+    subtitle: 'Jo cheezein asli exam cheen leta hai',
+    description:
+      'Asli TCS-iON interface mein word highlight nahi hota, auto-scroll nahi hota. Yeh stage wahi haalat banata hai.',
+    icon: 'ShieldAlert',
+    lessons: [
+      lesson({
+        id: 's4-no-highlight',
+        title: 'Bina highlight ke — apni jagah khud yaad rakhein',
+        instruction:
+          'Ab passage mein aapka current shabd highlight nahi hoga. Asli exam mein bhi nahi hota.',
+        rule:
+          'Asli interface mein na word highlight hai, na error highlight, na auto-scroll. Jagah aapko khud yaad rakhni hai.',
+        hidePositionHighlight: true,
+        sampleText:
+          'Digital governance has changed the way citizens interact with the administration. Services that once required a visit to a government office are now available online. This shift has reduced both cost and delay for the common citizen.',
+        warmupText: 'Digital governance has changed',
+        durationSec: 180,
+        minAccuracy: 94,
+        targetWpm: 30,
+        xpReward: 40,
+        drillType: 'passage',
+        psychTip:
+          'Ungli screen par mat rakhein. Aankh se line pakadna seekhein — exam mein yahi kaam aayega.',
+      }),
+      lesson({
+        id: 's4-no-backspace',
+        title: 'Bina backspace ke',
+        instruction:
+          'Backspace band hai. Jo type ho gaya, ho gaya. Pehli baar mein sahi likhna hi ekmatra rasta hai.',
+        rule:
+          'Kuch exam interface mein backspace band hota hai. Aur jahan chaalu hai, wahan bhi har correction waqt kha jaata hai.',
+        noBackspace: true,
+        hidePositionHighlight: true,
+        sampleText:
+          'The National Education Policy seeks to make learning more flexible and multidisciplinary. It emphasises critical thinking over rote memorisation and gives students greater choice in subjects.',
+        warmupText: 'The National Education Policy',
+        durationSec: 180,
+        minAccuracy: 93,
+        targetWpm: 28,
+        xpReward: 45,
+        drillType: 'passage',
+        psychTip:
+          'Galti ho jaaye to ruko mat. Aage badho. Ek galti do ban jaati hai jab aap ghabra jaate ho.',
+      }),
+      lesson({
+        id: 's4-endurance-5',
+        title: 'Sahansheelta — 5 minute',
+        instruction:
+          'Paanch minute lagatar. Speed nahi, sthirta (consistency) dekhi jaayegi.',
+        rule:
+          'Log pehle 2 minute tez chalte hain aur baaki mein girte hain. Exam 10-15 minute ka hai.',
+        hidePositionHighlight: true,
+        sampleText:
+          'India has made significant progress in expanding access to healthcare over the past decade. The Ayushman Bharat scheme provides health cover to crores of families across the country. Primary health centres have been upgraded, and the number of medical colleges has increased substantially. Despite this progress, challenges remain in rural areas where the shortage of trained personnel continues to affect service delivery. Sustained investment in medical education and public health infrastructure will be necessary to address these gaps in the coming years.',
+        warmupText: 'India has made significant progress',
         durationSec: 300,
+        minAccuracy: 94,
+        targetWpm: 30,
+        xpReward: 50,
+        drillType: 'passage',
+        psychTip:
+          'Shuru mein tez mat bhagein. Ek hi raftaar rakhein — jeet aakhri teen minute mein hoti hai.',
+      }),
+      lesson({
+        id: 's4-endurance-10',
+        title: 'Sahansheelta — 10 minute (CHSL ki poori lambai)',
+        instruction:
+          'Poore das minute. Yeh CHSL typing test ki asli lambai hai.',
+        rule:
+          'CHSL Typing Test: 10 minute, 35 WPM English ya 30 WPM Hindi.',
+        hidePositionHighlight: true,
+        sampleText:
+          'The Constitution of India is the longest written constitution of any sovereign country in the world. It lays down the framework defining fundamental political principles, establishes the structure, procedures, powers and duties of government institutions, and sets out fundamental rights, directive principles and the duties of citizens. It was adopted by the Constituent Assembly on 26 November 1949 and came into effect on 26 January 1950. The document declares India a sovereign, socialist, secular and democratic republic, assuring its citizens justice, equality and liberty. Over the decades it has been amended more than a hundred times to meet the changing needs of a growing nation, yet its basic structure has been held by the Supreme Court to be beyond the amending power of Parliament. This doctrine, established in a landmark judgment, remains one of the most significant contributions of the Indian judiciary to constitutional law.',
+        warmupText: 'The Constitution of India',
+        durationSec: 600,
+        minAccuracy: 93,
+        targetWpm: 32,
         xpReward: 80,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'exam',
-        psychTip: "Real exam environment target! Ek corner me timer tick ho raha hoga, calmly focus karein.",
-        warmupText: "The Constitution of India is the supreme"
-      },
-      {
-        id: "l12-m2",
-        title: "SSC CHSL Mock Test 2",
-        instruction: "CHSL replica mock. Special characters aur punctuation density zyada hai.",
-        keys: [],
-        sampleText: "The Reserve Bank of India (RBI) is India's central bank and regulatory body responsible for regulation of the Indian banking system. It is under the ownership of the Ministry of Finance. It commenced operations on one April nineteen thirty-five under the RBI Act, 1934. The bank controls the monetary policy of the Indian rupee. In its latest credit policy review, the RBI maintained the repo rate at six percent to keep inflation within the target band. The committee noted that while global growth remains sluggish, domestic economic activity is showing resilience, supported by public investment and robust consumer demand in urban areas.",
+        drillType: 'passage',
+        psychTip:
+          'Saatvein minute mein dimaag bhatakta hai. Us waqt saans lein aur raftaar pakde rakhein.',
+      }),
+      lesson({
+        id: 's4-recovery',
+        title: 'Galti ke baad sambhalna',
+        instruction:
+          'Is passage mein mushkil shabd jaan bujh kar rakhe hain. Maqsad hai — galti ke baad rukna nahi.',
+        rule:
+          'Ek galti par ghabrakar rukna aam taur par 3-4 aur galtiyaan paida karta hai.',
+        noBackspace: true,
+        hidePositionHighlight: true,
+        sampleText:
+          'The Comptroller and Auditor-General submitted its report on the implementation of the centrally sponsored scheme, highlighting irregularities in the utilisation of Rs. 4,72,000 crore across 17 States during 2023-24.',
+        warmupText: 'Comptroller and Auditor-General',
+        durationSec: 180,
+        minAccuracy: 92,
+        targetWpm: 28,
+        xpReward: 45,
+        drillType: 'passage',
+        psychTip:
+          'Galti hui? Aage badho. Peeche mat dekho. Exam mein ek mistake se test nahi jaata — ghabrahat se jaata hai.',
+      }),
+    ],
+  },
+
+  /* ══════════════════════ STAGE 5 — YOUR POST ═════════════════════════════ */
+  {
+    id: 5,
+    stage: 5,
+    name: 'Aapki Post',
+    subtitle: 'Apne asli bar par mock test',
+    description:
+      'Har post ka alag speed aur alag error cap hai. Yahan aapki hi post ke hisaab se jaanch hoti hai.',
+    icon: 'Award',
+    lessons: [
+      lesson({
+        id: 's5-mock-ldc',
+        title: 'LDC / JSA mock — 35 WPM, 7% cap',
+        instruction:
+          'Poora 10 minute ka CHSL Typing Test. UR ke liye 7% se kam error chahiye.',
+        rule: 'LDC/JSA: 35 WPM English, 10 minute. Error cap 7% (UR), 10% (OBC/EWS/SC/ST).',
+        hidePositionHighlight: true,
+        sampleText:
+          'Financial inclusion has been a central objective of economic policy in India. The opening of bank accounts for previously unbanked households has brought millions of citizens into the formal financial system. Direct benefit transfers now reach beneficiaries without intermediaries, reducing leakage and delay. Digital payment systems have grown rapidly, with transactions rising every year. Small merchants in towns and villages now accept payments electronically, a change that would have seemed unlikely a decade ago. The next challenge is to convert access into meaningful usage, ensuring that account holders also gain access to credit, insurance and pension products suited to their needs.',
+        warmupText: 'Financial inclusion has been',
+        durationSec: 600,
+        minAccuracy: 93,
         targetWpm: 35,
-        minAccuracy: 95,
-        durationSec: 300,
-        xpReward: 80,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
-        drillType: 'exam',
-        psychTip: "Numbers (1934, 1935, six) aur brackets type karte samay special concentration rakhein.",
-        warmupText: "The Reserve Bank of India"
-      },
-      {
-        id: "l12-m3",
-        title: "SSC CGL Mock Test 3 (Premium Passage)",
-        instruction: "Previous Year Question (PYQ) based mock test. Strict evaluation.",
-        keys: [],
-        sampleText: "India's digital public infrastructure, commonly known as the India Stack, has revolutionized the country's financial landscape. It includes Aadhaar for identity verification, United Payments Interface (UPI) for instant payments, and DigiLocker for digital storage of documents. These systems have enabled the government to transfer welfare benefits directly to citizens' bank accounts, eliminating leakages and reducing administrative costs. In the fiscal year 2025-26, digital transactions accounted for over eighty percent of all retail payments, marking a significant milestone in India's journey towards a digital and cashless economy.",
-        targetWpm: 35,
-        minAccuracy: 95,
-        durationSec: 300,
         xpReward: 100,
-        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp', 'thumb'],
-        newKeys: [],
         drillType: 'exam',
-        psychTip: "Aadhaar, DigiLocker, UPI jaise proper names me capitalization and spellings check karke hi enter karein.",
-        warmupText: "India's digital public infrastructure"
-      }
-    ]
-  }
+        psychTip:
+          'Yeh asli lambai aur asli bar hai. Yahan pass ho gaye to exam mein bhi honge.',
+      }),
+      lesson({
+        id: 's5-mock-dest',
+        title: 'DEST mock — 8,000 KDPH, 15 minute',
+        instruction:
+          'Poora 15 minute ka DEST. Lagbhag 2,000 key depressions sahi type karne hain.',
+        rule:
+          'DEST: 8,000 key depressions per hour, 15 minute, 2000-2200 KD ka passage. English only.',
+        hidePositionHighlight: true,
+        sampleText:
+          'Urbanisation in India is proceeding at a pace that will reshape the country over the coming decades. Cities generate a large share of national output and attract migrants seeking employment and better services. This growth places pressure on housing, transport, water supply and waste management. Planned development, supported by adequate municipal finance, is essential if cities are to remain liveable. The Smart Cities Mission sought to demonstrate how technology and better governance could improve urban services. Its lessons are now being applied more widely. Municipal bodies are being encouraged to strengthen their own revenue base through property tax reform and user charges, reducing dependence on transfers from higher levels of government. At the same time, attention is turning to smaller towns, where the majority of future urban growth is expected to occur and where planning capacity is weakest.',
+        warmupText: 'Urbanisation in India',
+        durationSec: 900,
+        minAccuracy: 90,
+        targetWpm: 27,
+        xpReward: 120,
+        drillType: 'exam',
+        psychTip:
+          'Pandrah minute lambe lagte hain. Raftaar ek rakhein — DEST mein sthirta hi jeet hai.',
+      }),
+      lesson({
+        id: 's5-mock-cpt',
+        title: 'CPT post mock — 5% cap (ASO, Inspector)',
+        instruction:
+          'Wahi 15 minute, par error cap sirf 5%. ASO aur Inspector ke liye yahi bar hai.',
+        rule:
+          'CPT post (ASO CSS/MEA/AFHQ, Inspector CBIC): error cap 5% (UR), 7% (OBC/EWS/SC/ST), 10% (PwBD).',
+        noBackspace: false,
+        hidePositionHighlight: true,
+        sampleText:
+          'The doctrine of separation of powers, while not expressly stated in the Constitution of India, is implicit in its scheme. The legislature makes the law, the executive implements it, and the judiciary interprets it and adjudicates disputes. Each organ is expected to function within its own sphere without encroaching upon the domain of the others. In practice, a rigid separation is neither possible nor desirable in a parliamentary system, where the executive is drawn from and remains accountable to the legislature. What the Constitution establishes instead is a system of checks and balances. Judicial review permits the courts to examine whether legislative and executive action conforms to constitutional limits, and this power has been held to form part of the basic structure of the Constitution.',
+        warmupText: 'The doctrine of separation of powers',
+        durationSec: 900,
+        minAccuracy: 95,
+        targetWpm: 30,
+        xpReward: 150,
+        drillType: 'exam',
+        psychTip:
+          '5% cap ka matlab hai lagbhag 20 se kam kul galti. Speed se zyada shuddhata (accuracy).',
+      }),
+    ],
+  },
 ];
 
-export interface FlatLesson {
-  id: string;
-  title: string;
+/* -------------------------------------------------------------------------- */
+/*  Derived helpers                                                           */
+/* -------------------------------------------------------------------------- */
+
+export interface FlatLesson extends Lesson {
   levelId: number;
   levelName: string;
-  order: number;
+  stage: number;
+  index: number;
 }
 
 export function getFlatLessons(): FlatLesson[] {
-  const all: FlatLesson[] = [];
-  let order = 0;
+  const out: FlatLesson[] = [];
+  let index = 0;
   for (const level of LEVELS) {
-    for (const lesson of level.lessons) {
-      all.push({ id: lesson.id, title: lesson.title, levelId: level.id, levelName: level.name, order });
-      order++;
+    for (const l of level.lessons) {
+      out.push({
+        ...l,
+        levelId: level.id,
+        levelName: level.name,
+        stage: level.stage,
+        index: index++,
+      });
     }
   }
-  return all;
+  return out;
+}
+
+export function getLessonById(id: string): FlatLesson | undefined {
+  return getFlatLessons().find((l) => l.id === id);
 }
 
 export function getNextLessonId(currentId: string): string | null {
-  const all = getFlatLessons();
-  const idx = all.findIndex((l) => l.id === currentId);
-  if (idx === -1 || idx >= all.length - 1) return null;
-  return all[idx + 1].id;
+  const flat = getFlatLessons();
+  const i = flat.findIndex((l) => l.id === currentId);
+  if (i === -1 || i === flat.length - 1) return null;
+  return flat[i + 1].id;
 }
 
-export function isLessonUnlocked(_lessonId: string, _progress: Record<string, any>): boolean {
+/** Every lesson is open. Gating a struggling learner out of the drill that
+ *  would help them is the fastest way to lose them; the recommended next
+ *  lesson does the sequencing instead. */
+export function isLessonUnlocked(
+  _lessonId: string,
+  _progress: Record<string, any>
+): boolean {
   return true;
 }
 
 export const LEVEL_NAMES = [
-  { name: 'Rookie', minXp: 0 },
-  { name: 'Novice', minXp: 250 },
-  { name: 'Amateur', minXp: 750 },
-  { name: 'Expert', minXp: 2000 },
-  { name: 'Candidate Master', minXp: 4500 },
-  { name: 'Master', minXp: 7500 },
-  { name: 'Grandmaster', minXp: 11000 },
-  { name: 'Goated', minXp: 16000 },
+  'Rookie',
+  'Novice',
+  'Learner',
+  'Typist',
+  'Operator',
+  'Clerk',
+  'Assistant',
+  'Officer',
+  'Expert',
+  'Master',
 ] as const;
 
-export function getLevelName(xp: number): string {
-  let name: string = LEVEL_NAMES[0].name;
-  for (const l of LEVEL_NAMES) {
-    if (xp >= l.minXp) name = l.name;
-  }
-  return name;
+export function getTotalXp(): number {
+  return LEVELS.reduce(
+    (sum, level) => sum + level.lessons.reduce((s, l) => s + l.xpReward, 0),
+    0
+  );
+}
+
+function xpThreshold(index: number): number {
+  // Quadratic curve: early ranks come fast, later ones take real work.
+  return index * index * 100;
 }
 
 export function getLevelIndex(xp: number): number {
-  let idx = 0;
-  for (let i = 0; i < LEVEL_NAMES.length; i++) {
-    if (xp >= LEVEL_NAMES[i].minXp) idx = i;
-  }
-  return idx;
+  let i = 0;
+  while (i + 1 < LEVEL_NAMES.length && xp >= xpThreshold(i + 1)) i++;
+  return i;
 }
 
-export function getLevelProgress(xp: number): { current: string; next: string | null; currentXp: number; nextXp: number; progress: number } {
-  const idx = getLevelIndex(xp);
-  const current = LEVEL_NAMES[idx];
-  const next = idx < LEVEL_NAMES.length - 1 ? LEVEL_NAMES[idx + 1] : null;
-  const range = next ? next.minXp - current.minXp : 1;
-  const progress = next ? ((xp - current.minXp) / range) * 100 : 100;
+export function getLevelName(xp: number): string {
+  return LEVEL_NAMES[getLevelIndex(xp)];
+}
+
+export function getLevelProgress(xp: number): {
+  current: string;
+  next: string | null;
+  currentXp: number;
+  nextXp: number;
+  progress: number;
+} {
+  const i = getLevelIndex(xp);
+  const currentXp = xpThreshold(i);
+  const isLast = i === LEVEL_NAMES.length - 1;
+  const nextXp = isLast ? currentXp : xpThreshold(i + 1);
   return {
-    current: current.name,
-    next: next?.name || null,
-    currentXp: current.minXp,
-    nextXp: next?.minXp || current.minXp,
-    progress: Math.min(100, Math.max(0, progress)),
+    current: LEVEL_NAMES[i],
+    next: isLast ? null : LEVEL_NAMES[i + 1],
+    currentXp,
+    nextXp,
+    progress: isLast
+      ? 100
+      : Math.min(100, ((xp - currentXp) / (nextXp - currentXp)) * 100),
   };
 }
 

@@ -11,44 +11,59 @@ export const userRouter = router({
   dashboard: protectedProcedure
     .input(z.void())
     .query(async ({ ctx }) => {
-      const [aggregate] = await db
-        .select({
-          totalTests: count(),
-          avgWpm: avg(typingTests.netWpm),
-          avgAccuracy: avg(typingTests.accuracy),
-          bestWpm: max(typingTests.netWpm),
-          bestAccuracy: max(typingTests.accuracy),
-        })
-        .from(typingTests)
-        .where(eq(typingTests.userId, ctx.user.id));
+      // Four independent reads — one round trip instead of four.
+      const [aggregateRows, xpByMode, userRows, recentTests] = await Promise.all([
+        db
+          .select({
+            totalTests: count(),
+            avgWpm: avg(typingTests.netWpm),
+            avgAccuracy: avg(typingTests.accuracy),
+            bestWpm: max(typingTests.netWpm),
+            bestAccuracy: max(typingTests.accuracy),
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id)),
+        db
+          .select({
+            mode: typingTests.mode,
+            totalXp: sql<number>`COALESCE(SUM(${typingTests.xpEarned}), 0)`,
+            testCount: count(),
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id))
+          .groupBy(typingTests.mode),
+        db
+          .select({ xp: users.xp })
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1),
+        // Only the columns the page renders — skip the jsonb blobs and full
+        // passage text, which dominate the payload.
+        db
+          .select({
+            id: typingTests.id,
+            createdAt: typingTests.createdAt,
+            netWpm: typingTests.netWpm,
+            grossWpm: typingTests.grossWpm,
+            accuracy: typingTests.accuracy,
+            mode: typingTests.mode,
+            durationSeconds: typingTests.durationSeconds,
+            totalErrors: typingTests.totalErrors,
+            xpEarned: typingTests.xpEarned,
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id))
+          .orderBy(desc(typingTests.createdAt))
+          .limit(20),
+      ]);
 
+      const [aggregate] = aggregateRows;
       const total_tests = Number(aggregate?.totalTests ?? 0);
-
-      const xpByMode = await db
-        .select({
-          mode: typingTests.mode,
-          totalXp: sql<number>`COALESCE(SUM(${typingTests.xpEarned}), 0)`,
-          testCount: count(),
-        })
-        .from(typingTests)
-        .where(eq(typingTests.userId, ctx.user.id))
-        .groupBy(typingTests.mode);
 
       const totalTestXp = xpByMode.reduce((s, r) => s + Number(r.totalXp), 0);
 
-      const [userRecord] = await db
-        .select({ xp: users.xp })
-        .from(users)
-        .where(eq(users.id, ctx.user.id))
-        .limit(1);
+      const [userRecord] = userRows;
       const totalXp = Number(userRecord?.xp ?? 0);
-
-      const recentTests = await db
-        .select()
-        .from(typingTests)
-        .where(eq(typingTests.userId, ctx.user.id))
-        .orderBy(desc(typingTests.createdAt))
-        .limit(20);
 
       const recent_scores = recentTests.map((t) => ({
         id: t.id,

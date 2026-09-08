@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { levelFromXp, getLevelFromXP, getLevelIndex, LEVEL_NAMES } from './utils';
 import { getFlatLessons, getLessonById } from './typing-curriculum';
 import { profileSchema } from './schemas';
+import { judgeLesson, lessonXpFor } from './lesson-scoring';
 
 /**
  * XP regression suite.
@@ -96,5 +97,88 @@ describe('profileSchema', () => {
       email: 'candidate@example.com',
     });
     expect(real.success).toBe(true);
+  });
+});
+
+describe('judgeLesson', () => {
+  /** A drill calibrated so the passage fills the duration. */
+  const base = {
+    passageChars: 200,
+    durationSec: 180,
+    targetWpm: 10,
+    minAccuracy: 85,
+  };
+
+  it('does not clear a lesson abandoned halfway, however fast', () => {
+    // The reported bug: ~50% of the passage typed, Finish pressed, and the
+    // screen said "Lesson cleared" with full XP — because WPM is a rate over
+    // the time spent and accuracy only counts keys pressed, so neither one
+    // notices the half that was never typed.
+    const v = judgeLesson({
+      ...base,
+      typedChars: 100,
+      elapsedSeconds: 40,
+      wpm: 44,
+      accuracy: 93,
+    });
+    expect(v.qualified).toBe(false);
+    expect(v.wentTheDistance).toBe(false);
+    expect(v.completionPct).toBe(50);
+  });
+
+  it('clears a finished passage', () => {
+    const v = judgeLesson({
+      ...base,
+      typedChars: 200,
+      elapsedSeconds: 90,
+      wpm: 44,
+      accuracy: 93,
+    });
+    expect(v.qualified).toBe(true);
+    expect(v.completionPct).toBe(100);
+  });
+
+  it('clears an unfinished passage if the clock ran out', () => {
+    // Running the full duration is honest effort, and the WPM it produces is
+    // already computed over that whole duration — so it needs no extra guard.
+    const v = judgeLesson({
+      ...base,
+      typedChars: 140,
+      elapsedSeconds: 180,
+      wpm: 12,
+      accuracy: 90,
+    });
+    expect(v.wentTheDistance).toBe(true);
+    expect(v.qualified).toBe(true);
+  });
+
+  it('still fails a finished passage that misses either bar', () => {
+    const slow = judgeLesson({ ...base, typedChars: 200, elapsedSeconds: 180, wpm: 8, accuracy: 99 });
+    expect(slow.qualified).toBe(false);
+    const sloppy = judgeLesson({ ...base, typedChars: 200, elapsedSeconds: 180, wpm: 40, accuracy: 60 });
+    expect(sloppy.qualified).toBe(false);
+  });
+
+  it('lets a self-reporting drill clear without a passage', () => {
+    // The mouse lesson ends on three gestures, not on characters. Holding it
+    // to a character count would make it impossible to clear.
+    const v = judgeLesson({
+      ...base,
+      typedChars: 3,
+      elapsedSeconds: 10,
+      wpm: 0,
+      accuracy: 100,
+      targetWpm: 0,
+      selfReported: true,
+    });
+    expect(v.qualified).toBe(true);
+  });
+});
+
+describe('lessonXpFor', () => {
+  it('pays the full reward only for a pass', () => {
+    expect(lessonXpFor(100, true)).toBe(100);
+    expect(lessonXpFor(100, false)).toBe(25);
+    expect(lessonXpFor(15, false)).toBe(4);
   });
 });

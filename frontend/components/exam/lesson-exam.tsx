@@ -7,6 +7,7 @@ import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { formatTime, calculateWPM, calculateAccuracy } from '@/lib/utils';
 import { useSaveLessonResult } from '@/lib/queries';
+import { judgeLesson, lessonXpFor } from '@/lib/lesson-scoring';
 import { blastConfetti } from '@/lib/confetti';
 import { ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
@@ -101,8 +102,20 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       : 100;
     const finalAcc = extra?.acc ?? (totalType > 0 ? retrospectiveAcc : 100);
 
-    const qualified = finalWpm >= lesson.targetWpm && finalAcc >= lesson.minAccuracy;
-    const earnedXp = qualified ? lesson.xpReward : Math.round(lesson.xpReward * 0.25);
+    // `extra` is only passed by the mouse drill, which finishes on three
+    // gestures rather than on a passage and so reports its own completion.
+    const { qualified, wentTheDistance, completionPct } = judgeLesson({
+      typedChars: totalType,
+      passageChars: originalContent.length,
+      elapsedSeconds,
+      durationSec: lesson.durationSec,
+      wpm: finalWpm,
+      accuracy: finalAcc,
+      targetWpm: lesson.targetWpm,
+      minAccuracy: lesson.minAccuracy,
+      selfReported: !!extra,
+    });
+    const earnedXp = lessonXpFor(lesson.xpReward, qualified);
     const finalResult = {
       net_wpm: finalWpm,
       accuracy: finalAcc,
@@ -111,6 +124,8 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       goal_wpm: lesson.targetWpm,
       goal_acc: lesson.minAccuracy,
       xp_earned: earnedXp,
+      went_the_distance: wentTheDistance,
+      completion_pct: completionPct,
     };
     setResult(finalResult);
 
@@ -130,15 +145,36 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     });
 
     setPhase('result');
-    blastConfetti();
+    // Only celebrate a pass. Confetti over "Below the bar" tells the learner
+    // the opposite of what the screen says.
+    if (qualified) blastConfetti();
   }, [typedContent, originalContent, elapsedSeconds, lesson, authStore, saveLessonResult]);
 
-  useEffect(() => {
-    if (isComplete && phase === 'typing' && !hasCompletedRef.current) {
+  /** End the drill once, whatever ended it — typing the last character,
+   *  running out of time, or pressing Finish. The ref is the guard: without it
+   *  a manual submit landing in the same tick as the completion effect would
+   *  score the lesson twice and award its XP twice. */
+  const endLesson = useCallback(
+    (extra?: { wpm?: number; acc?: number }) => {
+      if (hasCompletedRef.current) return;
       hasCompletedRef.current = true;
-      finishLesson();
-    }
-  }, [isComplete, phase, finishLesson]);
+      finishLesson(extra);
+    },
+    [finishLesson]
+  );
+
+  useEffect(() => {
+    if (isComplete && phase === 'typing') endLesson();
+  }, [isComplete, phase, endLesson]);
+
+  // The header counts down to 00:00 and, until now, nothing happened when it
+  // got there — the drill just sat on an expired clock. Every exam mode
+  // auto-submits at zero; lessons do too.
+  useEffect(() => {
+    if (phase !== 'typing') return;
+    if (elapsedSeconds < lesson.durationSec) return;
+    endLesson();
+  }, [phase, elapsedSeconds, lesson.durationSec, endLesson]);
 
   const startLesson = () => {
     setPhase('countdown');
@@ -157,10 +193,13 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     store.addKeystroke({ key: action, timestamp_ms: Date.now(), duration_ms: 0, is_error: false, is_backspace: false });
     store.updateTypedContent(store.typedContent + ' ');
     if (mouseStep + 1 >= MOUSE_STEPS.length) {
+      // completeTest() also trips the completion effect, so this has to go
+      // through the same guard — calling finishLesson directly scored the
+      // lesson twice and, now that XP actually persists, credited it twice.
       store.completeTest();
-      finishLesson({ wpm: 0, acc: 100 });
+      endLesson({ wpm: 0, acc: 100 });
     }
-  }, [mouseStep, store, finishLesson]);
+  }, [mouseStep, store, endLesson]);
 
   useEffect(() => {
     if (!isMouseLesson || phase !== 'typing') return;
@@ -318,11 +357,17 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
 
   /* ═════════════════════════════════════════════════════ result — expressive */
   if (phase === 'result' && result) {
-    const passed = result.net_wpm >= result.goal_wpm && result.accuracy >= result.goal_acc;
+    // Read the verdict off the result rather than recomputing it from two of
+    // its three inputs, which is how the screen came to say "cleared" over an
+    // unfinished passage.
+    const passed = !!result.is_qualified;
     const nextId = getNextLessonId(lesson.id);
-    // Say which of the two bars was missed, rather than a generic "keep going".
+    // Say exactly which bar was missed, rather than a generic "keep going".
     const missed = !passed
       ? [
+          result.went_the_distance === false
+            ? `only ${result.completion_pct}% of the way through the passage`
+            : null,
           result.net_wpm < result.goal_wpm
             ? `${(result.goal_wpm - result.net_wpm).toFixed(1)} WPM short of ${result.goal_wpm}`
             : null,
@@ -351,6 +396,14 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         {missed.length > 0 && (
           <p className="mt-6 text-lg leading-relaxed text-vast/70">
             You were {missed.join(', and ')}.
+          </p>
+        )}
+
+        {/* Said once, plainly, because "you were only 49% through" invites the
+            question this answers. */}
+        {result.went_the_distance === false && (
+          <p className="mt-2 text-base text-vast/50">
+            Type the passage to the end, or keep going until the timer runs out.
           </p>
         )}
 
@@ -592,9 +645,23 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           typedContent={typedContent}
           isActive={phase === 'typing'}
         />
-        <p className="tnum mt-2 shrink-0 text-xs text-vast/40">
-          {typedContent.length} / {originalContent.length} characters
-        </p>
+        <div className="mt-2 flex shrink-0 items-center gap-4">
+          <p className="tnum text-xs text-vast/40">
+            {typedContent.length} / {originalContent.length} characters
+          </p>
+          {/* A drill you cannot leave early is a drill you abandon by closing
+              the tab, which loses the attempt entirely. Finishing early scores
+              what was actually typed. */}
+          <button
+            type="button"
+            onClick={() => endLesson()}
+            disabled={typedContent.length === 0}
+            className="btn btn-primary btn-sm ml-auto"
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Finish
+          </button>
+        </div>
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl flex-[3] flex-col overflow-hidden px-5 pb-4">

@@ -12,6 +12,8 @@ import { qualificationPredictor } from '../../services/qualification-predictor';
 import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
+import { responseCache } from '../../services/response-cache';
+import { dashboardCacheKey } from './user';
 
 const keystrokeSchema = z.object({
   key: z.string(),
@@ -228,6 +230,10 @@ export const testsRouter = router({
           consistency_score: 100,
           weak_words: [],
         });
+
+        // The attempt this dashboard is about has just landed, so the cached
+        // copy is now the one thing it must not serve.
+        await responseCache.invalidate(dashboardCacheKey(ctx.user.id));
 
         return {
           testId: result.id,

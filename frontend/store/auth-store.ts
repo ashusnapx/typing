@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { setSupabaseToken } from '@/lib/trpc-client';
 import { clearLessonProgress } from '@/lib/lesson-storage';
 import { clearTestResults } from '@/lib/test-storage';
+import { clearDashboardCache } from '@/lib/dashboard-cache';
 import type { Session, User } from '@supabase/supabase-js';
 
 /**
@@ -107,13 +108,29 @@ function friendlyError(message?: string): string {
   return message || 'Something went wrong. Try again.';
 }
 
+/**
+ * Sign the user in on what the session already proves, then enrich.
+ *
+ * The session carries the id, email and name, which is everything the app
+ * needs to consider someone signed in. Waiting on the profile row before
+ * flipping `isAuthenticated` put a second Supabase round trip in front of
+ * every dashboard: sign-in could not finish, so navigation could not start, so
+ * the dashboard query could not begin. Now the profile read runs alongside the
+ * page it was blocking, and fills in xp and role when it lands.
+ */
 async function applySession(
   session: Session,
-  set: (partial: Partial<AuthState>) => void
+  set: (partial: Partial<AuthState>) => void,
+  get: () => AuthState
 ) {
   setSupabaseToken(session.access_token);
-  const user = await withProfile(session.user);
-  set({ user, isAuthenticated: true, isLoading: false });
+  set({ user: userFromSession(session.user), isAuthenticated: true, isLoading: false });
+
+  const enriched = await withProfile(session.user);
+  // A sign-out or a different user landing mid-flight must win over a stale
+  // profile read resolving late.
+  const current = get().user;
+  if (current?.id === enriched.id) set({ user: enriched });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -129,7 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) throw new Error(friendlyError(error.message));
     if (!data.session) throw new Error('Could not start a session. Try again.');
-    await applySession(data.session, set);
+    await applySession(data.session, set, get);
   },
 
   register: async (email, password, full_name) => {
@@ -161,6 +178,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setSupabaseToken(null);
     clearLessonProgress();
     clearTestResults();
+    clearDashboardCache();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
@@ -187,7 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ user: null, isAuthenticated: false, isLoading: false });
         return;
       }
-      await applySession(session, set);
+      await applySession(session, set, get);
     } catch {
       set({ user: null, isAuthenticated: false, isLoading: false });
     }

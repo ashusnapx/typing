@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '@/store/auth-store';
+import { prefetchDashboard } from '@/lib/queries';
 import { ROUTES } from '@/lib/config';
 import { registerSchema, type RegisterFormData } from '@/lib/schemas';
 import { AuthShell } from '@/components/auth/auth-shell';
@@ -17,6 +19,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const registerUser = useAuthStore((s) => s.register);
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   const {
@@ -32,6 +35,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await registerUser(data.email, data.password, data.full_name);
+      prefetchDashboard(queryClient);
       toast.success('Account created');
       router.push(ROUTES.dashboard);
     } catch (err: any) {

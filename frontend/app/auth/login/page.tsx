@@ -2,12 +2,14 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '@/store/auth-store';
+import { prefetchDashboard } from '@/lib/queries';
 import { ROUTES } from '@/lib/config';
 import { loginSchema, type LoginFormData } from '@/lib/schemas';
 import { AuthShell } from '@/components/auth/auth-shell';
@@ -17,6 +19,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
+  const queryClient = useQueryClient();
   const router = useRouter();
   const params = useSearchParams();
 
@@ -33,6 +36,9 @@ function LoginForm() {
     setLoading(true);
     try {
       await login(data.email, data.password);
+      // Starts the dashboard round trip now, so it overlaps the route
+      // transition instead of beginning after the page mounts.
+      prefetchDashboard(queryClient);
       toast.success('Signed in');
       // Only ever an in-app path — never an arbitrary URL from the query string.
       const next = params.get('next');

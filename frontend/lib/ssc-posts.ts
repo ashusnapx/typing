@@ -400,3 +400,20 @@ export function nextPostTarget(
 ): PostVerdict | null {
   return postsFor(attempt, category).missed[0] ?? null;
 }
+
+/** The exam route that rehearses this post's exact bar. Two posts can share a
+ *  route when they share a speed requirement and an error cap. */
+const POST_ROUTES: Record<string, string> = {
+  chsl_ldc_jsa: '/exam/chsl',
+  chsl_pa_sa: '/exam/chsl',
+  chsl_deo: '/exam/chsl-deo',
+  chsl_deo_grade_a_cag: '/exam/chsl-deo-grade-a',
+  cgl_aso_css: '/exam/cgl-cpt',
+  cgl_inspector_cbic: '/exam/cgl-cpt',
+  cgl_tax_assistant: '/exam/cgl-dest',
+  cgl_udc_cbn: '/exam/cgl-dest',
+};
+
+export function practiceHrefFor(post: SscPost): string {
+  return POST_ROUTES[post.id] ?? '/exam';
+}

@@ -1,8 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 import { saveTestResult } from '@/lib/test-storage';
 import { saveLessonProgress } from '@/lib/lesson-storage';
+import { readDashboardCache, writeDashboardCache } from '@/lib/dashboard-cache';
 import type { TestMode } from '@/types';
 
 // =============================================================================
@@ -35,17 +37,49 @@ export function useCurrentUser() {
 // =============================================================================
 // Dashboard
 // =============================================================================
+
+/**
+ * Start the dashboard request before navigating to it.
+ *
+ * Called the moment sign-in resolves, so the round trip overlaps the route
+ * transition instead of starting after the page has mounted. Fire and forget —
+ * a failure here just means the page fetches normally.
+ */
+export function prefetchDashboard(queryClient: QueryClient) {
+  void queryClient.prefetchQuery({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      const data = await api.getDashboard();
+      writeDashboardCache(data);
+      return data;
+    },
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
 export function useDashboard() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [cached] = useState(readDashboardCache);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['dashboard'],
-    queryFn: () => api.getDashboard(),
+    queryFn: async () => {
+      const data = await api.getDashboard();
+      writeDashboardCache(data);
+      return data;
+    },
     staleTime: 3 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
-    enabled: isAuthenticated,
+    // A token is proof enough to start fetching. Waiting for `isAuthenticated`
+    // meant queuing behind the profile read, which is the round trip that made
+    // the dashboard feel slow after sign-in.
+    enabled: isAuthenticated || !!api.getToken(),
     refetchOnWindowFocus: true,
+    initialData: cached?.data,
+    initialDataUpdatedAt: cached?.at,
   });
+
+  return query;
 }
 
 // =============================================================================

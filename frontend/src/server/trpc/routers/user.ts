@@ -6,11 +6,20 @@ import { typingTests } from '../../db/schema/typing-tests';
 import { eq, desc, count, avg, max, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { profileSchema } from '@/lib/schemas';
+import { responseCache } from '../../services/response-cache';
+
+/** Shared with tests.submit, which must drop the entry the moment an attempt
+ *  lands — a stale dashboard after finishing a test is the one case where the
+ *  cache would be actively wrong rather than merely old. */
+export function dashboardCacheKey(userId: string): string {
+  return responseCache.makeCacheKey('user', 'dashboard', userId);
+}
 
 export const userRouter = router({
   dashboard: protectedProcedure
     .input(z.void())
-    .query(async ({ ctx }) => {
+    .query(async ({ ctx }) =>
+      responseCache.getOrCompute(dashboardCacheKey(ctx.user.id), 120, async () => {
       // Four independent reads — one round trip instead of four.
       const [aggregateRows, xpByMode, userRows, recentTests] = await Promise.all([
         db
@@ -153,7 +162,8 @@ export const userRouter = router({
         lessonXp: Math.max(0, totalXp - totalTestXp),
         recent_scores,
       };
-    }),
+      })
+    ),
 
   profile: protectedProcedure
     .input(z.void())

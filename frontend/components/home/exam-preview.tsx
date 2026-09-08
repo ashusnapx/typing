@@ -71,7 +71,7 @@ export function ExamPreview({ className = '' }: { className?: string }) {
           Zoom (+)
         </span>
         <span className="flex-1 text-center text-[10px] font-bold uppercase text-exam-text">
-          SSC Online Skill Test
+          Eduquity &middot; SSC Online Skill Test
         </span>
         <span className="h-6 w-7 rounded-sm border border-exam-line bg-exam-panel" />
       </div>

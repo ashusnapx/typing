@@ -8,6 +8,7 @@ import {
   Check,
 } from 'lucide-react';
 import { EXAM_MODES } from '@/lib/config';
+import { EXAM_VARIANTS } from '@/lib/exam-config';
 import { ExamPreview } from '@/components/home/exam-preview';
 import { SpinningBadge } from '@/components/home/spinning-badge';
 
@@ -30,32 +31,33 @@ const POSTS_TICKER = [
 
 const QUALIFYING_BAR = [
   { post: 'CHSL — LDC / JSA', speed: '35 WPM', errors: '7%' },
-  { post: 'CHSL — DEO', speed: '8,000 KDPH', errors: '20%' },
+  { post: "CHSL — DEO / Grade 'A'", speed: '8,000–15,000 KDPH', errors: '20%' },
+  { post: 'CGL — Tax Assistant', speed: '8,000 KDPH', errors: '20%' },
   { post: 'CGL — ASO, Inspector', speed: '8,000 KDPH', errors: '5%', strict: true },
-  { post: 'Hindi medium', speed: '30 WPM', errors: '7%' },
 ];
 
-/** Six, not seven — a 3-column grid orphans the seventh card on its own row.
- *  The replica mode is still one click away on /exam. */
-const HOME_MODES = EXAM_MODES.filter((m) => m.id !== 'tcs_ion_replica');
+/** The five official post variants plus Hindi — exactly six, which fills a
+ *  3-column grid without orphaning a card. Training modes live on /exam. */
+const HOME_MODE_IDS = new Set([
+  ...EXAM_VARIANTS.map((v) => v.mode),
+  'ssc_hindi',
+]);
+const HOME_MODES = EXAM_MODES.filter((m) => HOME_MODE_IDS.has(m.id));
+
+/** Requirement in the post's own unit — a KDPH post shown as "0 WPM" is worse
+ *  than showing nothing. */
+function requirementFor(id: string, wpmTarget: number): string {
+  return (
+    EXAM_VARIANTS.find((v) => v.mode === id)?.requirement ||
+    (wpmTarget > 0 ? `${wpmTarget} WPM` : 'KDPH')
+  );
+}
 
 const PILLARS = [
-  {
-    title: 'The official error engine',
-    body: 'Full and half mistakes classified exactly as the Commission defines them — omission, substitution, spacing, capitalisation, transposition. Net speed from the real formula, not a word count.',
-  },
-  {
-    title: 'Mistake-by-mistake review',
-    body: 'Every keystroke, pause and correction replayed against the passage. See which words cost you, where you slowed, and which keys keep failing.',
-  },
-  {
-    title: 'Zero to exam-ready',
-    body: 'Thirty-four lessons across six stages. Home row to full passages, with finger zones and per-key mastery — built for someone who has never touched a keyboard.',
-  },
-  {
-    title: 'Your bar, not a generic one',
-    body: 'Pick the post you applied for. Every target and every verdict follows from its real speed requirement and category-wise error cap.',
-  },
+  { title: 'The official error engine', body: 'Full and half mistakes, the Commission\u2019s own formula.' },
+  { title: 'Mistake-by-mistake review', body: 'Every keystroke replayed against the passage.' },
+  { title: 'Zero to exam-ready', body: 'Thirty-four lessons. Home row to full passages.' },
+  { title: 'Your bar, not a generic one', body: 'Every verdict follows your post\u2019s real cap.' },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -73,10 +75,9 @@ export default function HomePage() {
               Don&rsquo;t guess. <em>Know your speed.</em>
             </h1>
 
-            <p className="mt-7 max-w-lg text-lg text-vast/70 sm:text-xl">
-              A typing simulator for SSC CHSL, CGL DEST and Hindi skill tests
-              that scores you the way the Commission does &mdash; full mistakes,
-              half mistakes, and your real net speed.
+            <p className="mt-7 max-w-md text-lg text-vast/70 sm:text-xl">
+              SSC CHSL, CGL and Hindi skill tests, scored the way the Commission
+              scores them.
             </p>
 
             <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
@@ -132,10 +133,9 @@ export default function HomePage() {
             <h2 className="text-4xl sm:text-6xl">
               Most mocks score you <em>wrong</em>
             </h2>
-            <p className="mx-auto mt-6 max-w-xl text-lg text-lumen/75">
-              The requirement belongs to the post, not the exam. An ASO candidate
-              is marked against a 5% error cap — four times stricter than the
-              data-entry posts most practice sites assume.
+            <p className="mx-auto mt-6 max-w-md text-lg text-lumen/75">
+              The bar belongs to the post, not the exam. ASO is marked at 5% —
+              four times stricter than most mocks assume.
             </p>
           </div>
 
@@ -235,7 +235,7 @@ export default function HomePage() {
                     </span>
                     <span className="tnum flex items-center gap-1.5">
                       <Target className="h-3.5 w-3.5" strokeWidth={2} />
-                      {mode.wpmTarget > 0 ? `${mode.wpmTarget} WPM` : 'KDPH'}
+                      {requirementFor(mode.id, mode.wpmTarget)}
                     </span>
                     <ArrowRight
                       className="ml-auto h-4 w-4 transition-transform group-hover:translate-x-1"
@@ -252,8 +252,8 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════ pillars — white slab */}
       <section className="slab slab-white">
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          <h2 className="max-w-2xl text-4xl sm:text-5xl" data-reveal>
-            Built by reading the <em>notification</em>, not a competitor
+          <h2 className="max-w-xl text-4xl sm:text-5xl" data-reveal>
+            Built from the <em>notification</em>
           </h2>
 
           <div className="mt-14 grid gap-x-12 gap-y-12 sm:grid-cols-2">
@@ -276,9 +276,8 @@ export default function HomePage() {
           <h2 className="mx-auto max-w-2xl text-4xl sm:text-6xl" data-reveal>
             Never used a keyboard <em>properly?</em>
           </h2>
-          <p className="mx-auto mt-6 max-w-lg text-lg text-vast/70" data-reveal>
-            Start at level zero. Finger placement, home row, then real SSC
-            passages — thirty-four lessons that assume nothing.
+          <p className="mx-auto mt-6 max-w-sm text-lg text-vast/70" data-reveal>
+            Thirty-four lessons that assume nothing.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3" data-reveal>
             <Link href="/learn" className="btn btn-ink btn-lg">

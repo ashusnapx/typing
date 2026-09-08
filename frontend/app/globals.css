@@ -319,6 +319,12 @@
   /* ---- Cards ------------------------------------------------------------ */
   .card {
     background-color: rgb(var(--white));
+    /* A card paints its own opaque light ground, so it must also state its own
+       text colour. Without this it inherits from the slab, and every card on a
+       dark slab renders cream text on white — invisible. `.card-flat` is
+       deliberately excluded: it is translucent, and its `.on-dark` variant is
+       meant to inherit the cream. */
+    color: rgb(var(--vast));
     border: 2px solid rgb(var(--vast));
     border-radius: var(--r-xtiny);
   }

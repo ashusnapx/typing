@@ -130,151 +130,6 @@ export const EXAM_MODES = [
 ] as const;
 
 // =============================================================================
-// FEATURES
-// =============================================================================
-export const FEATURES = [
-  {
-    title: 'SSC Error Engine v1',
-    description:
-      'Levenshtein Distance, Character-Level Diff, Word-Level Mapping. Not naive word matching.',
-    icon: 'Brain',
-  },
-  {
-    title: 'Touch Typing Curriculum',
-    description:
-      '10-level progressive system from home row to exam-ready. Designed for absolute beginners.',
-    icon: 'GraduationCap',
-  },
-  {
-    title: 'AI Typing Coach',
-    description:
-      'Personalized feedback after every test. Identifies weaknesses, suggests drills.',
-    icon: 'Sparkles',
-  },
-  {
-    title: 'Qualification Prediction',
-    description:
-      'Predicts your SSC CHSL/CGL qualification probability with 93%+ confidence.',
-    icon: 'BarChart3',
-  },
-  {
-    title: 'Typing Replay',
-    description:
-      'Like Chess.com game review. Replay every keystroke, correction, and pause.',
-    icon: 'Play',
-  },
-  {
-    title: 'Eduquity Replica',
-    description:
-      'Same layout, fonts, timer placement, instructions, and typing area as real exam.',
-    icon: 'Award',
-  },
-  {
-    title: 'Smart Practice Generator',
-    description:
-      'If you struggle with words, generates passages focused on your weak areas.',
-    icon: 'Target',
-  },
-  {
-    title: 'Leaderboards',
-    description:
-      'Global, State, District, City, College, and Friends leaderboards.',
-    icon: 'BarChart3',
-  },
-  {
-    title: 'Enterprise Grade',
-    description:
-      '99.99% uptime, Kubernetes, Redis cluster, horizontal scaling.',
-    icon: 'Award',
-  },
-] as const;
-
-// =============================================================================
-// PAIN POINTS — Problems aspirants face + how we solve them
-// =============================================================================
-export const PAIN_POINTS = [
-  {
-    problem: 'Mock tests look nothing like the real Eduquity exam',
-    problemShort: 'Wrong Interface',
-    solution:
-      'Exact Eduquity replica — same split-screen layout, timer placement, fonts, instructions, and typing area. What you practice is what you get on exam day.',
-    icon: 'Monitor',
-  },
-  {
-    problem: 'Wrong speed calculation (Gross WPM instead of SSC Net WPM)',
-    problemShort: 'Wrong Formula',
-    solution:
-      'Official SSC Net WPM formula: (Total Keystrokes ÷ 5 − Full Mistakes − Half Mistakes ÷ 2) ÷ Time. Other sites inflate your score. We show the real number.',
-    icon: 'Calculator',
-  },
-  {
-    problem: 'No blind mode — real Eduquity hides errors during the test',
-    problemShort: 'No Blind Mode',
-    solution:
-      'Blind Mode hides all error feedback while typing. Mistakes only revealed at the end — exactly like the real exam. Builds real confidence, not false comfort.',
-    icon: 'EyeOff',
-  },
-  {
-    problem: 'No structured plan — just thrown into 35 WPM tests',
-    problemShort: 'No Curriculum',
-    solution:
-      '10-level progressive curriculum from home row basics to exam-ready. Designed for absolute beginners who have never touched a keyboard.',
-    icon: 'GraduationCap',
-  },
-  {
-    problem: 'No personalized feedback — just a score with no guidance',
-    problemShort: 'No Feedback',
-    solution:
-      'AI Typing Coach analyzes every keystroke. Identifies weak keys, error patterns, fatigue zones. Generates custom drills to fix your specific mistakes.',
-    icon: 'Brain',
-  },
-  {
-    problem: 'No progress tracking — cant see improvement over weeks',
-    problemShort: 'No Tracking',
-    solution:
-      'Dashboard with 30-day history, WPM trends, accuracy graphs, qualification prediction. See exactly how much you improved every day.',
-    icon: 'BarChart3',
-  },
-] as const;
-
-
-
-// =============================================================================
-// HERO STATS
-// =============================================================================
-export const HERO_STATS = [
-  { value: '2M+', label: 'Students', icon: 'Award' },
-  { value: '99.9%', label: 'Uptime', icon: 'BarChart3' },
-  { value: '50K+', label: 'Tests Daily', icon: 'Keyboard' },
-  { value: '95%', label: 'Accuracy Match', icon: 'Target' },
-] as const;
-
-// =============================================================================
-// SSC OFFICIAL RULES
-// =============================================================================
-export const SSC_RULES = {
-  chsl: {
-    title: 'SSC CHSL Typing Test',
-    rules: [
-      'English: 35 WPM',
-      'Hindi: 30 WPM',
-      'Duration: 10 Minutes',
-      'Nature: Qualifying',
-      'Evaluation: Speed + Accuracy',
-    ],
-  },
-  cgl: {
-    title: 'SSC CGL DEST',
-    rules: [
-      'Duration: 15 Minutes',
-      '~2000 Key Depressions',
-      'Nature: Qualifying',
-      'Environment: SSC Computer Based Skill Test',
-    ],
-  },
-} as const;
-
-// =============================================================================
 // TYPOGRAPHY — Design system tokens (CSS custom props in globals.css)
 // =============================================================================
 export const WOBBLY_RADII = {
@@ -282,57 +137,6 @@ export const WOBBLY_RADII = {
   md: '60px 20px 80px 20px / 20px 60px 20px 80px',
   lg: '120px 30px 150px 30px / 30px 120px 30px 150px',
 } as const;
-
-// =============================================================================
-// NAVIGATION
-// =============================================================================
-export const NAV_LINKS = [
-  { label: 'SSC CHSL', href: '/exam/chsl' },
-  { label: 'SSC CGL', href: '/exam/cgl-dest' },
-  { label: 'Practice', href: '/exam/practice' },
-  { label: 'Learn', href: '/learn' },
-  { label: 'Leaderboard', href: '/leaderboard' },
-  { label: 'AI Coach', href: '/coach' },
-] as const;
-
-// =============================================================================
-// LEADERBOARD SCOPES
-// =============================================================================
-export const LEADERBOARD_SCOPES = [
-  { id: 'global', label: 'Global' },
-  { id: 'state', label: 'State' },
-  { id: 'college', label: 'College' },
-] as const;
-
-// =============================================================================
-// DASHBOARD QUICK ACTIONS
-// =============================================================================
-export const DASHBOARD_ACTIONS = [
-  {
-    href: '/exam/chsl',
-    title: 'SSC CHSL Practice',
-    description: '10 min, 35 WPM target',
-    icon: 'Target',
-  },
-  {
-    href: '/exam/mock',
-    title: 'Mock Test',
-    description: 'Full exam simulation',
-    icon: 'Timer',
-  },
-  {
-    href: '/learn',
-    title: 'Learn Typing',
-    description: 'Start from scratch',
-    icon: 'GraduationCap',
-  },
-  {
-    href: '/coach',
-    title: 'AI Coach',
-    description: 'Personalized feedback',
-    icon: 'Brain',
-  },
-] as const;
 
 // =============================================================================
 // SUBSCRIPTION PLANS
@@ -450,7 +254,7 @@ export function formatPolicyDate(iso: string): string {
 // =============================================================================
 export const FOOTER = {
   description:
-    "India's Most Accurate SSC Typing Exam Simulator. Learn typing from scratch with progressive lessons, practice with real SSC exam patterns, and qualify with confidence.",
+    'SSC skill tests, scored the way the Commission scores them.',
   examLinks: [
     { label: 'CHSL — LDC / JSA', href: '/exam/chsl' },
     { label: 'CHSL — DEO', href: '/exam/chsl-deo' },

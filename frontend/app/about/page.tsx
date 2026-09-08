@@ -32,20 +32,20 @@ const FACTS = [
 
 const PRINCIPLES = [
   {
-    title: 'The requirement belongs to the post',
-    body: `An ASO candidate is marked against a 5% error cap. A data-entry candidate against 20%. Practising to the wrong one is how a confident candidate fails. So you pick your post and your category once, and every target, timer and verdict in the product follows from the notification for that post — including the five minutes of compensatory time a scribe-eligible candidate is entitled to.`,
+    title: 'The bar belongs to the post',
+    body: 'ASO is marked at 5%, data entry at 20%. Pick your post once; every target follows.',
   },
   {
-    title: 'A score you can trust more than you like',
-    body: `Net speed comes from the Commission's formula — key depressions over five, less full mistakes and half of the half mistakes, over the duration. Most practice sites report gross speed and quietly inflate you by several words a minute. We would rather show you 31 WPM today than 38 WPM and a rejection later.`,
+    title: 'A score you can trust',
+    body: 'The Commission\u2019s net formula, not gross speed. Better 31 WPM today than a rejection later.',
   },
   {
-    title: 'Practise what the interface takes away',
-    body: `The real screen does not colour your mistakes as you make them. Blind mode does the same, so the confidence you build is the kind that survives exam day. Where a post's interface disables backspace, the mode disables it too.`,
+    title: 'Practise what the screen hides',
+    body: 'The real interface shows no errors while you type. Blind mode does the same.',
   },
   {
     title: 'Free where it matters',
-    body: `Lessons, full-length mocks, the evaluation engine and your mistake review cost nothing and need no account. An aspirant who cannot pay should not be practising on a worse simulation than one who can.`,
+    body: 'Lessons, mocks and the full mistake review cost nothing and need no account.',
   },
 ] as const;
 
@@ -71,11 +71,9 @@ export default function AboutPage() {
             <h1 className="mt-5 text-5xl sm:text-6xl lg:text-7xl">
               A typing test that <em>tells you the truth</em>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-vast/70">
-              {APP.name} is a skill-test simulator for SSC candidates, built by{' '}
-              {operator}. It exists because most typing practice tells aspirants
-              they are ready when they are not — and the first honest number
-              they see is the one on the result sheet.
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-vast/70">
+              An SSC skill-test simulator by {operator}. Most practice tells
+              aspirants they are ready when they are not.
             </p>
           </div>
 
@@ -107,26 +105,17 @@ export default function AboutPage() {
                 The typing test fails people who <em>can type</em>
               </h2>
             </div>
-            <div className="max-w-xl space-y-5 text-lg leading-relaxed text-lumen/75" data-reveal>
+            <div className="max-w-md space-y-4 text-lg leading-relaxed text-lumen/75" data-reveal>
               <p>
-                Every year, candidates clear the written stage and then lose the
-                post at the skill test. Not usually because they are slow —
-                because nobody told them that a missing comma is half a mistake,
-                that a transposed pair costs the same, or that their post is
-                marked against a cap four times stricter than the one their
-                practice site assumed.
+                Candidates lose the post at the skill test, and rarely for being
+                slow. Nobody told them a missing comma is half a mistake, or
+                that their post is capped four times stricter than their mock
+                assumed.
               </p>
               <p>
-                We started by reading the notice of examination and the
-                Commission&rsquo;s evaluation guidelines line by line, and
-                writing the rules down —{' '}
-                {MISTAKE_COUNT} mistake types, {POST_COUNT} posts, each with its
-                own speed, duration, medium and category-wise error cap. The
-                product is what fell out of that document.
-              </p>
-              <p>
-                Then we made the interface behave like the real one, so the last
-                surprise on exam day is not the screen.
+                So we wrote the notification down: {MISTAKE_COUNT} mistake
+                types, {POST_COUNT} posts, each with its own speed, duration and
+                category-wise cap. The product fell out of that.
               </p>
             </div>
           </div>
@@ -136,8 +125,8 @@ export default function AboutPage() {
       {/* ═══════════════════════════════════════ principles — white slab */}
       <section className="slab slab-white">
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          <h2 className="max-w-2xl text-4xl sm:text-5xl" data-reveal>
-            Four decisions everything else <em>follows from</em>
+          <h2 className="max-w-xl text-4xl sm:text-5xl" data-reveal>
+            Four decisions everything <em>follows from</em>
           </h2>
           <div className="mt-14 grid gap-x-12 gap-y-12 sm:grid-cols-2">
             {PRINCIPLES.map((p, i) => (
@@ -162,17 +151,16 @@ export default function AboutPage() {
               <h2 className="mt-4 text-4xl sm:text-5xl">
                 What we will <em>never</em> do
               </h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-vast/60">
-                Written down so you can hold us to it. Each one is also a term
-                of the agreement you get — see the{' '}
+              <p className="mt-5 max-w-sm text-base leading-relaxed text-vast/60">
+                Also terms of the agreement you get — see the{' '}
                 <Link href="/privacy" className="font-medium underline underline-offset-4">
-                  privacy policy
+                  privacy
                 </Link>{' '}
                 and{' '}
                 <Link href="/refunds" className="font-medium underline underline-offset-4">
-                  refunds policy
-                </Link>
-                .
+                  refunds
+                </Link>{' '}
+                policies.
               </p>
             </div>
             <ul className="space-y-4" data-reveal>
@@ -200,17 +188,10 @@ export default function AboutPage() {
               <h2 className="mt-4 text-4xl sm:text-5xl">
                 {operator}, and a <em>keyboard</em>
               </h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-lumen/70">
-                {operator} has spent years teaching candidates preparing for
-                Indian government examinations. {APP.name} is the part of that
-                work that had to be software: a skill test cannot be taught in a
-                video, only practised, and only usefully if the practice is
-                marked the way the real one is.
-              </p>
-              <p className="mt-4 max-w-md text-base leading-relaxed text-lumen/70">
-                It is built and maintained by a small team. When you write to
-                support, the reply comes from someone who worked on the thing
-                you are asking about.
+              <p className="mt-5 max-w-sm text-base leading-relaxed text-lumen/70">
+                {operator} has taught candidates for Indian government exams for
+                years. A skill test cannot be taught in a video — only
+                practised, and only if the practice is marked like the real one.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/exam/chsl" className="btn btn-primary btn-lg">

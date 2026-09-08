@@ -194,9 +194,6 @@ export default function AICoachPage() {
                 <h2 className="text-2xl font-bold text-pencil font-marker mb-2">
                   Select a test to get AI feedback
                 </h2>
-                <p className="text-lg text-pencil/60 font-hand">
-                  Choose a test from the left to receive personalized coaching
-                </p>
               </div>
             )}
           </div>

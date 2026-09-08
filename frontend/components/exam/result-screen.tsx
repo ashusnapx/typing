@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { Check, X, RotateCcw, ChevronDown } from 'lucide-react';
 import { getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
-import { postsFor, kdphFromWpm, type CategoryKey } from '@/lib/ssc-posts';
+import {
+  postsFor,
+  kdphFromWpm,
+  MIN_COMPLETION_PCT,
+  type CategoryKey,
+} from '@/lib/ssc-posts';
 import { ROUTES } from '@/lib/config';
 import PassageDiffView from './passage-diff';
 import { useAuthStore } from '@/store/auth-store';
@@ -192,15 +197,15 @@ export function ResultScreen({
       ? netWpm >= targetWpm
       : kdph >= (specs?.englishKdph || 8000);
   const errorsMet = errorPct <= errorLimit;
-  const completionMet = completion >= 50;
+  const completionMet = completion >= MIN_COMPLETION_PCT;
   const qualified = speedMet && errorsMet && completionMet;
 
   /* Every SSC post judged against this one attempt. This is the answer to the
      question aspirants actually carry — not "did I pass the test I picked",
      but "at this score, which posts am I in the running for?" */
   const { cleared, missed } = useMemo(
-    () => postsFor({ netWpm, kdph, errorPct }, category),
-    [netWpm, kdph, errorPct, category]
+    () => postsFor({ netWpm, kdph, errorPct, completionPct: completion }, category),
+    [netWpm, kdph, errorPct, completion, category]
   );
   const nextTarget = missed[0] ?? null;
 
@@ -218,7 +223,12 @@ export function ResultScreen({
           : `${(specs?.englishKdph || 8000).toLocaleString('en-IN')} KDPH`,
     },
     { label: 'Errors', met: errorsMet, you: `${errorPct.toFixed(1)}%`, need: `≤ ${errorLimit}%` },
-    { label: 'Passage completed', met: completionMet, you: `${completion}%`, need: '≥ 50%' },
+    {
+      label: 'Passage completed',
+      met: completionMet,
+      you: `${completion}%`,
+      need: `≥ ${MIN_COMPLETION_PCT}%`,
+    },
   ];
 
   const breakdown = [

@@ -85,10 +85,8 @@ export default function ContactPage() {
             <h1 className="mt-5 text-5xl sm:text-6xl lg:text-7xl">
               Write to us. <em>A person replies.</em>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-vast/70">
-              There is no ticket queue and no bot. Pick the channel that matches
-              your question — the subject line comes filled in — and we
-              acknowledge within {LEGAL.ackHours} hours,{' '}
+            <p className="mt-6 max-w-md text-lg leading-relaxed text-vast/70">
+              No queue, no bot. Acknowledged within {LEGAL.ackHours} hours,{' '}
               {LEGAL.supportHours.toLowerCase()}.
             </p>
           </div>
@@ -174,10 +172,8 @@ export default function ContactPage() {
               <h2 className="text-4xl sm:text-5xl">
                 Four lines that save <em>four emails</em>
               </h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-vast/60">
-                Most support threads are long only because the first message was
-                short. Include these and the first reply is usually the last
-                one.
+              <p className="mt-5 max-w-sm text-base leading-relaxed text-vast/60">
+                Include these and the first reply is usually the last one.
               </p>
             </div>
             <ol className="space-y-6" data-reveal>

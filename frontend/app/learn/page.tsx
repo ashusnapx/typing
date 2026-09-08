@@ -331,9 +331,9 @@ export default function LearnPage() {
               <br />
               <em>Finish exam-ready.</em>
             </h1>
-            <p className="mt-7 max-w-xl text-lg text-vast/70">
-              Not a generic typing course. The middle of it is the half and full
-              mistakes that fail candidates who already type fast enough.
+            <p className="mt-7 max-w-md text-lg text-vast/70">
+              The middle of it is the half and full mistakes that fail
+              candidates who already type fast enough.
             </p>
           </div>
 
@@ -434,10 +434,9 @@ export default function LearnPage() {
               <h2 className="mt-4 text-4xl sm:text-5xl">
                 Learn the keyboard <em>properly</em>
               </h2>
-              <p className="mt-5 max-w-xl text-lg text-vast/60">
-                Posture and home row first, then every key in the order it
-                actually turns up in an SSC passage — so you reach real words by
-                the fourth lesson.
+              <p className="mt-5 max-w-md text-lg text-vast/60">
+                Home row first, then every key in the order SSC passages use
+                it. Real words by lesson four.
               </p>
             </div>
 
@@ -468,11 +467,10 @@ export default function LearnPage() {
               <h2 className="mt-5 text-4xl sm:text-6xl">
                 The stage nobody else <em>teaches</em>
               </h2>
-              <p className="mt-6 max-w-xl text-lg text-lumen/75">
+              <p className="mt-6 max-w-md text-lg text-lumen/75">
                 Candidates rarely fail on speed. They fail on capitalisation,
-                spacing, punctuation, transposed words and omitted figures —
-                half and full mistakes they were never shown. This stage drills
-                each one against the Commission&rsquo;s own rules.
+                spacing, punctuation and transposed words — drilled here against
+                the Commission&rsquo;s own rules.
               </p>
             </div>
 
@@ -502,9 +500,8 @@ export default function LearnPage() {
               <h2 className="mt-4 text-4xl sm:text-5xl">
                 Then type it <em>under pressure</em>
               </h2>
-              <p className="mt-5 max-w-xl text-lg text-vast/60">
-                No highlighting, no backspace, full duration, scored against the
-                bar for the post you picked above.
+              <p className="mt-5 max-w-md text-lg text-vast/60">
+                No highlighting, no backspace, full duration.
               </p>
             </div>
 
@@ -530,9 +527,8 @@ export default function LearnPage() {
           <h2 className="mx-auto max-w-2xl text-4xl sm:text-6xl" data-reveal>
             Ready for the <em>real thing?</em>
           </h2>
-          <p className="mx-auto mt-6 max-w-lg text-lg text-vast/70" data-reveal>
-            Take a full-length mock under exam conditions and see whether you
-            clear the bar for {post.shortName}.
+          <p className="mx-auto mt-6 max-w-sm text-lg text-vast/70" data-reveal>
+            See whether you clear the bar for {post.shortName}.
           </p>
           <div className="mt-9 flex justify-center" data-reveal>
             <Link href="/exam" className="btn btn-ink btn-lg">

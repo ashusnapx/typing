@@ -316,7 +316,16 @@ export type Attempt = {
   kdph: number;
   /** Error percentage, SSC formula. */
   errorPct: number;
+  /** How much of the passage was typed, 0–100. Speed alone does not qualify
+   *  anyone: three lines typed very fast is a huge WPM and a failed test, so a
+   *  post is only cleared once enough of the passage exists to have been
+   *  evaluated. Defaults to 100 for aggregate figures, where completion is
+   *  already baked into the averages. */
+  completionPct?: number;
 };
+
+/** The share of the passage that must be typed before a result means anything. */
+export const MIN_COMPLETION_PCT = 50;
 
 /** Derive KDPH from net WPM when the attempt did not record it directly. */
 export function kdphFromWpm(netWpm: number): number {
@@ -330,6 +339,9 @@ function verdictFor(
 ): PostVerdict {
   const cap = errorCapFor(post, category);
   const errorsMet = attempt.errorPct <= cap;
+  const completion = attempt.completionPct ?? 100;
+  const completionMet = completion >= MIN_COMPLETION_PCT;
+  const incompleteLabel = `only ${Math.round(completion)}% of the passage typed`;
 
   if (post.measure === 'wpm') {
     const need = post.wpmEnglish ?? 35;
@@ -337,7 +349,7 @@ function verdictFor(
     const shortfall = Math.max(0, need - attempt.netWpm);
     return {
       post,
-      cleared: speedMet && errorsMet,
+      cleared: speedMet && errorsMet && completionMet,
       speedMet,
       errorsMet,
       requirement: `${need} WPM · ≤ ${cap}% errors`,
@@ -347,7 +359,9 @@ function verdictFor(
         ? `${shortfall.toFixed(1)} WPM short`
         : !errorsMet
           ? `${(attempt.errorPct - cap).toFixed(1)}% over the error cap`
-          : '',
+          : !completionMet
+            ? incompleteLabel
+            : '',
     };
   }
 
@@ -356,7 +370,7 @@ function verdictFor(
   const shortfall = Math.max(0, need - attempt.kdph);
   return {
     post,
-    cleared: speedMet && errorsMet,
+    cleared: speedMet && errorsMet && completionMet,
     speedMet,
     errorsMet,
     requirement: `${need.toLocaleString('en-IN')} KDPH · ≤ ${cap}% errors`,
@@ -366,7 +380,9 @@ function verdictFor(
       ? `${shortfall.toLocaleString('en-IN')} KDPH short`
       : !errorsMet
         ? `${(attempt.errorPct - cap).toFixed(1)}% over the error cap`
-        : '',
+        : !completionMet
+          ? incompleteLabel
+          : '',
   };
 }
 

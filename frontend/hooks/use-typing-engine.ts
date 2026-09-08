@@ -5,7 +5,11 @@ import { useTypingStore } from '@/store/typing-store';
 import { KeystrokeEvent } from '@/types';
 import { transliterateEnglishToHindi } from '@/lib/hindi-transliteration';
 
-export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, requireCapsLock?: boolean, autoSpace?: boolean) {
+export function useTypingEngine(
+  lang?: 'english' | 'hindi',
+  strict?: boolean,
+  autoSpace?: boolean
+) {
   const {
     originalContent,
     typedContent,
@@ -98,20 +102,14 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
     const effectiveKey = key === 'Enter' ? '\n' : key;
     const isError = effectiveKey.length === 1 && effectiveKey !== expected && !isBackspace;
 
-    if (requireCapsLock && !isBackspace && expected !== '' && /[A-Z]/.test(expected) && !e.getModifierState('CapsLock')) {
-      const event: KeystrokeEvent = {
-        key,
-        timestamp_ms,
-        duration_ms: 0,
-        is_error: true,
-        is_backspace: false,
-        cursor_position: typedContent.length,
-        expected_char: expected,
-      };
-      addKeystroke(event);
-      return;
-    }
-
+    // NOTE: there was a guard here that rejected any keystroke whose expected
+    // character was A–Z unless Caps Lock was physically on. Lesson passages are
+    // sentence-case, so the very first character of most drills is a capital —
+    // which meant the first keypress was always refused and the drill could
+    // never advance at all. Capitals are typed with Shift, and Shift already
+    // produces the right character, so the comparison below covers this
+    // correctly on its own. CapsLockNotice handles the warning, which is all
+    // Caps Lock ever warranted.
     const event: KeystrokeEvent = {
       key,
       timestamp_ms,
@@ -159,7 +157,7 @@ export function useTypingEngine(lang?: 'english' | 'hindi', strict?: boolean, re
     if (finalContent.length >= originalContent.length) {
       completeTest();
     }
-  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, requireCapsLock, autoSpace]);
+  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, autoSpace]);
 
   useEffect(() => {
     if (isActive) {

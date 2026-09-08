@@ -50,7 +50,6 @@ export default function AnalyticsPage() {
           </Link>
           <div className="-rotate-1">
             <h1 className="text-3xl font-bold text-pencil font-marker">Typing Analytics</h1>
-            <p className="text-lg text-pencil/60 font-hand mt-1">Deep dive into your typing performance</p>
           </div>
         </div>
 

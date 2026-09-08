@@ -154,7 +154,11 @@ export const useTypingStore = create<TypingState>((set, get) => ({
       accuracy: 100,
       errors: 0,
       backspaces: 0,
-      navHidden: false,
+      // navHidden is deliberately NOT reset here. It describes the chrome
+      // around the session, not the session, and reset() runs *inside* one —
+      // on retry and on passage-set selection. Clearing it there dropped the
+      // site navbar back on top of a live exam. The screens that hide the
+      // navbar restore it themselves when they unmount.
     });
   },
 }));

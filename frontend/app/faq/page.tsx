@@ -343,11 +343,9 @@ export default function FAQPage() {
             <h1 className="mt-5 text-5xl sm:text-6xl lg:text-7xl">
               Questions, <em>answered properly</em>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-vast/70">
-              The exam rules come from the notice of examination and the
-              Commission&rsquo;s evaluation guidelines — the same documents that
-              set the targets inside {APP.name}, so nothing here contradicts what
-              the product does to your score.
+            <p className="mt-6 max-w-md text-lg leading-relaxed text-vast/70">
+              Straight from the notice of examination — the same source that
+              sets every target inside {APP.name}.
             </p>
           </div>
 
@@ -397,9 +395,8 @@ export default function FAQPage() {
           <div className="grid gap-10 md:grid-cols-2">
             <div>
               <h2 className="text-4xl sm:text-5xl">Not answered here?</h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-lumen/70">
-                Write to us. We acknowledge within {LEGAL.ackHours} hours, and a
-                correction to exam data is the fastest thing we ship.
+              <p className="mt-5 max-w-sm text-base leading-relaxed text-lumen/70">
+                Write to us — acknowledged within {LEGAL.ackHours} hours.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/contact" className="btn btn-cream btn-lg">
@@ -416,7 +413,7 @@ export default function FAQPage() {
               <ul className="mt-4 space-y-2.5">
                 {[
                   { href: '/learn', label: 'Learn typing from zero' },
-                  { href: '/exam/chsl', label: 'SSC CHSL test — 35 WPM, 10 min' },
+                  { href: '/exam', label: 'Pick your post' },
                   { href: '/exam/blind', label: 'Blind mode' },
                   { href: '/about', label: 'How the engine works' },
                 ].map((l) => (

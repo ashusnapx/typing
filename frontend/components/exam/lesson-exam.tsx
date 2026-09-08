@@ -43,7 +43,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const authStore = useAuthStore();
   const updateProfileMutation = useUpdateProfile();
   const [backspaceBlocked, setBackspaceBlocked] = useState(false);
-  const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, true, lesson.drillType === 'letters');
+  const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, lesson.drillType === 'letters');
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
   const [countdown, setCountdown] = useState(3);
   const [result, setResult] = useState<any>(null);

@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { levelFromXp, getLevelFromXP, getLevelIndex, LEVEL_NAMES } from './utils';
 import { getFlatLessons, getLessonById } from './typing-curriculum';
 import { profileSchema } from './schemas';
+import { TEST_MODES } from '@/types';
+import { EXAM_MODES } from './config';
+import { getModeDisplayName } from './utils';
 import { judgeLesson, lessonXpFor } from './lesson-scoring';
 
 /**
@@ -180,5 +183,29 @@ describe('lessonXpFor', () => {
     expect(lessonXpFor(100, true)).toBe(100);
     expect(lessonXpFor(100, false)).toBe(25);
     expect(lessonXpFor(15, false)).toBe(4);
+  });
+});
+
+describe('test modes', () => {
+  it('covers every exam route the app offers', () => {
+    // `typing_tests.mode` is a Postgres enum. When this list and the routes
+    // drifted apart, three exam variants existed that no attempt could be
+    // saved against — the candidate finished the test and the submission
+    // failed on an enum violation.
+    for (const mode of EXAM_MODES) {
+      expect(TEST_MODES as readonly string[], mode.id).toContain(mode.id);
+    }
+  });
+
+  it('covers the lesson mode lesson attempts are stored under', () => {
+    expect(TEST_MODES as readonly string[]).toContain('lesson');
+  });
+
+  it('has a display name for every mode', () => {
+    for (const mode of TEST_MODES) {
+      // A missing name falls through to the raw key, which is what the XP
+      // breakdown used to print.
+      expect(getModeDisplayName(mode), mode).not.toBe(mode);
+    }
   });
 });

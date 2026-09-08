@@ -1,6 +1,7 @@
 import { trpcClient, getToken as getSupabaseToken, setSupabaseToken } from './trpc-client';
 import { TRPCClientError } from '@trpc/client';
 import { useTypingStore } from '@/store/typing-store';
+import type { TestMode } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 const ENABLE_TRPC = process.env.NEXT_PUBLIC_ENABLE_TRPC !== 'false';
@@ -178,7 +179,7 @@ class ApiClient {
   async submitTest(testId: string, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
     if (ENABLE_TRPC) {
       const state = useTypingStore.getState();
-      const mode = state.mode || 'practice';
+      const mode = (state.mode || 'practice') as TestMode;
       const durationSeconds = state.totalDuration || 600;
       const originalContent = state.originalContent || '';
       
@@ -240,7 +241,7 @@ class ApiClient {
     });
   }
 
-  async directSubmit(mode: string, passage_id: string, duration_seconds: number, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
+  async directSubmit(mode: TestMode, passage_id: string, duration_seconds: number, typed_content: string, keystroke_events: any[], time_taken_seconds: number) {
     if (ENABLE_TRPC) {
       const state = useTypingStore.getState();
       const originalContent = state.originalContent || '';
@@ -470,9 +471,19 @@ class ApiClient {
   /** Award the XP for a finished lesson. The reward itself is resolved on the
    *  server from the lesson id — the browser only says which lesson, and
    *  whether it was cleared. */
-  async awardLessonXp(lessonId: string, qualified: boolean) {
+  async awardLessonXp(
+    lessonId: string,
+    qualified: boolean,
+    stats: {
+      wpm: number;
+      accuracy: number;
+      durationSeconds: number;
+      totalErrors: number;
+      keyDepressions: number;
+    }
+  ) {
     return this._t(() =>
-      trpcClient.user.awardLessonXp.mutate({ lessonId, qualified })
+      trpcClient.user.awardLessonXp.mutate({ lessonId, qualified, ...stats })
     );
   }
 

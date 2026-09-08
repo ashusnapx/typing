@@ -6,6 +6,8 @@ export const typingTests = pgTable('typing_tests', {
   userId: uuid('user_id').references(() => users.id).notNull(),
   passageId: uuid('passage_id'),
   mode: varchar('mode', { length: 50 }).notNull(),
+  /** Which of the curriculum's drills this was. Null for every exam attempt. */
+  lessonId: varchar('lesson_id', { length: 100 }),
   status: varchar('status', { length: 20 }).default('completed').notNull(),
   durationSeconds: integer('duration_seconds').notNull(),
   timeTakenSeconds: doublePrecision('time_taken_seconds'),

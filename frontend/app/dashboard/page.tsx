@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getLevelFromXP, getLevelIndex, getLevelProgress, LEVEL_NAMES, getModeDisplayName } from '@/lib/utils';
 import { ROUTES, PAGINATION } from '@/lib/config';
+import { getFlatLessons } from '@/lib/typing-curriculum';
 import {
   postsFor, kdphFromWpm, practiceHrefFor, CATEGORY_LABELS, type CategoryKey,
 } from '@/lib/ssc-posts';
@@ -20,6 +21,16 @@ import {
 
 const CATEGORY_STORAGE_KEY = 'tm-category-v2';
 const CATEGORY_KEYS: CategoryKey[] = ['ur', 'obcEws', 'scSt'];
+const TOTAL_LESSONS = getFlatLessons().length;
+
+/** "3h 20m" / "45m" / "2m" — never "0.75 hours". */
+function formatPracticeTime(seconds: number): string {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -150,6 +161,8 @@ export default function DashboardPage() {
 
   const recentWpm = predictions?.recent_avg_wpm ?? 0;
   const recentAcc = predictions?.recent_avg_accuracy ?? 0;
+  const lessons = (data as any)?.lessons;
+  const activity = (data as any)?.activity;
 
   /* The whole page in one calculation: every SSC post judged against the last
      ten attempts. Aspirants do not get to choose their post, so "am I ready
@@ -194,6 +207,7 @@ export default function DashboardPage() {
 
   const totalTests = analytics?.total_tests || 0;
   const hasHistory = totalTests > 0;
+  const lessonsDone = lessons?.cleared ?? 0;
 
   /* The server's figure wins. The auth store's copy is only refreshed at
      sign-in, so XP earned during the session — a lesson finished two minutes
@@ -231,10 +245,24 @@ export default function DashboardPage() {
       {/* ══════════════════════════════════════════════════════════ standing */}
       {!hasHistory ? (
         <section className="card mt-8 p-6 sm:p-8">
-          <h2 className="text-3xl">Take one test to see where you stand</h2>
+          <h2 className="text-3xl">
+            {lessonsDone > 0
+              ? 'Now take a timed test'
+              : 'Take one test to see where you stand'}
+          </h2>
           <p className="mt-3 max-w-md text-base text-vast/60">
-            One attempt is enough to tell you which SSC posts your current speed
-            already clears.
+            {lessonsDone > 0 ? (
+              <>
+                You&rsquo;ve cleared{' '}
+                <strong className="font-semibold text-vast">
+                  {lessonsDone} {lessonsDone === 1 ? 'lesson' : 'lessons'}
+                </strong>
+                . Lessons build the habit; a timed test is what tells you which
+                SSC posts your speed clears.
+              </>
+            ) : (
+              'One attempt is enough to tell you which SSC posts your current speed already clears.'
+            )}
           </p>
           <Link href={ROUTES.examChsl} className="btn btn-primary btn-lg mt-6">
             Start a test
@@ -362,7 +390,7 @@ export default function DashboardPage() {
           }
         />
         <Figure
-          label="Tests taken"
+          label="Timed tests"
           value={totalTests}
           sub={
             predictions?.wpm_trend && predictions.wpm_trend !== 'stable' ? (
@@ -406,6 +434,64 @@ export default function DashboardPage() {
           </span>
         </button>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════ practice */}
+      {/* Lessons are deliberately absent from every figure above — a two-minute
+          home-row drill averaged into an SSC readiness number would flatter the
+          candidate. They are real work all the same, and used to leave no trace
+          on this page at all. */}
+      {(lessons?.attempts > 0 || activity?.days_active > 0) && (
+        <section className="mt-6" aria-labelledby="practice-heading" data-reveal>
+          <h2 id="practice-heading" className="sr-only">
+            Practice
+          </h2>
+          <div className="card grid grid-cols-2 divide-vast/10 sm:grid-cols-4 sm:divide-x-2">
+            <div className="border-b-2 border-r-2 border-vast/10 p-4 sm:border-b-0 sm:border-r-0">
+              <span className="eyebrow">Lessons cleared</span>
+              <p className="tnum mt-2 font-display text-3xl leading-none">
+                {lessons?.cleared ?? 0}
+                <span className="text-lg text-vast/40">/{TOTAL_LESSONS}</span>
+              </p>
+              <Link
+                href={ROUTES.learn}
+                className="mt-2 inline-flex items-center gap-1 text-sm text-vast/50 hover:text-vast"
+              >
+                Continue
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </Link>
+            </div>
+
+            <div className="border-b-2 border-vast/10 p-4 sm:border-b-0">
+              <span className="eyebrow">Practice time</span>
+              <p className="tnum mt-2 font-display text-3xl leading-none">
+                {formatPracticeTime(activity?.total_seconds ?? 0)}
+              </p>
+              <p className="mt-2 text-sm text-vast/50">Across everything</p>
+            </div>
+
+            <div className="border-r-2 border-vast/10 p-4 sm:border-r-0">
+              <span className="eyebrow">Day streak</span>
+              <p className="tnum mt-2 font-display text-3xl leading-none">
+                {activity?.streak ?? 0}
+              </p>
+              <p className="mt-2 text-sm text-vast/50">
+                {activity?.days_active ?? 0} days practised
+              </p>
+            </div>
+
+            <div className="p-4">
+              <span className="eyebrow">Lesson speed</span>
+              <p className="tnum mt-2 font-display text-3xl leading-none">
+                {(lessons?.avg_wpm ?? 0).toFixed(0)}
+                <span className="text-lg text-vast/40"> wpm</span>
+              </p>
+              <p className="tnum mt-2 text-sm text-vast/50">
+                {(lessons?.avg_accuracy ?? 0).toFixed(0)}% accurate
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ════════════════════════════════════════════════════════ recent tests */}
       {hasHistory && (

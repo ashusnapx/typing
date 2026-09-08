@@ -1,14 +1,31 @@
-export type TestMode =
-  | 'ssc_chsl'
-  | 'ssc_chsl_deo'
-  | 'ssc_chsl_deo_grade_a'
-  | 'ssc_cgl_dest'
-  | 'ssc_cgl_cpt'
-  | 'ssc_hindi'
-  | 'practice'
-  | 'blind'
-  | 'mock'
-  | 'tcs_ion_replica';
+/**
+ * Every mode an attempt can be stored under.
+ *
+ * `typing_tests.mode` is a Postgres enum, so this list and the database's
+ * `test_mode` type have to agree exactly — when they drifted, three exam
+ * routes existed in the app that no attempt could actually be saved against,
+ * and the failure only showed up as a 500 at submission time. Declared once as
+ * a runtime array so the union, the Zod input and the Drizzle column can all
+ * derive from the same source instead of being retyped in three places.
+ *
+ * Adding one here means adding it to the enum too — see
+ * supabase/migrations/20260908020000_test_mode_values.sql.
+ */
+export const TEST_MODES = [
+  'ssc_chsl',
+  'ssc_chsl_deo',
+  'ssc_chsl_deo_grade_a',
+  'ssc_cgl_dest',
+  'ssc_cgl_cpt',
+  'ssc_hindi',
+  'practice',
+  'blind',
+  'mock',
+  'tcs_ion_replica',
+  'lesson',
+] as const;
+
+export type TestMode = (typeof TEST_MODES)[number];
 
 export type TestStatus = 'in_progress' | 'completed' | 'abandoned';
 

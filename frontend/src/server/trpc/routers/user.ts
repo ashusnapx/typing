@@ -3,12 +3,13 @@ import { z } from 'zod';
 import { db } from '../../db/client';
 import { users } from '../../db/schema/users';
 import { typingTests } from '../../db/schema/typing-tests';
-import { eq, desc, count, avg, max, sql } from 'drizzle-orm';
+import { eq, ne, and, desc, count, avg, max, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { profileSchema, completeProfileSchema } from '@/lib/schemas';
 import { getLessonById } from '@/lib/typing-curriculum';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
+import crypto from 'crypto';
 
 /** Shared with tests.submit, which must drop the entry the moment an attempt
  *  lands — a stale dashboard after finishing a test is the one case where the
@@ -22,8 +23,22 @@ export const userRouter = router({
     .input(z.void())
     .query(async ({ ctx }) =>
       responseCache.getOrCompute(dashboardCacheKey(ctx.user.id), 120, async () => {
-      // Four independent reads — one round trip instead of four.
-      const [aggregateRows, xpByMode, userRows, recentTests] = await Promise.all([
+      // Lessons live in this table too, under mode = 'lesson'. Every
+      // exam-facing figure excludes them: a two-minute home-row drill averaged
+      // into an SSC readiness number would flatter the candidate into thinking
+      // they are faster than they are.
+      const isExam = and(
+        eq(typingTests.userId, ctx.user.id),
+        ne(typingTests.mode, 'lesson')
+      );
+      const isLesson = and(
+        eq(typingTests.userId, ctx.user.id),
+        eq(typingTests.mode, 'lesson')
+      );
+
+      // Six independent reads — one round trip instead of six.
+      const [aggregateRows, xpByMode, userRows, recentTests, lessonRows, activityRows] =
+        await Promise.all([
         db
           .select({
             totalTests: count(),
@@ -33,7 +48,7 @@ export const userRouter = router({
             bestAccuracy: max(typingTests.accuracy),
           })
           .from(typingTests)
-          .where(eq(typingTests.userId, ctx.user.id)),
+          .where(isExam),
         db
           .select({
             mode: typingTests.mode,
@@ -63,9 +78,35 @@ export const userRouter = router({
             xpEarned: typingTests.xpEarned,
           })
           .from(typingTests)
-          .where(eq(typingTests.userId, ctx.user.id))
+          .where(isExam)
           .orderBy(desc(typingTests.createdAt))
           .limit(20),
+        // Lesson progress: how far through the course, and how well.
+        db
+          .select({
+            attempts: count(),
+            distinctLessons: sql<number>`COUNT(DISTINCT ${typingTests.lessonId})`,
+            clearedLessons: sql<number>`COUNT(DISTINCT ${typingTests.lessonId}) FILTER (WHERE ${typingTests.isQualified})`,
+            avgWpm: avg(typingTests.netWpm),
+            avgAccuracy: avg(typingTests.accuracy),
+          })
+          .from(typingTests)
+          .where(isLesson),
+        // Everything the candidate has done, for time spent and days active —
+        // lessons included, because practice time is practice time.
+        db
+          .select({
+            totalSeconds: sql<number>`COALESCE(SUM(${typingTests.durationSeconds}), 0)`,
+            // Cast to text in SQL rather than aggregating `date` values: a
+            // date[] comes back from the driver as objects whose parsing
+            // depends on the type map, and the streak silently read zero.
+            // Days are counted in IST because that is the day the candidate
+            // lives in — practising at 01:00 in Delhi is 19:30 UTC yesterday,
+            // and a streak that breaks on that is simply wrong.
+            days: sql<string[]>`COALESCE(ARRAY_AGG(DISTINCT TO_CHAR(${typingTests.createdAt} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')), ARRAY[]::text[])`,
+          })
+          .from(typingTests)
+          .where(eq(typingTests.userId, ctx.user.id)),
       ]);
 
       const [aggregate] = aggregateRows;
@@ -75,6 +116,40 @@ export const userRouter = router({
 
       const [userRecord] = userRows;
       const totalXp = Number(userRecord?.xp ?? 0);
+
+      const [lessonAgg] = lessonRows;
+      const [activity] = activityRows;
+
+      /** Consecutive days ending today or yesterday. Yesterday still counts —
+       *  a streak that breaks the moment midnight passes punishes someone who
+       *  simply has not practised yet today. */
+      const activeDays: string[] = Array.isArray(activity?.days)
+        ? (activity.days as string[]).filter(Boolean).sort().reverse()
+        : [];
+
+      /** Today in IST, and the days before it, as YYYY-MM-DD. */
+      const dayStamp = (offset: number) =>
+        new Date(Date.now() - offset * 86400000).toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Kolkata',
+        });
+
+      let streak = 0;
+      if (activeDays.length) {
+        const startsToday = activeDays[0] === dayStamp(0);
+        const startsYesterday = activeDays[0] === dayStamp(1);
+        if (startsToday || startsYesterday) {
+          streak = 1;
+          for (let i = 1; i < activeDays.length; i++) {
+            const expected = new Date(
+              new Date(`${activeDays[i - 1]}T00:00:00Z`).getTime() - 86400000
+            )
+              .toISOString()
+              .slice(0, 10);
+            if (activeDays[i] === expected) streak++;
+            else break;
+          }
+        }
+      }
 
       const recent_scores = recentTests.map((t) => ({
         id: t.id,
@@ -167,6 +242,19 @@ export const userRouter = router({
         totalXp,
         lessonXp: Math.max(0, totalXp - totalTestXp),
         recent_scores,
+        // Kept apart from the exam figures on purpose — see `isExam` above.
+        lessons: {
+          attempts: Number(lessonAgg?.attempts ?? 0),
+          practised: Number(lessonAgg?.distinctLessons ?? 0),
+          cleared: Number(lessonAgg?.clearedLessons ?? 0),
+          avg_wpm: Math.round(Number(lessonAgg?.avgWpm ?? 0) * 10) / 10,
+          avg_accuracy: Math.round(Number(lessonAgg?.avgAccuracy ?? 0) * 10) / 10,
+        },
+        activity: {
+          total_seconds: Number(activity?.totalSeconds ?? 0),
+          days_active: activeDays.length,
+          streak,
+        },
       };
       })
     ),
@@ -189,6 +277,13 @@ export const userRouter = router({
       z.object({
         lessonId: z.string().min(1).max(100),
         qualified: z.boolean(),
+        // The figures the drill produced. Clamped rather than trusted — they
+        // only ever describe a lesson row, which no exam statistic reads.
+        wpm: z.number().min(0).max(400).default(0),
+        accuracy: z.number().min(0).max(100).default(0),
+        durationSeconds: z.number().min(0).max(7200).default(0),
+        totalErrors: z.number().min(0).max(100000).default(0),
+        keyDepressions: z.number().min(0).max(1000000).default(0),
       })
     )
     .output(z.object({ xp: z.number(), level: z.number(), awarded: z.number() }))
@@ -207,11 +302,40 @@ export const userRouter = router({
         ? lesson.xpReward
         : Math.round(lesson.xpReward * 0.25);
 
+      const now = new Date();
+
+      // The attempt itself, so the dashboard can show that the work happened.
+      // Lessons used to leave no trace but a bigger XP number, which is how a
+      // candidate could finish a dozen drills and still read "Tests taken 0".
+      // mode = 'lesson' keeps it out of every exam-facing figure.
+      try {
+        await db.insert(typingTests).values({
+          id: crypto.randomUUID(),
+          userId: ctx.user.id,
+          mode: 'lesson',
+          lessonId: input.lessonId,
+          durationSeconds: Math.round(input.durationSeconds),
+          netWpm: input.wpm,
+          grossWpm: input.wpm,
+          accuracy: input.accuracy,
+          totalErrors: Math.round(input.totalErrors),
+          keyDepressionCount: Math.round(input.keyDepressions),
+          isQualified: input.qualified,
+          xpEarned: awarded,
+          idempotencyKey: `lesson:${ctx.user.id}:${input.lessonId}:${now.getTime()}`,
+          createdAt: now,
+        });
+      } catch (err) {
+        // The XP award is the part that must not be lost. A failed row costs a
+        // line of history, not the reward.
+        ctx.logger.error('Lesson attempt insert failed', { error: (err as Error)?.message });
+      }
+
       const [updated] = await db
         .update(users)
         .set({
           xp: sql`${users.xp} + ${awarded}`,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(users.id, ctx.user.id))
         .returning({ xp: users.xp });

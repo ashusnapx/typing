@@ -255,7 +255,7 @@ export function useDirectSubmit() {
 
   return useMutation({
     mutationFn: (params: {
-      mode: string;
+      mode: TestMode;
       passage_id: string;
       duration_seconds: number;
       typed_content: string;
@@ -325,7 +325,13 @@ export function useSaveLessonResult() {
 
       // Guests keep their progress locally; there is no account to credit.
       if (!useAuthStore.getState().isAuthenticated) return null;
-      return api.awardLessonXp(lessonId, qualified);
+      return api.awardLessonXp(lessonId, qualified, {
+        wpm,
+        accuracy: acc,
+        durationSeconds: durationSec,
+        totalErrors,
+        keyDepressions,
+      });
     },
     onSuccess: (award) => {
       if (!award) return;

@@ -12,6 +12,7 @@ import { qualificationPredictor } from '../../services/qualification-predictor';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
+import { TEST_MODES } from '@/types';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 import { dashboardCacheKey } from './user';
@@ -52,7 +53,11 @@ export const testsRouter = router({
   submit: protectedProcedure
     .input(
       z.object({
-        mode: z.string(),
+        // Narrowed to the modes the database enum actually accepts. As a bare
+        // string an unknown mode reached the insert and surfaced as a 500 with
+        // the attempt already lost; now it is rejected with a message that says
+        // what went wrong.
+        mode: z.enum(TEST_MODES),
         durationSeconds: z.number(),
         originalContent: z.string().optional(),
         typedContent: z.string().optional(),

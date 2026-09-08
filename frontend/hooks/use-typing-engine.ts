@@ -47,7 +47,17 @@ export function useTypingEngine(
   }, [isActive]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!isActive || isComplete) return;
+    // Read the session straight from the store rather than from the values
+    // this callback closed over. React batches state updates, so two
+    // keystrokes landing in the same batch both saw the same `typedContent`
+    // and the second overwrote the first — a character silently lost, and
+    // counted as an error against the candidate. It needs a fast typist to
+    // show up, which is exactly who cannot afford it.
+    const session = useTypingStore.getState();
+    const typedContent = session.typedContent;
+    const originalContent = session.originalContent;
+
+    if (!session.isActive || session.isComplete) return;
 
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
@@ -59,7 +69,7 @@ export function useTypingEngine(
     }
 
     const now = Date.now();
-    const timestamp_ms = now - (startTime || now);
+    const timestamp_ms = now - (session.startTime || now);
     const duration_ms = lastCharTime.current > 0 ? now - lastCharTime.current : 0;
     lastCharTime.current = now;
 
@@ -148,8 +158,10 @@ export function useTypingEngine(
     const correctChars = finalContent.split('').filter((c, i) => c === originalContent[i]).length;
     const totalChars = finalContent.length;
     const errors = totalChars - correctChars;
-    const backspaces = keystrokeEvents.filter((e) => e.is_backspace).length + (isBackspace ? 1 : 0);
-    const wpm = totalChars > 0 ? Math.round((totalChars / 5) / (elapsedSeconds / 60)) : 0;
+    const backspaces =
+      session.keystrokeEvents.filter((k) => k.is_backspace).length + (isBackspace ? 1 : 0);
+    const seconds = session.elapsedSeconds;
+    const wpm = totalChars > 0 && seconds > 0 ? Math.round((totalChars / 5) / (seconds / 60)) : 0;
     const accuracy = totalChars > 0 ? Math.round((correctChars / totalChars) * 10000) / 100 : 100;
 
     updateMetrics(wpm, accuracy, errors, backspaces);
@@ -157,7 +169,7 @@ export function useTypingEngine(
     if (finalContent.length >= originalContent.length) {
       completeTest();
     }
-  }, [isActive, isComplete, typedContent, originalContent, startTime, elapsedSeconds, addKeystroke, updateTypedContent, updateMetrics, completeTest, keystrokeEvents, isHindi, strict, autoSpace]);
+  }, [addKeystroke, updateTypedContent, updateMetrics, completeTest, isHindi, strict, autoSpace]);
 
   useEffect(() => {
     if (isActive) {

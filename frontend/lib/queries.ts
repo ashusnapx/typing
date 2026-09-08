@@ -75,8 +75,12 @@ export function useDashboard() {
     // the dashboard feel slow after sign-in.
     enabled: isAuthenticated || !!api.getToken(),
     refetchOnWindowFocus: true,
-    initialData: cached?.data,
-    initialDataUpdatedAt: cached?.at,
+    // placeholderData, NOT initialData. initialData seeds the query cache as
+    // real data carrying the stored timestamp, so on a fresh page load a copy
+    // younger than staleTime counted as fresh and was never revalidated — XP
+    // earned a minute earlier stayed invisible until the cache aged out.
+    // placeholderData paints the same figures instantly and always refetches.
+    placeholderData: cached?.data,
   });
 
   return query;
@@ -273,24 +277,60 @@ export function useDirectSubmit() {
   });
 }
 
+/**
+ * Record a finished lesson: local progress, plus the XP award on the server.
+ *
+ * The XP half used to go through useUpdateProfile, which sends only a name and
+ * an email — the call failed validation, threw, and the award was lost in both
+ * places. It has its own mutation now, and the auth store takes the total the
+ * server returns rather than one the client guessed at.
+ */
 export function useSaveLessonResult() {
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ lessonId, wpm, acc, qualified }: {
+    mutationFn: async ({
+      lessonId,
+      wpm,
+      acc,
+      qualified,
+      durationSec = 0,
+      totalErrors = 0,
+      keyDepressions = 0,
+      xpEarned = 0,
+      keystrokeEvents,
+    }: {
       lessonId: string;
       wpm: number;
       acc: number;
       qualified: boolean;
+      durationSec?: number;
+      totalErrors?: number;
+      keyDepressions?: number;
+      xpEarned?: number;
+      /** Fed to the mastery engine for the per-key heatmap. */
+      keystrokeEvents?: any[];
     }) => {
       saveTestResult({
         wpm,
         accuracy: acc,
         mode: 'lesson',
         qualified,
-        duration: 0,
-        total_errors: 0,
-        key_depression_count: 0,
+        duration: durationSec,
+        total_errors: totalErrors,
+        key_depression_count: keyDepressions,
+        xp_earned: xpEarned,
       });
-      saveLessonProgress(lessonId, wpm, acc, qualified);
+      saveLessonProgress(lessonId, wpm, acc, qualified, keystrokeEvents);
+
+      // Guests keep their progress locally; there is no account to credit.
+      if (!useAuthStore.getState().isAuthenticated) return null;
+      return api.awardLessonXp(lessonId, qualified);
+    },
+    onSuccess: (award) => {
+      if (!award) return;
+      useAuthStore.getState().updateUser({ xp: award.xp, level: award.level });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

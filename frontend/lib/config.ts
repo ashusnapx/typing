@@ -5,22 +5,22 @@
 // Change NOTHING outside this file for any copy or configuration change.
 // =============================================================================
 
+// Nothing here may claim a rank, a market position or a number we cannot
+// point at in the code or the notification. "India's most accurate" was a
+// superlative no one can verify and it is gone; what replaced it is a plain
+// description of what the product does. `tagLineFull`, `footer` and
+// `footerDisclaimer` carried the same claim and were imported by nothing.
 export const APP = {
   name: 'Typing Mania',
   tagline: 'by Maths Mania',
   fullName: 'Typing Mania by Maths Mania',
-  tagLineFull: "India's Most Accurate SSC Typing Exam Simulator",
   description:
-    "India's Most Accurate SSC Typing Exam Simulator. Practice SSC CHSL, CGL DEST with exact evaluation logic and Eduquity replica experience. Learn typing from scratch with progressive lessons.",
+    'SSC skill-test simulator for CHSL and CGL. Full and half mistakes classified as the Commission defines them, net speed from the official formula, and a replica of the Eduquity exam screen. Free, with typing lessons from zero.',
   keywords:
     'SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing, Typing Lessons',
   url: 'https://typingmania.com',
   logo: '/images/logo.png?v=2',
   ogImage: '/images/logo.png?v=2',
-  footer:
-    "© 2026 Typing Mania by Maths Mania. India's Most Accurate SSC Typing Exam Simulator.",
-  footerDisclaimer:
-    'Not affiliated with SSC or Eduquity. This is a practice platform.',
 } as const;
 
 // =============================================================================

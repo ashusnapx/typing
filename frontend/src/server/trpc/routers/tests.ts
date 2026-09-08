@@ -9,9 +9,10 @@ import { LeaderboardService } from '../../redis/leaderboard-service';
 import { errorEngine } from '../../services/error-engine';
 import { analyticsService } from '../../services/analytics';
 import { qualificationPredictor } from '../../services/qualification-predictor';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
+import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 import { dashboardCacheKey } from './user';
 
@@ -178,22 +179,23 @@ export const testsRouter = router({
           }
 
           const xpEarned = Math.round((sscNetWpm ?? input.netWpm) * 10 * ((sscAccuracy ?? input.accuracy) / 100));
-          const [userRecord] = await tx
-            .select()
-            .from(users)
-            .where(eq(users.id, ctx.user.id))
-            .limit(1);
 
-          if (userRecord) {
-            const newXp = userRecord.xp + xpEarned;
-            const newLevel = Math.floor(Math.sqrt(newXp / 100)) + 1;
+          // Increment in SQL rather than select-then-set: two attempts landing
+          // together would each read the same starting XP and the second write
+          // would silently discard the first one's award.
+          const [awarded] = await tx
+            .update(users)
+            .set({
+              xp: sql`${users.xp} + ${xpEarned}`,
+              updatedAt: createdAt,
+            })
+            .where(eq(users.id, ctx.user.id))
+            .returning({ xp: users.xp });
+
+          if (awarded) {
             await tx
               .update(users)
-              .set({
-                xp: newXp,
-                level: newLevel,
-                updatedAt: createdAt,
-              })
+              .set({ level: levelFromXp(awarded.xp) })
               .where(eq(users.id, ctx.user.id));
           }
 

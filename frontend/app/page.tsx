@@ -9,6 +9,11 @@ import {
 } from 'lucide-react';
 import { EXAM_MODES } from '@/lib/config';
 import { EXAM_VARIANTS } from '@/lib/exam-config';
+import { getFlatLessons } from '@/lib/typing-curriculum';
+
+/** Counted from the curriculum, never typed by hand — a number on the landing
+ *  page that can drift from the product is a number that will. */
+const LESSON_COUNT = getFlatLessons().length;
 import { ExamPreview } from '@/components/home/exam-preview';
 import { SpinningBadge } from '@/components/home/spinning-badge';
 
@@ -56,7 +61,10 @@ function requirementFor(id: string, wpmTarget: number): string {
 const PILLARS = [
   { title: 'The official error engine', body: 'Full and half mistakes, the Commission\u2019s own formula.' },
   { title: 'Mistake-by-mistake review', body: 'Every keystroke replayed against the passage.' },
-  { title: 'Zero to exam-ready', body: 'Thirty-four lessons. Home row to full passages.' },
+  {
+    title: 'Zero to exam-ready',
+    body: `${LESSON_COUNT} lessons. Home row to full passages.`,
+  },
   { title: 'Your bar, not a generic one', body: 'Every verdict follows your post\u2019s real cap.' },
 ];
 
@@ -131,11 +139,12 @@ export default function HomePage() {
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
           <div className="mx-auto max-w-3xl text-center" data-reveal>
             <h2 className="text-4xl sm:text-6xl">
-              Most mocks score you <em>wrong</em>
+              One exam, <em>four different bars</em>
             </h2>
             <p className="mx-auto mt-6 max-w-md text-lg text-lumen/75">
-              The bar belongs to the post, not the exam. ASO is marked at 5% —
-              four times stricter than most mocks assume.
+              The requirement belongs to the post, not the exam. ASO is capped
+              at 5% errors and DEO at 20% — the same test, marked four times
+              stricter.
             </p>
           </div>
 
@@ -277,7 +286,7 @@ export default function HomePage() {
             Never used a keyboard <em>properly?</em>
           </h2>
           <p className="mx-auto mt-6 max-w-sm text-lg text-vast/70" data-reveal>
-            Thirty-four lessons that assume nothing.
+            {LESSON_COUNT} lessons that assume nothing.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3" data-reveal>
             <Link href="/learn" className="btn btn-ink btn-lg">

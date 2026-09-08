@@ -74,6 +74,19 @@ export function getLevelIndex(xp: number): number {
   return idx;
 }
 
+/**
+ * The stored `users.level` column, derived from XP.
+ *
+ * There were three different formulas for this — `floor(xp/100)+1` in the
+ * lesson screen, `floor(sqrt(xp/100))+1` at test submission, and the
+ * LEVEL_NAMES thresholds everywhere the level was actually *displayed*. None
+ * of them agreed, so the stored column never matched the rank the user saw.
+ * The thresholds win, because they are the ones on screen.
+ */
+export function levelFromXp(xp: number): number {
+  return getLevelIndex(xp) + 1;
+}
+
 export function getLevelProgress(xp: number): { current: string; next: string | null; currentXp: number; nextXp: number; progress: number } {
   const idx = getLevelIndex(xp);
   const current = LEVEL_NAMES[idx];

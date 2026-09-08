@@ -6,9 +6,7 @@ import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { useTypingStore } from '@/store/typing-store';
 import { useAuthStore } from '@/store/auth-store';
 import { formatTime, calculateWPM, calculateAccuracy } from '@/lib/utils';
-import { saveTestResult } from '@/lib/test-storage';
-import { saveLessonProgress } from '@/lib/lesson-storage';
-import { useUpdateProfile } from '@/lib/queries';
+import { useSaveLessonResult } from '@/lib/queries';
 import { blastConfetti } from '@/lib/confetti';
 import { ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
@@ -41,7 +39,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const router = useRouter();
   const store = useTypingStore();
   const authStore = useAuthStore();
-  const updateProfileMutation = useUpdateProfile();
+  const saveLessonResult = useSaveLessonResult();
   const [backspaceBlocked, setBackspaceBlocked] = useState(false);
   const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, lesson.drillType === 'letters');
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
@@ -115,34 +113,25 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
       xp_earned: earnedXp,
     };
     setResult(finalResult);
-    saveTestResult({
-      wpm: finalWpm,
-      accuracy: finalAcc,
-      mode: 'lesson',
-      qualified,
-      duration: lesson.durationSec,
-      total_errors: errorEvents,
-      key_depression_count: totalType,
-      xp_earned: earnedXp,
-    });
-    saveLessonProgress(lesson.id, finalWpm, finalAcc, qualified, keystrokeEvents);
 
-    if (authStore.isAuthenticated && authStore.user) {
-      const newXp = (authStore.user.xp || 0) + earnedXp;
-      const newLevel = Math.floor(newXp / 100) + 1;
-      updateProfileMutation.mutate(
-        { xp: newXp, level: newLevel },
-        {
-          onSuccess: () => {
-            authStore.updateUser({ xp: newXp, level: newLevel });
-          },
-        }
-      );
-    }
+    // Credits the account and refreshes the dashboard. The server resolves the
+    // reward from the lesson id, so `earnedXp` above is only what this screen
+    // displays — the two use the same rule and cannot disagree.
+    saveLessonResult.mutate({
+      lessonId: lesson.id,
+      wpm: finalWpm,
+      acc: finalAcc,
+      qualified,
+      durationSec: lesson.durationSec,
+      totalErrors: errorEvents,
+      keyDepressions: totalType,
+      xpEarned: earnedXp,
+      keystrokeEvents,
+    });
 
     setPhase('result');
     blastConfetti();
-  }, [typedContent, originalContent, elapsedSeconds, lesson, authStore]);
+  }, [typedContent, originalContent, elapsedSeconds, lesson, authStore, saveLessonResult]);
 
   useEffect(() => {
     if (isComplete && phase === 'typing' && !hasCompletedRef.current) {

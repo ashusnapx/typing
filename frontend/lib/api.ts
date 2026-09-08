@@ -467,6 +467,15 @@ class ApiClient {
   }
 
   // Profile
+  /** Award the XP for a finished lesson. The reward itself is resolved on the
+   *  server from the lesson id — the browser only says which lesson, and
+   *  whether it was cleared. */
+  async awardLessonXp(lessonId: string, qualified: boolean) {
+    return this._t(() =>
+      trpcClient.user.awardLessonXp.mutate({ lessonId, qualified })
+    );
+  }
+
   async updateProfile(data: any) {
     if (ENABLE_TRPC) {
       const updated = await this._t(() => trpcClient.user.updateProfile.mutate({

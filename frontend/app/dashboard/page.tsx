@@ -195,6 +195,11 @@ export default function DashboardPage() {
   const totalTests = analytics?.total_tests || 0;
   const hasHistory = totalTests > 0;
 
+  /* The server's figure wins. The auth store's copy is only refreshed at
+     sign-in, so XP earned during the session — a lesson finished two minutes
+     ago — would keep reading the stale total until the next login. */
+  const xp = (data as any)?.totalXp ?? user.xp ?? 0;
+
   return (
     <div className="mx-auto w-full max-w-content px-5 py-10 sm:px-8 sm:py-14">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -387,10 +392,10 @@ export default function DashboardPage() {
         >
           <span className="eyebrow flex items-center gap-1.5">
             <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            {getLevelFromXP(user.xp)}
+            {getLevelFromXP(xp)}
           </span>
           <span className="tnum mt-2 font-display text-3xl leading-none">
-            {user.xp}
+            {xp}
           </span>
           <span className="mt-auto flex items-center gap-1.5 pt-2 text-sm text-vast/50 transition-colors group-hover:text-vast">
             XP breakdown
@@ -499,7 +504,6 @@ export default function DashboardPage() {
 
       {/* ═══════════════════════════════════════════════════════════ XP detail */}
       {showXPModal && (() => {
-        const xp = user.xp || 0;
         const rankIdx = getLevelIndex(xp);
         const progress = getLevelProgress(xp);
         const xpBreakdown: { source: string; xp: number; tests: number }[] =

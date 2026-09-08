@@ -6,6 +6,8 @@ import { typingTests } from '../../db/schema/typing-tests';
 import { eq, desc, count, avg, max, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { profileSchema } from '@/lib/schemas';
+import { getLessonById } from '@/lib/typing-curriculum';
+import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 
 /** Shared with tests.submit, which must drop the entry the moment an attempt
@@ -159,11 +161,76 @@ export const userRouter = router({
           xp: Number(r.totalXp),
           tests: Number(r.testCount),
         })),
+        // The authoritative XP total. The dashboard used to read this off the
+        // auth store, which is only refreshed at sign-in — so XP earned during
+        // the session showed a stale figure until the next login.
+        totalXp,
         lessonXp: Math.max(0, totalXp - totalTestXp),
         recent_scores,
       };
       })
     ),
+
+  /**
+   * Award the XP for a finished lesson.
+   *
+   * Lessons used to report their XP through `updateProfile`, which accepts
+   * only a name and an email — so the call failed zod validation, threw, and
+   * the XP was lost on the server *and* in the client (the optimistic store
+   * update lived in the mutation's onSuccess, which never ran).
+   *
+   * The reward is looked up here rather than sent by the browser: a client
+   * that can name its own XP can name any number. The write is a single
+   * atomic increment, so two lessons finishing together cannot clobber each
+   * other the way a read-then-write does.
+   */
+  awardLessonXp: protectedProcedure
+    .input(
+      z.object({
+        lessonId: z.string().min(1).max(100),
+        qualified: z.boolean(),
+      })
+    )
+    .output(z.object({ xp: z.number(), level: z.number(), awarded: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const lesson = getLessonById(input.lessonId);
+      if (!lesson) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Unknown lesson: ${input.lessonId}`,
+        });
+      }
+
+      // Same split the lesson screen shows: full reward for clearing the bar,
+      // a quarter for finishing without clearing it.
+      const awarded = input.qualified
+        ? lesson.xpReward
+        : Math.round(lesson.xpReward * 0.25);
+
+      const [updated] = await db
+        .update(users)
+        .set({
+          xp: sql`${users.xp} + ${awarded}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, ctx.user.id))
+        .returning({ xp: users.xp });
+
+      if (!updated) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found.' });
+      }
+
+      // Level follows XP, so it is derived from the row we just wrote rather
+      // than from a total the client believed it had.
+      const level = levelFromXp(updated.xp);
+      await db.update(users).set({ level }).where(eq(users.id, ctx.user.id));
+
+      // The dashboard reads this XP; a cached copy would hide the award for
+      // up to two minutes, which is the whole bug being fixed here.
+      await responseCache.invalidate(dashboardCacheKey(ctx.user.id));
+
+      return { xp: updated.xp, level, awarded };
+    }),
 
   profile: protectedProcedure
     .input(z.void())

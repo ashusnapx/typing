@@ -35,6 +35,7 @@ export function getModeDisplayName(mode: string): string {
     blind: 'Blind Mode',
     mock: 'Mock Test',
     tcs_ion_replica: 'Eduquity Replica',
+    lesson: 'Lessons',
   };
   return names[mode] || mode;
 }

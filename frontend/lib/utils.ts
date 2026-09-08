@@ -25,8 +25,11 @@ export function formatTime(seconds: number): string {
 
 export function getModeDisplayName(mode: string): string {
   const names: Record<string, string> = {
-    ssc_chsl: 'SSC CHSL',
-    ssc_cgl_dest: 'SSC CGL DEST',
+    ssc_chsl: 'SSC CHSL — LDC / JSA',
+    ssc_chsl_deo: 'SSC CHSL — DEO',
+    ssc_chsl_deo_grade_a: "SSC CHSL — DEO Grade 'A'",
+    ssc_cgl_dest: 'SSC CGL — DEST',
+    ssc_cgl_cpt: 'SSC CGL — CPT',
     ssc_hindi: 'SSC Hindi',
     practice: 'Practice',
     blind: 'Blind Mode',

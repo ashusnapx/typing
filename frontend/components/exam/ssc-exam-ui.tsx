@@ -8,10 +8,10 @@ import {
   Type as TypeIcon,
 } from 'lucide-react';
 import { useTypingStore } from '@/store/typing-store';
-import { useAuthStore } from '@/store/auth-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
+import { ExamChrome, ExamTimeBox, clock } from './exam-chrome';
 
 interface SSCExamUIProps {
   mode: string;
@@ -41,35 +41,6 @@ interface SSCExamUIProps {
  */
 
 const LIVE_FEEDBACK_MODES = new Set(['practice', 'lesson']);
-
-function pad(n: number) {
-  return String(n).padStart(2, '0');
-}
-
-/* ------------------------------------------------------------- watermark */
-
-/** The roll number tiled diagonally behind every post-login screen.
- *
- *  The platform does this with `.watermark1/2/3 { color:#d0d0d0; font-size:100pt }`
- *  — enormous, pale, unmissable. It is the single most recognisable feature of
- *  the real screen and no practice site reproduces it, so candidates meet it
- *  for the first time on exam day and find it distracting. Better to have
- *  already stopped noticing it. */
-function Watermark({ text }: { text: string }) {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 select-none overflow-hidden"
-      style={{
-        // Generated from a runtime value, so it cannot live in the stylesheet.
-        backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420"><text x="20" y="300" transform="rotate(-26 20 300)" font-family="Verdana, Geneva, sans-serif" font-size="78" fill="#e2e2e2">${text}</text></svg>`
-        )}")`,
-        backgroundRepeat: 'repeat',
-      }}
-    />
-  );
-}
 
 /* ---------------------------------------------------------------- passage */
 
@@ -154,7 +125,6 @@ export function SSCExamUI({
   newEngine,
 }: SSCExamUIProps) {
   const store = useTypingStore();
-  const user = useAuthStore((s) => s.user);
   const {
     typedContent: oldTypedContent,
     originalContent: oldOriginalContent,
@@ -245,8 +215,6 @@ export function SSCExamUI({
 
   const totalDuration = store.totalDuration || durationSeconds;
   const remaining = Math.max(0, totalDuration - elapsedSeconds);
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
 
   const totalChars = typedContent.length;
   const correctChars = useMemo(
@@ -282,72 +250,12 @@ export function SSCExamUI({
           ? `${wpmTarget} WPM`
           : '—';
 
-  // The real screen prints a roll number. Signed-in users get a stable one
-  // derived from their id; guests get a clearly fake placeholder.
-  const rollNo = user?.id
-    ? user.id.replace(/\D/g, '').padEnd(11, '0').slice(0, 11)
-    : null;
-  const candidateName = user?.full_name || 'Guest candidate';
-  // Guests have no roll number; eleven zeros reads as a bug, so the watermark
-  // says what the screen is instead.
-  const watermarkText = rollNo ?? 'PRACTICE';
-
   return (
-    <div className="exam-root relative flex min-h-screen flex-col">
-      <Watermark text={watermarkText} />
-
-      {/* ------------------------------------------------------ title bar */}
-      {/* The platform's header frame: title centred, zoom controls to the
-          left, candidate photo boxes to the right. */}
-      <div className="relative border-b border-exam-line bg-white">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 py-2 sm:px-6">
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFontScale((f) => Math.min(24, f + 2))}
-              className="rounded bg-exam-chrome px-2.5 py-1 text-[11px] font-bold text-white"
-            >
-              Zoom (+)
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale((f) => Math.max(12, f - 2))}
-              className="rounded bg-exam-chrome px-2.5 py-1 text-[11px] font-bold text-white"
-            >
-              Zoom (&minus;)
-            </button>
-          </div>
-
-          <p className="flex-1 text-center text-base font-bold uppercase text-exam-text">
-            SSC Online Skill Test
-          </p>
-
-          <div className="hidden shrink-0 gap-1.5 sm:flex">
-            {['Registration Photo', 'Captured Photo'].map((label) => (
-              <div
-                key={label}
-                className="flex h-[70px] w-[80px] items-center justify-center border border-exam-line bg-exam-panel p-1 text-center text-[8px] leading-tight text-exam-muted"
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* --------------------------------------------- candidate strip */}
-      <div className="relative bg-exam-chrome text-white">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 text-sm font-bold sm:px-6">
-          <span className="tnum">Roll No : {rollNo ?? '—'}</span>
-          <span aria-hidden className="opacity-60">|</span>
-          <span className="truncate">Name : {candidateName}</span>
-          <span aria-hidden className="hidden opacity-60 sm:inline">|</span>
-          <span className="hidden sm:inline">
-            Post/Subject : {getModeDisplayName(mode)}
-          </span>
-        </div>
-      </div>
-
+    <ExamChrome
+      postLabel={getModeDisplayName(mode)}
+      onZoomIn={() => setFontScale((f) => Math.min(24, f + 2))}
+      onZoomOut={() => setFontScale((f) => Math.max(12, f - 2))}
+    >
       {/* -------------------------------------------------------- header */}
       <header className="sticky top-0 z-40 border-b border-exam-line bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 py-2.5 sm:px-6">
@@ -363,18 +271,11 @@ export function SSCExamUI({
           <div className="ml-auto flex items-center gap-4">
             {/* Caption above, red figures on the pale-yellow block, top
                 right — exactly where and how the platform prints it. */}
-            <div className="text-right">
-              <div className="mb-0.5 text-[11px] font-bold text-exam-text">
-                Time Left
-              </div>
-              <div
-                className="exam-timer tnum"
-                role="timer"
-                aria-live={timeState === 'critical' ? 'assertive' : 'off'}
-              >
-                {pad(Math.floor(remaining / 3600))}:{pad(mins % 60)}:{pad(secs)}
-              </div>
-            </div>
+            <ExamTimeBox
+              label="Time Left"
+              value={clock(remaining)}
+              assertive={timeState === 'critical'}
+            />
 
             <button
               type="button"
@@ -590,16 +491,6 @@ export function SSCExamUI({
           )}
         </div>
       </div>
-
-      {/* -------------------------------------------------------- footer */}
-      {/* Blue bar over the thin amber sliver the platform's outer table
-          leaves visible. */}
-      <div className="relative">
-        <div className="bg-exam-chrome py-1 text-center text-[11px] font-bold text-white">
-          Practice simulation &middot; Not affiliated with SSC or Eduquity
-        </div>
-        <div className="h-1 bg-exam-amber" />
-      </div>
-    </div>
+    </ExamChrome>
   );
 }

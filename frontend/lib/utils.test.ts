@@ -61,8 +61,15 @@ describe('formatTime', () => {
 
 describe('getModeDisplayName', () => {
   it('returns correct names for known modes', () => {
-    expect(getModeDisplayName('ssc_chsl')).toBe('SSC CHSL');
-    expect(getModeDisplayName('ssc_cgl_dest')).toBe('SSC CGL DEST');
+    // Names carry the post, not just the exam — CHSL alone spans four
+    // different speed bars, so "SSC CHSL" on a result screen says nothing.
+    expect(getModeDisplayName('ssc_chsl')).toBe('SSC CHSL — LDC / JSA');
+    expect(getModeDisplayName('ssc_chsl_deo')).toBe('SSC CHSL — DEO');
+    expect(getModeDisplayName('ssc_chsl_deo_grade_a')).toBe(
+      "SSC CHSL — DEO Grade 'A'"
+    );
+    expect(getModeDisplayName('ssc_cgl_dest')).toBe('SSC CGL — DEST');
+    expect(getModeDisplayName('ssc_cgl_cpt')).toBe('SSC CGL — CPT');
     expect(getModeDisplayName('ssc_hindi')).toBe('SSC Hindi');
     expect(getModeDisplayName('practice')).toBe('Practice');
     expect(getModeDisplayName('blind')).toBe('Blind Mode');

@@ -2,20 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Check,
-  X,
-  RotateCcw,
-  ArrowRight,
-  ChevronDown,
-  Sparkles,
-  Save,
-} from 'lucide-react';
+import { Check, X, RotateCcw, ChevronDown } from 'lucide-react';
 import { getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
+import { postsFor, kdphFromWpm, type CategoryKey } from '@/lib/ssc-posts';
 import { ROUTES } from '@/lib/config';
 import PassageDiffView from './passage-diff';
 import { useAuthStore } from '@/store/auth-store';
+import { ExamChrome } from './exam-chrome';
 
 /* ------------------------------------------------------------------ types */
 
@@ -30,11 +24,9 @@ interface ResultScreenProps {
   onRetry?: () => void;
 }
 
-type CategoryKey = 'ur' | 'obcEws' | 'scSt';
-
 /** Keys and storage must match components/learn/post-selector.tsx exactly —
- *  they are the same setting, and the app promises the post/category chosen
- *  once drives every verdict. */
+ *  they are the same setting, and the app promises the category chosen once
+ *  drives every verdict. */
 const CATEGORIES: { key: CategoryKey; label: string; specKey: string }[] = [
   { key: 'ur', label: 'UR', specKey: 'errorAllowanceGeneral' },
   { key: 'obcEws', label: 'OBC / EWS', specKey: 'errorAllowanceObcEws' },
@@ -45,41 +37,59 @@ const CATEGORY_STORAGE_KEY = 'tm-category-v2';
 
 /* ------------------------------------------------------------- sub-parts */
 
-/** A single figure. `quiet` drops the ink border for the second-tier numbers,
- *  so the four that decide the verdict stay the loudest things on the page. */
 function Metric({
   label,
   value,
   sub,
   tone,
-  quiet,
 }: {
   label: string;
   value: string | number;
   sub?: string;
   tone?: 'ok' | 'err' | 'warn';
-  quiet?: boolean;
 }) {
   return (
-    <div className={quiet ? 'card-flat px-4 py-3.5' : 'card px-4 py-4'}>
+    <div className="border border-exam-line bg-white px-3 py-2.5 text-center">
       <div
-        className={`tnum font-display leading-none ${
-          quiet ? 'text-2xl' : 'text-3xl'
-        } ${
+        className={`tnum text-xl font-bold ${
           tone === 'ok'
-            ? 'text-ok'
+            ? 'text-exam-ok'
             : tone === 'err'
-              ? 'text-err'
+              ? 'text-exam-err'
               : tone === 'warn'
-                ? 'text-warn'
-                : ''
+                ? 'text-exam-hot'
+                : 'text-exam-navy'
         }`}
       >
         {value}
       </div>
-      <div className="eyebrow mt-2.5">{label}</div>
-      {sub && <div className="tnum mt-1 text-xs text-vast/50">{sub}</div>}
+      <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-exam-muted">
+        {label}
+      </div>
+      {sub && <div className="tnum mt-0.5 text-[10px] text-exam-muted">{sub}</div>}
     </div>
+  );
+}
+
+function Panel({
+  title,
+  right,
+  children,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-4 overflow-hidden rounded border-2 border-exam-panel-edge bg-white">
+      <header className="flex items-center gap-3 border-b border-exam-panel-edge bg-exam-panel px-5 py-2">
+        <h2 className="text-xs font-bold uppercase tracking-wide text-exam-navy">
+          {title}
+        </h2>
+        {right && <div className="ml-auto">{right}</div>}
+      </header>
+      <div className="px-5 py-4">{children}</div>
+    </section>
   );
 }
 
@@ -92,22 +102,22 @@ function Disclosure({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="card overflow-hidden">
+    <div className="border-b border-exam-line last:border-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-vast/5"
+        className="flex w-full items-center gap-3 py-3 text-left"
       >
-        <span className="text-base font-semibold">{title}</span>
+        <span className="text-[13px] font-bold text-exam-navy">{title}</span>
         <ChevronDown
-          className={`ml-auto h-4 w-4 shrink-0 text-vast/40 transition-transform ${
+          className={`ml-auto h-4 w-4 shrink-0 text-exam-muted transition-transform ${
             open ? 'rotate-180' : ''
           }`}
           strokeWidth={2}
         />
       </button>
-      {open && <div className="border-t-2 border-vast/10 p-5">{children}</div>}
+      {open && <div className="pb-4">{children}</div>}
     </div>
   );
 }
@@ -132,7 +142,7 @@ export function ResultScreen({
   }, []);
 
   // A candidate's category never changes between attempts, so remembering it
-  // saves them re-selecting it after every single test.
+  // saves re-selecting it after every single test.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(CATEGORY_STORAGE_KEY) as CategoryKey | null;
@@ -175,7 +185,7 @@ export function ResultScreen({
   const kdph =
     result.key_depression_count && result.time_taken_seconds
       ? Math.round((result.key_depression_count / result.time_taken_seconds) * 3600)
-      : 0;
+      : kdphFromWpm(netWpm);
 
   const speedMet =
     specs?.qualifyingNature === 'speed_wpm'
@@ -185,29 +195,14 @@ export function ResultScreen({
   const completionMet = completion >= 50;
   const qualified = speedMet && errorsMet && completionMet;
 
-  /** The one line that matters. Says how far off, not just that you failed. */
-  const verdictDetail = (() => {
-    if (qualified) {
-      return specs?.qualifyingNature === 'speed_wpm'
-        ? `${netWpm.toFixed(1)} WPM against a ${targetWpm} WPM bar, with ${errorPct.toFixed(1)}% errors inside the ${errorLimit}% allowance.`
-        : `${kdph.toLocaleString('en-IN')} KDPH against ${(specs?.englishKdph || 8000).toLocaleString('en-IN')}, with ${errorPct.toFixed(1)}% errors inside the ${errorLimit}% allowance.`;
-    }
-    const gaps: string[] = [];
-    if (!speedMet) {
-      gaps.push(
-        specs?.qualifyingNature === 'speed_wpm'
-          ? `${(targetWpm - netWpm).toFixed(1)} WPM short of ${targetWpm}`
-          : `${((specs?.englishKdph || 8000) - kdph).toLocaleString('en-IN')} KDPH short`
-      );
-    }
-    if (!errorsMet) {
-      gaps.push(`${(errorPct - errorLimit).toFixed(1)} points over the ${errorLimit}% error limit`);
-    }
-    if (!completionMet) {
-      gaps.push(`only ${completion}% of the passage typed (50% minimum)`);
-    }
-    return `You were ${gaps.join(', and ')}.`;
-  })();
+  /* Every SSC post judged against this one attempt. This is the answer to the
+     question aspirants actually carry — not "did I pass the test I picked",
+     but "at this score, which posts am I in the running for?" */
+  const { cleared, missed } = useMemo(
+    () => postsFor({ netWpm, kdph, errorPct }, category),
+    [netWpm, kdph, errorPct, category]
+  );
+  const nextTarget = missed[0] ?? null;
 
   const criteria = [
     {
@@ -222,18 +217,8 @@ export function ResultScreen({
           ? `${targetWpm} WPM`
           : `${(specs?.englishKdph || 8000).toLocaleString('en-IN')} KDPH`,
     },
-    {
-      label: 'Errors',
-      met: errorsMet,
-      you: `${errorPct.toFixed(1)}%`,
-      need: `≤ ${errorLimit}%`,
-    },
-    {
-      label: 'Passage completed',
-      met: completionMet,
-      you: `${completion}%`,
-      need: '≥ 50%',
-    },
+    { label: 'Errors', met: errorsMet, you: `${errorPct.toFixed(1)}%`, need: `≤ ${errorLimit}%` },
+    { label: 'Passage completed', met: completionMet, you: `${completion}%`, need: '≥ 50%' },
   ];
 
   const breakdown = [
@@ -249,84 +234,57 @@ export function ResultScreen({
   ];
 
   return (
-    <>
-      {/* ═══════════════════════════════════════════════════════════ verdict */}
-      {/* Pass and fail get opposite grounds — a saturated green slab against a
-          pale coral wash — so the outcome lands before a word is read. */}
-      <section
-        className={
-          qualified ? 'on-dark slab slab-green !py-14 sm:!py-20' : 'slab bg-err-bg !py-14 sm:!py-20'
-        }
-      >
-        <div className="mx-auto w-full max-w-3xl px-5 animate-rise sm:px-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 ${
-                qualified ? 'border-lumen text-lumen' : 'border-err bg-lumen text-err'
-              }`}
-            >
-              {qualified ? (
-                <Check className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-              ) : (
-                <X className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-              )}
-            </span>
-
-            <p className="eyebrow">
-              {getModeDisplayName(mode)} ·{' '}
-              <span className="tnum">
-                {Math.round(result.time_taken_seconds || 0)}s
-              </span>{' '}
-              ·{' '}
-              <span lang={lang === 'hindi' ? 'hi' : undefined}>
-                {lang === 'hindi' ? 'हिंदी' : 'English'}
-              </span>
-            </p>
-
-            {result.xp_earned > 0 && (
-              <span className="chip chip-glow ml-auto shrink-0">
-                <Sparkles className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-                <span className="tnum">+{result.xp_earned} XP</span>
-              </span>
-            )}
-          </div>
-
-          <h1
-            className={`mt-7 text-5xl sm:text-7xl lg:text-8xl ${
-              qualified ? '' : 'text-err'
-            }`}
+    <ExamChrome postLabel={getModeDisplayName(mode)}>
+      <div className="relative mx-auto w-full max-w-5xl flex-1 px-4 py-4 sm:px-6">
+        {/* ─────────────────────────────────────────────────────── verdict */}
+        {/* The platform prints its result as a plain banner, and so does this:
+            green or red, the figure, and the gap. No slabs, no headline. */}
+        <div
+          className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded border-2 px-5 py-4 ${
+            qualified
+              ? 'border-exam-ok bg-ok-bg'
+              : 'border-exam-err bg-err-bg'
+          }`}
+        >
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+              qualified ? 'bg-exam-ok' : 'bg-exam-err'
+            } text-white`}
           >
             {qualified ? (
-              <>
-                You would <em>qualify</em>
-              </>
+              <Check className="h-5 w-5" strokeWidth={3} aria-hidden />
             ) : (
-              <>
-                Not qualified <em>yet</em>
-              </>
+              <X className="h-5 w-5" strokeWidth={3} aria-hidden />
             )}
-          </h1>
+          </span>
 
-          <p
-            className={`mt-7 max-w-xl text-lg sm:text-xl ${
-              qualified ? 'text-lumen/75' : 'text-vast/70'
-            }`}
-          >
-            {verdictDetail}
-          </p>
-        </div>
-      </section>
+          <div className="min-w-0">
+            <p
+              className={`text-lg font-bold ${
+                qualified ? 'text-exam-ok' : 'text-exam-err'
+              }`}
+            >
+              {qualified ? 'Qualified' : 'Not qualified'}
+            </p>
+            <p className="tnum mt-0.5 text-[13px] text-exam-text">
+              {specs?.qualifyingNature === 'speed_wpm'
+                ? `${netWpm.toFixed(1)} WPM against ${targetWpm}`
+                : `${kdph.toLocaleString('en-IN')} KDPH against ${(specs?.englishKdph || 8000).toLocaleString('en-IN')}`}
+              {' · '}
+              {errorPct.toFixed(1)}% errors against a {errorLimit}% cap
+            </p>
+          </div>
 
-      {/* ═══════════════════════════════════ the evidence — cream slab over */}
-      <section className="slab slab-cream !py-12 sm:!py-16">
-        <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
-          {/* ------------------------------------------------------ category */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <span className="eyebrow">Your category</span>
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            {result.xp_earned > 0 && (
+              <span className="tnum rounded bg-exam-chrome px-2 py-1 text-[11px] font-bold text-white">
+                +{result.xp_earned} XP
+              </span>
+            )}
             <div
               role="radiogroup"
               aria-label="Reservation category"
-              className="segment"
+              className="flex overflow-hidden rounded border border-exam-line"
             >
               {CATEGORIES.map((c) => (
                 <button
@@ -334,69 +292,123 @@ export function ResultScreen({
                   type="button"
                   role="radio"
                   aria-checked={category === c.key}
-                  data-active={category === c.key}
                   onClick={() => chooseCategory(c.key)}
-                  className="segment-item"
+                  className={`px-2.5 py-1 text-[11px] font-bold ${
+                    category === c.key
+                      ? 'bg-exam-chrome text-white'
+                      : 'bg-white text-exam-muted'
+                  }`}
                 >
                   {c.label}
                 </button>
               ))}
             </div>
-            <span className="text-sm text-vast/50">Changes your error allowance</span>
           </div>
+        </div>
 
-          {/* ------------------------------------------------------ criteria */}
-          <div className="card mt-6 overflow-hidden">
-            <table className="w-full text-left">
-              <caption className="sr-only">Qualification criteria</caption>
+        {/* ──────────────────────────────────────────── posts at this score */}
+        <Panel
+          title="Posts this score clears"
+          right={
+            <span className="tnum text-xs text-exam-muted">
+              {cleared.length} of {cleared.length + missed.length}
+            </span>
+          }
+        >
+          {cleared.length === 0 ? (
+            <p className="text-[13px] text-exam-muted">
+              This score does not yet clear any SSC post.{' '}
+              {nextTarget && (
+                <>
+                  The nearest is{' '}
+                  <strong className="text-exam-text">
+                    {nextTarget.post.shortName}
+                  </strong>{' '}
+                  — {nextTarget.gapLabel}.
+                </>
+              )}
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {cleared.map((v) => (
+                <li
+                  key={v.post.id}
+                  className="flex items-center gap-1.5 rounded border border-exam-ok bg-ok-bg px-2.5 py-1 text-[12px] font-bold text-exam-ok"
+                >
+                  <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden />
+                  {v.post.shortName}
+                  <span className="font-normal text-exam-muted">
+                    · {v.post.exam}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {nextTarget && cleared.length > 0 && (
+            <p className="mt-3 text-[13px] text-exam-text">
+              Next up:{' '}
+              <strong>{nextTarget.post.shortName}</strong> ({nextTarget.post.exam})
+              — {nextTarget.gapLabel}.
+            </p>
+          )}
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[34rem] border-collapse text-left text-[12px]">
+              <caption className="sr-only">
+                Every SSC post judged against this attempt
+              </caption>
               <thead>
-                <tr className="border-b-2 border-vast bg-lumen">
-                  <th scope="col" className="eyebrow px-4 py-3 sm:px-5">
-                    Criterion
-                  </th>
-                  <th scope="col" className="eyebrow px-3 py-3 text-right">
-                    You
-                  </th>
-                  <th scope="col" className="eyebrow px-3 py-3 text-right">
-                    Required
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    <span className="sr-only">Met</span>
-                  </th>
+                <tr>
+                  {['Post', 'Exam', 'Requirement', 'You', ''].map((h, i) => (
+                    <th
+                      key={i}
+                      scope="col"
+                      className="border border-exam-line bg-exam-panel px-2.5 py-1.5 font-bold text-exam-navy"
+                    >
+                      {h || <span className="sr-only">Result</span>}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {criteria.map((c) => (
-                  <tr key={c.label} className="border-b border-vast/10 last:border-0">
+                {[...cleared, ...missed].map((v) => (
+                  <tr key={v.post.id}>
                     <th
                       scope="row"
-                      className="px-4 py-3.5 text-base font-medium sm:px-5"
+                      className="border border-exam-line px-2.5 py-1.5 text-left font-semibold"
                     >
-                      {c.label}
+                      {v.post.shortName}
+                      {v.post.disputed && (
+                        <span
+                          className="ml-1 text-exam-hot"
+                          title="Sources disagree on this post's error cap"
+                        >
+                          *
+                        </span>
+                      )}
                     </th>
+                    <td className="border border-exam-line px-2.5 py-1.5">
+                      {v.post.exam}
+                    </td>
+                    <td className="tnum border border-exam-line px-2.5 py-1.5">
+                      {v.requirement}
+                    </td>
                     <td
-                      className={`tnum px-3 py-3.5 text-right text-base font-semibold ${
-                        c.met ? 'text-ok' : 'text-err'
+                      className={`tnum border border-exam-line px-2.5 py-1.5 ${
+                        v.cleared ? 'text-exam-ok' : 'text-exam-err'
                       }`}
                     >
-                      {c.you}
+                      {v.achieved}
                     </td>
-                    <td className="tnum px-3 py-3.5 text-right text-base text-vast/50">
-                      {c.need}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      {/* sr-only text rather than aria-label on the icon —
-                          labelled SVGs are read inconsistently. */}
-                      {c.met ? (
-                        <span className="inline-flex text-ok">
-                          <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-                          <span className="sr-only">Met</span>
+                    <td className="border border-exam-line px-2.5 py-1.5 text-center">
+                      {v.cleared ? (
+                        <span className="inline-flex text-exam-ok">
+                          <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
+                          <span className="sr-only">Cleared</span>
                         </span>
                       ) : (
-                        <span className="inline-flex text-err">
-                          <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-                          <span className="sr-only">Not met</span>
-                        </span>
+                        <span className="text-exam-err">{v.gapLabel}</span>
                       )}
                     </td>
                   </tr>
@@ -405,8 +417,70 @@ export function ResultScreen({
             </table>
           </div>
 
-          {/* ------------------------------------------------------- metrics */}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...cleared, ...missed].some((v) => v.post.disputed) && (
+            <p className="mt-2 text-[11px] text-exam-muted">
+              * Public sources disagree on this post&rsquo;s error cap. Practise
+              to the stricter figure and you clear either way.
+            </p>
+          )}
+        </Panel>
+
+        {/* ─────────────────────────────────────────────── this test's bar */}
+        <Panel title={`${getModeDisplayName(mode)} — criteria`}>
+          <table className="w-full border-collapse text-left text-[13px]">
+            <thead>
+              <tr>
+                {['Criterion', 'You', 'Required', ''].map((h, i) => (
+                  <th
+                    key={i}
+                    scope="col"
+                    className="border border-exam-line bg-exam-panel px-3 py-1.5 font-bold text-exam-navy"
+                  >
+                    {h || <span className="sr-only">Met</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {criteria.map((c) => (
+                <tr key={c.label}>
+                  <th
+                    scope="row"
+                    className="border border-exam-line px-3 py-1.5 text-left font-semibold"
+                  >
+                    {c.label}
+                  </th>
+                  <td
+                    className={`tnum border border-exam-line px-3 py-1.5 font-bold ${
+                      c.met ? 'text-exam-ok' : 'text-exam-err'
+                    }`}
+                  >
+                    {c.you}
+                  </td>
+                  <td className="tnum border border-exam-line px-3 py-1.5 text-exam-muted">
+                    {c.need}
+                  </td>
+                  <td className="border border-exam-line px-3 py-1.5 text-center">
+                    {/* sr-only text rather than aria-label on the icon —
+                        labelled SVGs are read inconsistently. */}
+                    {c.met ? (
+                      <span className="inline-flex text-exam-ok">
+                        <Check className="h-4 w-4" strokeWidth={3} aria-hidden />
+                        <span className="sr-only">Met</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex text-exam-err">
+                        <X className="h-4 w-4" strokeWidth={3} aria-hidden />
+                        <span className="sr-only">Not met</span>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric
               label="Net WPM"
               value={netWpm.toFixed(1)}
@@ -432,142 +506,119 @@ export function ResultScreen({
             />
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <Metric
-              label="Key depressions"
-              value={result.key_depression_count || 0}
-              quiet
-            />
-            <Metric label="Backspaces" value={result.backspace_count || 0} quiet />
-            <Metric label="Error rate" value={`${errorPct.toFixed(1)}%`} quiet />
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <Metric label="Key depressions" value={result.key_depression_count || 0} />
+            <Metric label="Backspaces" value={result.backspace_count || 0} />
+            <Metric label="KDPH" value={kdph.toLocaleString('en-IN')} />
           </div>
+        </Panel>
 
-          {/* --------------------------------------------------- save prompt */}
-          {!isAuthenticated && (
-            <div className="mt-10 flex flex-col gap-5 rounded-2xl border-2 border-vast bg-dawn p-6 sm:flex-row sm:items-center sm:p-7">
-              <div className="flex-1">
-                <h2 className="text-3xl">This result isn&apos;t saved</h2>
-                <p className="mt-3 max-w-md text-base text-vast/70">
-                  Create a free account to keep your history, track your speed
-                  curve and get the full mistake report.
-                </p>
-              </div>
-              <Link href="/auth/register" className="btn btn-ink btn-lg shrink-0">
-                <Save className="h-4 w-4" strokeWidth={2} aria-hidden />
-                Save my result
-              </Link>
+        {/* ──────────────────────────────────────────────────── save prompt */}
+        {!isAuthenticated && (
+          <div className="mt-4 flex flex-wrap items-center gap-4 rounded border-2 border-exam-chrome bg-white px-5 py-4">
+            <p className="flex-1 text-[13px]">
+              <strong>This result is not saved.</strong> Create a free account to
+              keep your history and speed curve.
+            </p>
+            <Link href="/auth/register" className="exam-btn shrink-0">
+              Save my result
+            </Link>
+          </div>
+        )}
+
+        {/* ───────────────────────────────────────────────────────── diff */}
+        {typedContent && originalContent && (
+          <Panel title="Where you lost marks">
+            <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-exam-muted">
+              <li className="text-exam-ok">correct</li>
+              <li className="text-exam-hot">typo or capitalisation</li>
+              <li className="text-exam-err">wrong word</li>
+              <li>missed</li>
+              <li className="underline decoration-exam-err">extra</li>
+            </ul>
+            <div className="max-h-[40vh] overflow-auto border border-exam-line bg-exam-panel p-3">
+              <PassageDiffView
+                original={originalContent}
+                typed={typedContent}
+                lang={lang}
+              />
             </div>
-          )}
+          </Panel>
+        )}
 
-          {/* ------------------------------------------------------ feedback */}
+        {/* ────────────────────────────────────────────────────── reference */}
+        <Panel title="Detail">
+          <Disclosure title="Error breakdown by type">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {breakdown.map((b) => (
+                <Metric key={b.label} label={b.label} value={b.value} />
+              ))}
+            </div>
+          </Disclosure>
+
           {result.feedback && (
-            <div className="card mt-6 border-l-8 border-l-glow p-5 sm:p-6">
-              <p className="eyebrow">Coach</p>
-              <p className="mt-3 text-base leading-relaxed text-vast/70">
-                {result.feedback}
-              </p>
-            </div>
-          )}
-
-          {/* ---------------------------------------------------------- diff */}
-          {typedContent && originalContent && (
-            <section className="mt-10">
-              <h2 className="text-3xl sm:text-4xl">Where you lost marks</h2>
-              <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-vast/50">
-                <li className="text-ok">correct</li>
-                <li className="text-warn">typo or capitalisation</li>
-                <li className="text-err">wrong word</li>
-                <li>missed</li>
-                <li className="underline decoration-err">extra</li>
-              </ul>
-              <div className="card mt-4 overflow-x-auto p-4">
-                <PassageDiffView
-                  original={originalContent}
-                  typed={typedContent}
-                  lang={lang}
-                />
-              </div>
-            </section>
-          )}
-
-          {/* ----------------------------------------------------- breakdown */}
-          <div className="mt-6 space-y-3">
-            <Disclosure title="Error breakdown by type">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {breakdown.map((b) => (
-                  <div key={b.label} className="card-flat px-3 py-3 text-center">
-                    <div className="tnum font-display text-2xl leading-none">
-                      {b.value}
-                    </div>
-                    <div className="eyebrow mt-2">{b.label}</div>
-                  </div>
-                ))}
-              </div>
+            <Disclosure title="Coach feedback">
+              <p className="text-[13px] leading-relaxed">{result.feedback}</p>
             </Disclosure>
+          )}
 
-            {specs && (
-              <Disclosure title="How this was scored">
-                <p className="text-base leading-relaxed text-vast/70">
-                  {specs.source}. Error allowance varies by post — LDC/JSA uses 7%
-                  (UR) and 10% (reserved); DEO and DEST use 20%, 25% and 30%.
-                </p>
-                <div className="mt-4 rounded-lg border border-vast/15 bg-lumen-dark p-4 font-mono text-xs leading-relaxed">
-                  Total errors = full + (half ÷ 2)
-                  <br />
-                  Error % = (total errors ÷ key depressions) × 100
-                </div>
-                {specs.citations?.length ? (
-                  <ul className="mt-4 space-y-1.5">
-                    {specs.citations.map((url) => (
-                      <li key={url}>
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="break-all text-xs text-fathom underline underline-offset-2"
-                        >
-                          {url}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </Disclosure>
-            )}
-          </div>
+          {specs && (
+            <Disclosure title="How this was scored">
+              <p className="text-[13px] leading-relaxed">{specs.source}</p>
+              <p className="mt-2 font-mono text-[12px] text-exam-muted">
+                Total errors = full + (half &divide; 2) &nbsp;·&nbsp; Error % =
+                (total errors &divide; key depressions) &times; 100
+              </p>
+              {specs.citations?.length ? (
+                <ul className="mt-2 space-y-1">
+                  {specs.citations.map((url) => (
+                    <li key={url}>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="break-all text-[11px] text-exam-navy underline"
+                      >
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Disclosure>
+          )}
+        </Panel>
 
-          {/* ------------------------------------------------------- actions */}
-          <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+        {/* ──────────────────────────────────────────────────────── actions */}
+        <div className="mt-6 flex flex-col gap-2 pb-10 sm:flex-row sm:justify-end">
+          {isAuthenticated && (
             <button
               type="button"
-              onClick={() => (onRetry ? onRetry() : window.location.reload())}
-              className="btn btn-primary btn-lg flex-1"
+              onClick={() => router.push(ROUTES.dashboard)}
+              className="exam-btn exam-btn-secondary"
             >
-              <RotateCcw className="h-4 w-4" strokeWidth={2} aria-hidden />
-              Take another test
+              Dashboard
             </button>
-            {result.test_id && isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => router.push(`/analysis/${result.test_id}`)}
-                className="btn btn-outline btn-lg flex-1"
-              >
-                Full report
-                <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-              </button>
-            )}
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => router.push(ROUTES.dashboard)}
-                className="btn btn-ghost btn-lg"
-              >
-                Dashboard
-              </button>
-            )}
-          </div>
+          )}
+          {result.test_id && isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => router.push(`/analysis/${result.test_id}`)}
+              className="exam-btn exam-btn-secondary"
+            >
+              Full report
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => (onRetry ? onRetry() : window.location.reload())}
+            className="exam-btn"
+          >
+            <RotateCcw className="h-4 w-4" strokeWidth={2} aria-hidden />
+            Take another test
+          </button>
         </div>
-      </section>
-    </>
+      </div>
+    </ExamChrome>
   );
 }

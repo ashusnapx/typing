@@ -26,10 +26,10 @@ const FALLBACK_PASSAGE =
 import { getExamSpecs, SSC_EXAM_SPECS, checkQualification, calculateNetWpm, calculateAccuracySsc } from '@/lib/exam-config';
 import { getPracticeSets, PracticeSet } from '@/lib/practice-sets';
 import { AuthPrompt } from '@/components/auth/auth-prompt';
-import { ExamSkeleton, KeyLoader } from '@/components/ui/loading-logo';
+import { KeyLoader } from '@/components/ui/loading-logo';
 import { SSCExamUI } from './ssc-exam-ui';
-import PracticeSetSelector from './practice-set-selector';
-import { ExamInstructions } from './exam-instructions';
+import { ExamChrome } from './exam-chrome';
+import { ExamInstructions, requiresDeclaration } from './exam-instructions';
 import { ResultScreen } from './result-screen';
 
 interface TypingExamProps {
@@ -64,21 +64,25 @@ export function TypingExam({
   const submitMutation = useSubmitTest();
   const directSubmitMutation = useDirectSubmit();
   const startTestMutation = useStartTest();
-  const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [passage, setPassage] = useState<any>(null);
+  const sets = getPracticeSets(mode);
   const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
-  // With the pool already in hand there is nothing to wait for, so the first
-  // phase is a real screen rather than a spinner.
+  // Practice modes have nothing to declare, so their button is live on arrival.
+  const [agreed, setAgreed] = useState(() => !requiresDeclaration(mode));
+  // With the pool already in hand there is nothing to wait for, and passage-set
+  // selection now lives on the instructions page itself — so the session opens
+  // on a real screen rather than a spinner or a chooser.
   const [phase, setPhase] = useState<
-    'loading' | 'select-set' | 'instructions' | 'typing' | 'submitting' | 'result'
-  >(() => (getPracticeSets(mode).length > 0 ? 'select-set' : 'instructions'));
+    'instructions' | 'typing' | 'submitting' | 'result'
+  >('instructions');
   const [showAuth, setShowAuth] = useState(false);
 
-  // Modes without practice sets go straight into a test on mount.
+  // Modes without passage sets have their passage picked on arrival; the rest
+  // wait for the set dropdown.
   useEffect(() => {
-    if (getPracticeSets(mode).length === 0) initTest();
+    if (sets.length === 0) initTest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
@@ -92,9 +96,13 @@ export function TypingExam({
     }
   }, [phase]);
 
+  // The vendor chrome now runs from instructions through to the result, so the
+  // site navbar stays down for the whole session — one frame, start to finish.
   useEffect(() => {
-    store.setNavHidden(phase === 'typing' || phase === 'submitting');
-  }, [phase]);
+    store.setNavHidden(true);
+    return () => useTypingStore.getState().setNavHidden(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Synchronous. Picks from the server-supplied pool and shows the
    *  instructions immediately; registering the attempt happens afterwards and
@@ -102,8 +110,11 @@ export function TypingExam({
   const initTest = (practiceSet?: number) => {
     store.reset();
 
-    const category =
-      mode === 'ssc_chsl' ? 'ssc_chsl' : mode === 'ssc_cgl_dest' ? 'ssc_cgl' : undefined;
+    const category = mode.startsWith('ssc_chsl')
+      ? 'ssc_chsl'
+      : mode.startsWith('ssc_cgl')
+        ? 'ssc_cgl'
+        : undefined;
     const isSscMode = category !== undefined;
 
     const passageData =
@@ -125,7 +136,6 @@ export function TypingExam({
       passageData?.content ?? FALLBACK_PASSAGE,
       durationSeconds
     );
-    setLoading(false);
     setPhase('instructions');
 
     if (!user || !passageData) return;
@@ -293,30 +303,6 @@ export function TypingExam({
   };
 
   const content = (() => {
-    if (phase === 'loading') return <ExamSkeleton />;
-
-    if (phase === 'select-set') {
-      const sets = getPracticeSets(mode);
-      const spec = getExamSpecs(mode);
-      return (
-        <PracticeSetSelector
-          examName={getModeDisplayName(mode)}
-          sets={sets}
-          durationMinutes={spec?.durationMinutes || Math.round(durationSeconds / 60)}
-          wpmTarget={spec?.englishSpeedWpm}
-          onSelect={(set) => {
-            // No sign-in gate here. Guests take the full test and are asked to
-            // create an account on the results screen, where there is a score
-            // worth saving. Attempts are kept locally until then.
-            setSelectedSet(set);
-            setPhase('loading');
-            initTest(set.number);
-          }}
-          onBack={() => router.push('/exam')}
-        />
-      );
-    }
-
     if (phase === 'instructions') {
       return (
         <ExamInstructions
@@ -324,23 +310,37 @@ export function TypingExam({
           durationSeconds={durationSeconds}
           wpmTarget={wpmTarget}
           lang={lang}
+          sets={sets}
           selectedSet={selectedSet || undefined}
+          onSelectSet={(set) => {
+            // No sign-in gate here. Guests take the full test and are asked to
+            // create an account on the results screen, where there is a score
+            // worth saving. Attempts are kept locally until then.
+            setSelectedSet(set);
+            initTest(set.number);
+          }}
+          agreed={agreed}
+          onAgreedChange={setAgreed}
           onBegin={startTyping}
         />
       );
     }
 
     if (phase === 'submitting') {
+      // Still inside the vendor frame — leaving it mid-session would break the
+      // one continuity this flow is built on.
       return (
-        <div className="flex min-h-[70vh] items-center justify-center px-5">
-          <div className="text-center">
-            <KeyLoader />
-            <p className="mt-5 text-lg font-medium">Evaluating your test</p>
-            <p className="mt-1.5 text-sm text-content-muted">
-              Running the SSC error engine over every word.
-            </p>
+        <ExamChrome postLabel={getModeDisplayName(mode)}>
+          <div className="relative flex flex-1 items-center justify-center px-5 py-24">
+            <div className="text-center">
+              <KeyLoader />
+              <p className="mt-5 text-base font-bold">Evaluating your test</p>
+              <p className="mt-1.5 text-[13px] text-exam-muted">
+                Running the SSC error engine over every word.
+              </p>
+            </div>
           </div>
-        </div>
+        </ExamChrome>
       );
     }
 
@@ -360,7 +360,8 @@ export function TypingExam({
             setResult(null);
             setShowResult(false);
             setSelectedSet(null);
-            if (getPracticeSets(mode).length > 0) setPhase('select-set');
+            setAgreed(!requiresDeclaration(mode));
+            if (sets.length > 0) setPhase('instructions');
             else initTest();
           }}
         />

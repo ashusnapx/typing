@@ -279,3 +279,124 @@ export function speedFor(
     label: `${kdph.toLocaleString('en-IN')} KDPH`,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Score → post                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The question aspirants actually ask.
+ *
+ * Nobody knows which post they will be allotted, so "practise for LDC/JSA" is
+ * the wrong framing. What they can act on is the reverse: at this speed and
+ * this error rate, which posts am I already clearing, and which is the next
+ * one within reach? Every verdict below follows from the same published caps
+ * the exam uses — no interpolation, no invented bar.
+ */
+export type PostVerdict = {
+  post: SscPost;
+  cleared: boolean;
+  /** Whether speed alone was the blocker, errors alone, or both. */
+  speedMet: boolean;
+  errorsMet: boolean;
+  /** Requirement in this post's own unit, ready to print. */
+  requirement: string;
+  /** What the candidate managed, in the same unit. */
+  achieved: string;
+  /** How far short, in the post's own unit. Zero when cleared. */
+  shortfall: number;
+  /** Human phrasing of the shortfall — "4 WPM short", "1.2% over the cap". */
+  gapLabel: string;
+};
+
+export type Attempt = {
+  /** Net WPM, SSC formula. */
+  netWpm: number;
+  /** Key depressions per hour actually sustained. */
+  kdph: number;
+  /** Error percentage, SSC formula. */
+  errorPct: number;
+};
+
+/** Derive KDPH from net WPM when the attempt did not record it directly. */
+export function kdphFromWpm(netWpm: number): number {
+  return Math.round(netWpm * 5 * 60);
+}
+
+function verdictFor(
+  post: SscPost,
+  attempt: Attempt,
+  category: CategoryKey
+): PostVerdict {
+  const cap = errorCapFor(post, category);
+  const errorsMet = attempt.errorPct <= cap;
+
+  if (post.measure === 'wpm') {
+    const need = post.wpmEnglish ?? 35;
+    const speedMet = attempt.netWpm >= need;
+    const shortfall = Math.max(0, need - attempt.netWpm);
+    return {
+      post,
+      cleared: speedMet && errorsMet,
+      speedMet,
+      errorsMet,
+      requirement: `${need} WPM · ≤ ${cap}% errors`,
+      achieved: `${attempt.netWpm.toFixed(1)} WPM · ${attempt.errorPct.toFixed(1)}%`,
+      shortfall,
+      gapLabel: !speedMet
+        ? `${shortfall.toFixed(1)} WPM short`
+        : !errorsMet
+          ? `${(attempt.errorPct - cap).toFixed(1)}% over the error cap`
+          : '',
+    };
+  }
+
+  const need = post.kdph ?? 8000;
+  const speedMet = attempt.kdph >= need;
+  const shortfall = Math.max(0, need - attempt.kdph);
+  return {
+    post,
+    cleared: speedMet && errorsMet,
+    speedMet,
+    errorsMet,
+    requirement: `${need.toLocaleString('en-IN')} KDPH · ≤ ${cap}% errors`,
+    achieved: `${attempt.kdph.toLocaleString('en-IN')} KDPH · ${attempt.errorPct.toFixed(1)}%`,
+    shortfall,
+    gapLabel: !speedMet
+      ? `${shortfall.toLocaleString('en-IN')} KDPH short`
+      : !errorsMet
+        ? `${(attempt.errorPct - cap).toFixed(1)}% over the error cap`
+        : '',
+  };
+}
+
+/**
+ * Every post judged against one attempt, cleared ones first and the closest
+ * miss at the head of the rest — so the next target is always the first row
+ * under the line rather than something to hunt for.
+ */
+export function postsFor(
+  attempt: Attempt,
+  category: CategoryKey = 'ur'
+): { cleared: PostVerdict[]; missed: PostVerdict[] } {
+  const all = SSC_POSTS.map((p) => verdictFor(p, attempt, category));
+  return {
+    cleared: all.filter((v) => v.cleared),
+    missed: all
+      .filter((v) => !v.cleared)
+      // Speed gaps are ranked by how close they are; an errors-only miss is
+      // nearer than any speed gap, because it costs no new speed to fix.
+      .sort((a, b) => {
+        if (a.speedMet !== b.speedMet) return a.speedMet ? -1 : 1;
+        return a.shortfall - b.shortfall;
+      }),
+  };
+}
+
+/** The single next post to aim at, or null when everything is already cleared. */
+export function nextPostTarget(
+  attempt: Attempt,
+  category: CategoryKey = 'ur'
+): PostVerdict | null {
+  return postsFor(attempt, category).missed[0] ?? null;
+}

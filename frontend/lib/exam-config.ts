@@ -1,4 +1,9 @@
-export type SscExamType = 'ssc_chsl_ldc_jsa' | 'ssc_chsl_deo' | 'ssc_chsl_deo_grade_a' | 'ssc_cgl_dest';
+export type SscExamType =
+  | 'ssc_chsl_ldc_jsa'
+  | 'ssc_chsl_deo'
+  | 'ssc_chsl_deo_grade_a'
+  | 'ssc_cgl_dest'
+  | 'ssc_cgl_cpt';
 
 export interface SscExamSpec {
   type: SscExamType;
@@ -122,17 +127,133 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
       'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2025.pdf',
     ],
   },
+  ssc_cgl_cpt: {
+    type: 'ssc_cgl_cpt',
+    label: 'SSC CGL CPT — DEST Module (ASO / Inspector)',
+    durationMinutes: 15,
+    durationSeconds: 900,
+    englishSpeedWpm: 27,
+    hindiSpeedWpm: null,
+    englishKdph: 8000,
+    hindiKdph: null,
+    passageKeyDepressions: [2000, 2200],
+    qualifyingNature: 'kdph',
+    // CPT posts are marked against the strict cap, not the DEST one. A
+    // candidate practising to 20% here would fail the real test at 6%.
+    errorAllowanceGeneral: 5,
+    errorAllowanceObcEws: 7,
+    errorAllowanceScSt: 7,
+    backspaceAllowed: true,
+    posts: ['ASO (CSS/MEA/AFHQ)', 'Inspector (CBIC)', 'UDC/SSA (CBN)'],
+    source: 'SSC Revised Guidelines for Evaluation of Typing Test / DEST Scripts',
+    citations: [
+      'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2025.pdf',
+    ],
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Test modes → specs                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Every route-backed mode that carries an official spec. Adding a variant
+ *  means adding one row here and one row in EXAM_VARIANTS — nothing else. */
+const MODE_TO_SPEC: Record<string, SscExamType> = {
+  ssc_chsl: 'ssc_chsl_ldc_jsa',
+  ssc_chsl_deo: 'ssc_chsl_deo',
+  ssc_chsl_deo_grade_a: 'ssc_chsl_deo_grade_a',
+  ssc_cgl_dest: 'ssc_cgl_dest',
+  ssc_cgl_cpt: 'ssc_cgl_cpt',
 };
 
 export function getExamSpecs(mode: string): SscExamSpec | null {
-  switch (mode) {
-    case 'ssc_chsl':
-      return SSC_EXAM_SPECS.ssc_chsl_ldc_jsa;
-    case 'ssc_cgl_dest':
-      return SSC_EXAM_SPECS.ssc_cgl_dest;
-    default:
-      return null;
-  }
+  const key = MODE_TO_SPEC[mode];
+  return key ? SSC_EXAM_SPECS[key] : null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Variant catalogue — what /exam offers                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface ExamVariant {
+  /** The TestMode string stored against every attempt. */
+  mode: string;
+  exam: 'CHSL' | 'CGL';
+  /** What the candidate calls the post. */
+  post: string;
+  /** The departments that recruit for it, for recognition. */
+  where: string;
+  href: string;
+  durationSeconds: number;
+  /** Shown on the card: "35 WPM" or "8,000 KDPH". */
+  requirement: string;
+  /** Error cap for UR, the one figure that separates these variants. */
+  errorCapUr: number;
+  hindiAvailable: boolean;
+}
+
+/** Ordered easiest-bar first within each exam, because that is the order
+ *  aspirants think in — "which of these can I already clear?". */
+export const EXAM_VARIANTS: readonly ExamVariant[] = [
+  {
+    mode: 'ssc_chsl',
+    exam: 'CHSL',
+    post: 'LDC / JSA',
+    where: 'Ministries, Postal Assistant, Sorting Assistant',
+    href: '/exam/chsl',
+    durationSeconds: 600,
+    requirement: '35 WPM',
+    errorCapUr: 7,
+    hindiAvailable: true,
+  },
+  {
+    mode: 'ssc_chsl_deo',
+    exam: 'CHSL',
+    post: 'DEO',
+    where: 'Data Entry Operator, most departments',
+    href: '/exam/chsl-deo',
+    durationSeconds: 900,
+    requirement: '8,000 KDPH',
+    errorCapUr: 20,
+    hindiAvailable: false,
+  },
+  {
+    mode: 'ssc_chsl_deo_grade_a',
+    exam: 'CHSL',
+    post: "DEO Grade 'A'",
+    where: 'Consumer Affairs, Culture, SSC',
+    href: '/exam/chsl-deo-grade-a',
+    durationSeconds: 900,
+    requirement: '15,000 KDPH',
+    errorCapUr: 20,
+    hindiAvailable: false,
+  },
+  {
+    mode: 'ssc_cgl_dest',
+    exam: 'CGL',
+    post: 'Tax Assistant',
+    where: 'CBDT / CBIC — DEST',
+    href: '/exam/cgl-dest',
+    durationSeconds: 900,
+    requirement: '8,000 KDPH',
+    errorCapUr: 20,
+    hindiAvailable: false,
+  },
+  {
+    mode: 'ssc_cgl_cpt',
+    exam: 'CGL',
+    post: 'ASO / Inspector',
+    where: 'CSS, MEA, AFHQ, CBIC — CPT',
+    href: '/exam/cgl-cpt',
+    durationSeconds: 900,
+    requirement: '8,000 KDPH',
+    errorCapUr: 5,
+    hindiAvailable: false,
+  },
+] as const;
+
+export function getExamVariant(mode: string): ExamVariant | null {
+  return EXAM_VARIANTS.find((v) => v.mode === mode) ?? null;
 }
 
 export function calculateNetWpm(

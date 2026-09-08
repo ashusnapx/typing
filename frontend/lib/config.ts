@@ -29,9 +29,8 @@ export const APP = {
 export const EXAM_MODES = [
   {
     id: 'ssc_chsl',
-    title: 'SSC CHSL Mode',
-    description:
-      'Exact SSC CHSL typing simulation. 35 WPM English, 10 minutes, qualifying nature.',
+    title: 'CHSL — LDC / JSA',
+    description: '35 WPM. 7% errors.',
     href: '/exam/chsl',
     duration: 600,
     wpmTarget: 35,
@@ -39,10 +38,29 @@ export const EXAM_MODES = [
     icon: 'Target',
   },
   {
+    id: 'ssc_chsl_deo',
+    title: 'CHSL — DEO',
+    description: '8,000 KDPH. 20% errors.',
+    href: '/exam/chsl-deo',
+    duration: 900,
+    wpmTarget: 0,
+    lang: 'english',
+    icon: 'Keyboard',
+  },
+  {
+    id: 'ssc_chsl_deo_grade_a',
+    title: "CHSL — DEO Grade 'A'",
+    description: '15,000 KDPH. The fastest bar.',
+    href: '/exam/chsl-deo-grade-a',
+    duration: 900,
+    wpmTarget: 0,
+    lang: 'english',
+    icon: 'Keyboard',
+  },
+  {
     id: 'ssc_cgl_dest',
-    title: 'SSC CGL DEST',
-    description:
-      'SSC CGL Data Entry Skill Test. 15 minutes, ~2000 key depressions.',
+    title: 'CGL — DEST',
+    description: '8,000 KDPH. 20% errors.',
     href: '/exam/cgl-dest',
     duration: 900,
     wpmTarget: 0,
@@ -50,10 +68,19 @@ export const EXAM_MODES = [
     icon: 'Keyboard',
   },
   {
+    id: 'ssc_cgl_cpt',
+    title: 'CGL — CPT',
+    description: '8,000 KDPH. 5% errors.',
+    href: '/exam/cgl-cpt',
+    duration: 900,
+    wpmTarget: 0,
+    lang: 'english',
+    icon: 'Target',
+  },
+  {
     id: 'ssc_hindi',
-    title: 'SSC Hindi Typing',
-    description:
-      'Full Unicode Hindi support. 30 WPM requirement with exact evaluation.',
+    title: 'SSC Hindi',
+    description: '30 WPM. Unicode Hindi.',
     href: '/exam/hindi',
     duration: 600,
     wpmTarget: 30,
@@ -62,9 +89,8 @@ export const EXAM_MODES = [
   },
   {
     id: 'practice',
-    title: 'Practice Mode',
-    description:
-      'Learn at your own pace with real-time feedback and guidance.',
+    title: 'Practice',
+    description: 'Live feedback while you type.',
     href: '/exam/practice',
     duration: 600,
     wpmTarget: 35,
@@ -73,9 +99,8 @@ export const EXAM_MODES = [
   },
   {
     id: 'blind',
-    title: 'Blind Mode',
-    description:
-      'Advanced practice without seeing the keyboard output.',
+    title: 'Blind',
+    description: 'No feedback. Like the real thing.',
     href: '/exam/blind',
     duration: 600,
     wpmTarget: 35,
@@ -84,9 +109,8 @@ export const EXAM_MODES = [
   },
   {
     id: 'mock',
-    title: 'Mock Test',
-    description:
-      'Full real examination environment with timer and proctoring.',
+    title: 'Mock test',
+    description: 'Full exam conditions.',
     href: '/exam/mock',
     duration: 600,
     wpmTarget: 35,
@@ -95,9 +119,8 @@ export const EXAM_MODES = [
   },
   {
     id: 'tcs_ion_replica',
-    title: 'Eduquity Replica',
-    description:
-      'Exact replica of Eduquity exam environment. Same layout, fonts, and experience.',
+    title: 'Eduquity replica',
+    description: 'The vendor screen, exactly.',
     href: '/exam/tcs-ion',
     duration: 600,
     wpmTarget: 35,
@@ -337,8 +360,11 @@ export const SSC_THRESHOLDS = {
 // MODE DISPLAY NAMES
 // =============================================================================
 export const MODE_NAMES: Record<string, string> = {
-  ssc_chsl: 'SSC CHSL',
-  ssc_cgl_dest: 'SSC CGL DEST',
+  ssc_chsl: 'SSC CHSL — LDC / JSA',
+  ssc_chsl_deo: 'SSC CHSL — DEO',
+  ssc_chsl_deo_grade_a: "SSC CHSL — DEO Grade 'A'",
+  ssc_cgl_dest: 'SSC CGL — DEST',
+  ssc_cgl_cpt: 'SSC CGL — CPT',
   ssc_hindi: 'SSC Hindi',
   practice: 'Practice',
   blind: 'Blind Mode',
@@ -426,13 +452,15 @@ export const FOOTER = {
   description:
     "India's Most Accurate SSC Typing Exam Simulator. Learn typing from scratch with progressive lessons, practice with real SSC exam patterns, and qualify with confidence.",
   examLinks: [
-    { label: 'SSC CHSL Typing', href: '/exam/chsl' },
-    { label: 'SSC CGL DEST', href: '/exam/cgl-dest' },
-    { label: 'SSC Hindi Typing', href: '/exam/hindi' },
-    { label: 'Practice Mode', href: '/exam/practice' },
-    { label: 'Blind Mode', href: '/exam/blind' },
-    { label: 'Mock Test', href: '/exam/mock' },
-    { label: 'Eduquity Replica', href: '/exam/tcs-ion' },
+    { label: 'CHSL — LDC / JSA', href: '/exam/chsl' },
+    { label: 'CHSL — DEO', href: '/exam/chsl-deo' },
+    { label: "CHSL — DEO Grade 'A'", href: '/exam/chsl-deo-grade-a' },
+    { label: 'CGL — DEST', href: '/exam/cgl-dest' },
+    { label: 'CGL — CPT', href: '/exam/cgl-cpt' },
+    { label: 'SSC Hindi', href: '/exam/hindi' },
+    { label: 'Practice', href: '/exam/practice' },
+    { label: 'Blind', href: '/exam/blind' },
+    { label: 'Eduquity replica', href: '/exam/tcs-ion' },
   ],
   quickLinks: [
     { label: 'Learn Typing', href: '/learn' },
@@ -500,7 +528,10 @@ export const ROUTES = {
   authLogin: '/auth/login',
   authRegister: '/auth/register',
   examChsl: '/exam/chsl',
+  examChslDeo: '/exam/chsl-deo',
+  examChslDeoGradeA: '/exam/chsl-deo-grade-a',
   examCglDest: '/exam/cgl-dest',
+  examCglCpt: '/exam/cgl-cpt',
   examHindi: '/exam/hindi',
   examPractice: '/exam/practice',
   examBlind: '/exam/blind',

@@ -1,4 +1,14 @@
-export type TestMode = 'ssc_chsl' | 'ssc_cgl_dest' | 'ssc_hindi' | 'practice' | 'blind' | 'mock' | 'tcs_ion_replica';
+export type TestMode =
+  | 'ssc_chsl'
+  | 'ssc_chsl_deo'
+  | 'ssc_chsl_deo_grade_a'
+  | 'ssc_cgl_dest'
+  | 'ssc_cgl_cpt'
+  | 'ssc_hindi'
+  | 'practice'
+  | 'blind'
+  | 'mock'
+  | 'tcs_ion_replica';
 
 export type TestStatus = 'in_progress' | 'completed' | 'abandoned';
 

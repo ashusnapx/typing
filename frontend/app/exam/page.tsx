@@ -1,171 +1,121 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Target, ArrowRight, Languages } from 'lucide-react';
+import { Clock, ArrowRight, Languages } from 'lucide-react';
 import { EXAM_MODES } from '@/lib/config';
-import { getExamSpecs } from '@/lib/exam-config';
+import { EXAM_VARIANTS, type ExamVariant } from '@/lib/exam-config';
 
-type ModeId = (typeof EXAM_MODES)[number]['id'];
+/** Training modes are everything without an official spec behind it. */
+const TRAINING = EXAM_MODES.filter(
+  (m) => !EXAM_VARIANTS.some((v) => v.mode === m.id)
+);
 
-/** Only the official set is named. Everything else in EXAM_MODES falls through
- *  to training, so the config stays the single source of truth and a mode added
- *  there can never go silently missing from this page. */
-const OFFICIAL_MODES: readonly ModeId[] = ['ssc_chsl', 'ssc_cgl_dest', 'ssc_hindi'];
-
-/** Grouped so the page answers "which one is my exam?" before it answers
- *  "what modes exist?". Aspirants arrive knowing their post, not our taxonomy. */
-const GROUPS = [
-  {
-    id: 'official',
-    title: 'Official exam patterns',
-    blurb: 'Exact duration, speed target and error allowance from the notification.',
-    modes: EXAM_MODES.filter((m) => OFFICIAL_MODES.includes(m.id)).map((m) => m.id),
-  },
-  {
-    id: 'training',
-    title: 'Training modes',
-    blurb: 'Same passages, different feedback — for building speed before you test it.',
-    modes: EXAM_MODES.filter((m) => !OFFICIAL_MODES.includes(m.id)).map((m) => m.id),
-  },
-] as const;
-
-/** `emphasis` is purely presentational. The official patterns are what most
- *  visitors came for, so they get the bordered white card; training modes sit
- *  back as hairline cards at a smaller type size. */
-function ExamCard({ id, emphasis = false }: { id: ModeId; emphasis?: boolean }) {
-  const mode = EXAM_MODES.find((m) => m.id === id);
-  if (!mode) return null;
-
-  const specs = getExamSpecs(mode.id);
-  const minutes = Math.floor(mode.duration / 60);
-  const target =
-    specs?.qualifyingNature === 'speed_wpm'
-      ? `${specs.englishSpeedWpm} WPM`
-      : specs
-        ? `${specs.englishKdph.toLocaleString('en-IN')} KDPH`
-        : mode.wpmTarget > 0
-          ? `${mode.wpmTarget} WPM`
-          : 'KDPH';
-
+function VariantRow({ v }: { v: ExamVariant }) {
   return (
     <Link
-      href={mode.href}
-      data-reveal
-      className={`group flex flex-col transition-transform duration-200 ease-spring hover:-translate-y-1 ${
-        emphasis ? 'card p-6 sm:p-7' : 'card-flat p-5 hover:border-vast'
-      }`}
+      href={v.href}
+      className="group flex items-center gap-4 border-b-2 border-vast/10 py-4 last:border-0"
     >
-      <div className="flex items-start gap-3">
-        <h3 className={emphasis ? 'text-2xl' : 'text-xl'}>{mode.title}</h3>
-        {mode.lang === 'hindi' && (
-          <span className="chip chip-lilac ml-auto shrink-0">
-            <Languages className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-            <span className="font-hindi">हिंदी</span>
-          </span>
-        )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xl">{v.post}</h3>
+          {v.hindiAvailable && (
+            <span className="chip chip-lilac font-hindi shrink-0">हिंदी</span>
+          )}
+        </div>
+        <p className="mt-0.5 truncate text-sm text-vast/50">{v.where}</p>
       </div>
 
-      <p
-        className={`flex-1 leading-relaxed text-vast/60 ${
-          emphasis ? 'mt-3 text-base' : 'mt-2 text-sm'
-        }`}
-      >
-        {mode.description}
-      </p>
-
-      {/* Given its own line rather than buried in the meta row: losing the
-          backspace key changes how you sit the whole test. */}
-      {specs && !specs.backspaceAllowed && (
-        <p className="mt-4">
-          <span className="chip chip-err">No backspace</span>
-        </p>
-      )}
-
-      <div
-        className={`flex items-center gap-4 border-t-2 border-vast/10 text-vast/50 ${
-          emphasis ? 'mt-6 pt-4 text-sm' : 'mt-5 pt-3 text-xs'
-        }`}
-      >
-        <span className="tnum flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-          {minutes} min
-        </span>
-        <span className="tnum flex items-center gap-1.5">
-          <Target className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-          {target}
-        </span>
-        <ArrowRight
-          className="ml-auto h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:text-vast"
-          strokeWidth={2.2}
-          aria-hidden="true"
-        />
+      <div className="tnum shrink-0 text-right">
+        <div className="text-base font-semibold">{v.requirement}</div>
+        <div className="mt-0.5 text-sm text-vast/50">
+          {v.durationSeconds / 60} min · {v.errorCapUr}% errors
+        </div>
       </div>
+
+      <ArrowRight
+        className="h-4 w-4 shrink-0 text-vast/30 transition-transform group-hover:translate-x-1 group-hover:text-vast"
+        strokeWidth={2.2}
+      />
     </Link>
   );
 }
 
 export default function ExamListingPage() {
+  const chsl = EXAM_VARIANTS.filter((v) => v.exam === 'CHSL');
+  const cgl = EXAM_VARIANTS.filter((v) => v.exam === 'CGL');
+
   return (
-    <>
-      {/* ═══════════════════════════════════════════════════ lead — cream */}
-      <section className="px-5 pb-14 pt-12 sm:px-8 sm:pb-16 sm:pt-16">
-        <div className="mx-auto w-full max-w-content">
-          <p className="eyebrow">Typing tests</p>
+    <div className="mx-auto w-full max-w-content px-5 py-12 sm:px-8 sm:py-16">
+      <h1 className="text-5xl sm:text-6xl">
+        Pick your <em>post</em>
+      </h1>
+      <p className="mt-4 max-w-lg text-lg text-vast/60">
+        Each post has its own speed bar and error cap. No sign-in needed.
+      </p>
 
-          <h1 className="mt-6 max-w-3xl text-5xl sm:text-6xl">
-            Pick the test you&rsquo;re <em>actually sitting</em>
-          </h1>
+      <div className="mt-12 grid gap-8 lg:grid-cols-2">
+        <section aria-labelledby="chsl-heading">
+          <h2 id="chsl-heading" className="text-3xl">
+            SSC CHSL
+          </h2>
+          <div className="card mt-4 px-5">
+            {chsl.map((v) => (
+              <VariantRow key={v.mode} v={v} />
+            ))}
+          </div>
+        </section>
 
-          <p className="mt-6 max-w-xl text-lg text-vast/70">
-            Every mode below scores you with the official SSC error engine. No
-            account needed — sign in only when you want your history kept.
-          </p>
+        <section aria-labelledby="cgl-heading">
+          <h2 id="cgl-heading" className="text-3xl">
+            SSC CGL
+          </h2>
+          <div className="card mt-4 px-5">
+            {cgl.map((v) => (
+              <VariantRow key={v.mode} v={v} />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section aria-labelledby="training-heading" className="mt-12">
+        <h2 id="training-heading" className="text-3xl">
+          Training
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {TRAINING.map((m) => (
+            <Link
+              key={m.id}
+              href={m.href}
+              className="card-flat group flex flex-col p-4 transition-transform duration-200 ease-spring hover:-translate-y-1 hover:border-vast"
+            >
+              <div className="flex items-start gap-2">
+                <h3 className="text-lg">{m.title}</h3>
+                {m.lang === 'hindi' && (
+                  <span className="chip chip-lilac ml-auto shrink-0 font-hindi">
+                    हिंदी
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 flex-1 text-sm text-vast/55">{m.description}</p>
+              <span className="tnum mt-3 flex items-center gap-1.5 text-xs text-vast/45">
+                <Clock className="h-3 w-3" strokeWidth={2} />
+                {Math.floor(m.duration / 60)} min
+                <ArrowRight
+                  className="ml-auto h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
+                  strokeWidth={2.2}
+                />
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* Each group is its own slab, and the official one takes the lilac —
-          the loudest ground in the system — so the exam patterns read as the
-          page's answer and the training modes as the follow-up. */}
-      {GROUPS.map((group) => {
-        const official = group.id === 'official';
-        return (
-          <section
-            key={group.id}
-            aria-labelledby={`${group.id}-heading`}
-            className={`slab ${official ? 'slab-lilac' : 'slab-cream'}`}
-          >
-            <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-              <div className={official ? 'max-w-2xl' : 'max-w-xl'} data-reveal>
-                <h2
-                  id={`${group.id}-heading`}
-                  className={official ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'}
-                >
-                  {group.title}
-                </h2>
-                <p
-                  className={`mt-4 leading-relaxed text-vast/60 ${
-                    official ? 'text-lg' : 'text-base'
-                  }`}
-                >
-                  {group.blurb}
-                </p>
-              </div>
-
-              <div
-                className={`grid ${
-                  official
-                    ? 'mt-12 gap-4 sm:grid-cols-2 lg:grid-cols-3'
-                    : 'mt-10 gap-3 sm:grid-cols-2 lg:grid-cols-4'
-                }`}
-              >
-                {group.modes.map((id) => (
-                  <ExamCard key={id} id={id} emphasis={official} />
-                ))}
-              </div>
-            </div>
-          </section>
-        );
-      })}
-    </>
+      <p className="mt-10 flex items-center gap-2 text-sm text-vast/50">
+        <Languages className="h-4 w-4 shrink-0" strokeWidth={2} />
+        Not sure which post you&rsquo;ll get? Take any test — the result shows
+        every post that score clears.
+      </p>
+    </div>
   );
 }

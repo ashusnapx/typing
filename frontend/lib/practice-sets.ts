@@ -38,8 +38,8 @@ export const PRACTICE_SETS: Record<string, PracticeSet[]> = {
 };
 
 export function getPracticeSets(mode: string): PracticeSet[] {
-  if (mode === 'ssc_chsl') return PRACTICE_SETS.ssc_chsl;
-  if (mode === 'ssc_cgl_dest') return PRACTICE_SETS.ssc_cgl;
+  if (mode.startsWith('ssc_chsl')) return PRACTICE_SETS.ssc_chsl;
+  if (mode.startsWith('ssc_cgl')) return PRACTICE_SETS.ssc_cgl;
   if (mode === 'practice') return PRACTICE_SETS.practice;
   return [];
 }

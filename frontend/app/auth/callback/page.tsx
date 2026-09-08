@@ -23,6 +23,8 @@ export default function AuthCallbackPage() {
         id: session.user?.id || email,
         email,
         full_name: session.user?.user_metadata?.full_name || session.user?.user_metadata?.name || email.split('@')[0],
+        father_name: session.user?.user_metadata?.father_name?.trim() || null,
+        phone: session.user?.user_metadata?.phone?.trim() || null,
         role: 'student',
         xp: 0,
         level: 1,

@@ -32,10 +32,23 @@ interface AuthUser {
   id: string;
   email: string;
   full_name: string;
+  /** Both asked for at sign-up, and both null on accounts created before we
+   *  collected them — which is what the completion modal exists to fill in. */
+  father_name: string | null;
+  phone: string | null;
   role: string;
   xp: number;
   level: number;
   is_premium: boolean;
+}
+
+/** What an account still owes us before it is complete. */
+export function missingProfileFields(user: AuthUser | null): string[] {
+  if (!user) return [];
+  const missing: string[] = [];
+  if (!user.father_name?.trim()) missing.push('father_name');
+  if (!user.phone?.trim()) missing.push('phone');
+  return missing;
 }
 
 interface AuthState {
@@ -43,7 +56,15 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, full_name: string) => Promise<void>;
+  /** `extra` is optional because the in-exam sign-up prompt asks for the
+   *  minimum to get someone typing. Whatever it leaves out is collected by the
+   *  profile-completion modal on the next load. */
+  register: (
+    email: string,
+    password: string,
+    full_name: string,
+    extra?: { father_name?: string; phone?: string }
+  ) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateUser: (data: Partial<AuthUser>) => void;
@@ -60,6 +81,8 @@ function userFromSession(u: User): AuthUser {
       u.user_metadata?.name?.trim() ||
       email.split('@')[0] ||
       'Candidate',
+    father_name: u.user_metadata?.father_name?.trim() || null,
+    phone: u.user_metadata?.phone?.trim() || null,
     role: 'student',
     xp: 0,
     level: 1,
@@ -75,7 +98,7 @@ async function withProfile(u: User): Promise<AuthUser> {
     const supabase = createClient();
     const { data } = await supabase
       .from('users')
-      .select('full_name, role, xp, level, is_premium')
+      .select('full_name, father_name, phone, role, xp, level, is_premium')
       .eq('id', u.id)
       .maybeSingle();
 
@@ -83,6 +106,15 @@ async function withProfile(u: User): Promise<AuthUser> {
     return {
       ...base,
       full_name: data.full_name || base.full_name,
+      // Taken from the row verbatim, NOT falling back to the session's
+      // metadata. Metadata is written once at sign-up and never updated, so
+      // falling back to it would report a field as answered after the row had
+      // been cleared — and the modal that exists to collect it would never
+      // open. `userFromSession` still reads metadata for the optimistic
+      // moment before this read lands, which avoids a modal flashing up
+      // immediately after sign-up.
+      father_name: data.father_name?.trim() || null,
+      phone: data.phone?.trim() || null,
       role: data.role || base.role,
       xp: data.xp ?? 0,
       level: data.level ?? 1,
@@ -149,7 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await applySession(data.session, set, get);
   },
 
-  register: async (email, password, full_name) => {
+  register: async (email, password, full_name, extra) => {
     // Created server-side with email_confirm already set, so the project's
     // "Confirm email" switch cannot strand the user without a session.
     let res: Response;
@@ -157,7 +189,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password, full_name }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          full_name,
+          father_name: extra?.father_name ?? '',
+          phone: extra?.phone ?? '',
+        }),
       });
     } catch (err: any) {
       throw new Error(friendlyError(err?.message));

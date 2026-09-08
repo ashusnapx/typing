@@ -14,6 +14,7 @@ import { ROUTES } from '@/lib/config';
 import { registerSchema, type RegisterFormData } from '@/lib/schemas';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { LogoSpinner } from '@/components/ui/loading-logo';
+import { PhoneField } from '@/components/ui/phone-field';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -28,13 +29,22 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { full_name: '', email: '', password: '' },
+    defaultValues: {
+      full_name: '',
+      father_name: '',
+      phone: '',
+      email: '',
+      password: '',
+    },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     try {
-      await registerUser(data.email, data.password, data.full_name);
+      await registerUser(data.email, data.password, data.full_name, {
+        father_name: data.father_name,
+        phone: data.phone,
+      });
       prefetchDashboard(queryClient);
       toast.success('Account created');
       router.push(ROUTES.dashboard);
@@ -57,7 +67,7 @@ export default function RegisterPage() {
           Practise like it&rsquo;s <em>exam day</em>
         </>
       }
-      subtitle="Free, and takes about twenty seconds."
+      subtitle="Free. We ask for the details your SSC application uses."
       footer={
         <p className="text-center text-base text-vast/60">
           Already have an account?{' '}
@@ -96,6 +106,38 @@ export default function RegisterPage() {
             </p>
           )}
         </div>
+
+        <div>
+          <label
+            htmlFor="reg-father"
+            className="mb-1.5 block text-sm font-medium text-vast/70"
+          >
+            Father&rsquo;s name
+          </label>
+          <input
+            id="reg-father"
+            type="text"
+            {...register('father_name')}
+            className="field-line"
+            placeholder="Rajesh Sharma"
+            autoComplete="off"
+            disabled={loading}
+            aria-invalid={!!errors.father_name}
+            aria-describedby={errors.father_name ? 'reg-father-error' : undefined}
+          />
+          {errors.father_name && (
+            <p id="reg-father-error" role="alert" className="mt-2 text-sm text-err">
+              {errors.father_name.message}
+            </p>
+          )}
+        </div>
+
+        <PhoneField
+          id="reg-phone"
+          registration={register('phone')}
+          error={errors.phone}
+          disabled={loading}
+        />
 
         <div>
           <label

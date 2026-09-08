@@ -7,6 +7,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { initCapsLockTracker } from '@/lib/caps-lock-tracker';
 import { useAuthStore } from '@/store/auth-store';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { CompleteProfileModal } from '@/components/auth/complete-profile-modal';
+import { useTypingStore } from '@/store/typing-store';
 import { syncManager } from '@/lib/offline/sync-manager';
 import { PRIVATE_ROUTE_PREFIXES, isPrivateRoute } from '@/lib/route-access';
 
@@ -39,6 +41,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (isPrivate && !isLoading && !isAuthenticated) return null;
 
   return <>{children}</>;
+}
+
+/** The modal asks for a phone number. Doing that over a live timed skill test
+ *  would cost the candidate their attempt, so it waits — the exam screens
+ *  raise the same flag that hides the site navbar. */
+function ProfileGate() {
+  const navHidden = useTypingStore((s) => s.navHidden);
+  const pathname = usePathname();
+  if (navHidden || pathname.startsWith('/auth/')) return null;
+  return <CompleteProfileModal />;
 }
 
 function ScrollToTop() {
@@ -74,6 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ErrorBoundary>
         <ScrollToTop />
         <AuthGate>{children}</AuthGate>
+        <ProfileGate />
       </ErrorBoundary>
       <Toaster
         position="bottom-center"

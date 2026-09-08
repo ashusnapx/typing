@@ -476,6 +476,16 @@ class ApiClient {
     );
   }
 
+  /** Fill in the fields an older account never supplied. */
+  async completeProfile(fatherName: string, phone: string) {
+    return this._t(() =>
+      trpcClient.user.completeProfile.mutate({
+        father_name: fatherName,
+        phone,
+      })
+    );
+  }
+
   async updateProfile(data: any) {
     if (ENABLE_TRPC) {
       const updated = await this._t(() => trpcClient.user.updateProfile.mutate({

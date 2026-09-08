@@ -27,7 +27,13 @@ function admin() {
 }
 
 export async function POST(request: Request) {
-  let body: { email?: string; password?: string; full_name?: string };
+  let body: {
+    email?: string;
+    password?: string;
+    full_name?: string;
+    father_name?: string;
+    phone?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -37,6 +43,10 @@ export async function POST(request: Request) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const fullName = body.full_name?.trim();
+  const fatherName = body.father_name?.trim();
+  // Digits only. The client already strips as you type; this is the guard for
+  // anything that did not come through the form.
+  const phone = body.phone?.replace(/\D/g, '');
 
   if (!email || !password) {
     return NextResponse.json(
@@ -47,6 +57,16 @@ export async function POST(request: Request) {
   if (password.length < 8) {
     return NextResponse.json(
       { error: 'Password must be at least 8 characters.' },
+      { status: 400 }
+    );
+  }
+  // Both are optional here on purpose: the in-exam sign-up prompt collects
+  // only a name, and the profile-completion modal asks for the rest later. But
+  // anything that IS supplied has to be valid, or a bad number reaches the row
+  // and the modal never asks again.
+  if (phone && !/^[6-9]\d{9}$/.test(phone)) {
+    return NextResponse.json(
+      { error: 'Enter the 10 digits after +91, starting 6, 7, 8 or 9.' },
       { status: 400 }
     );
   }
@@ -68,7 +88,13 @@ export async function POST(request: Request) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName || email.split('@')[0] },
+      // The trigger in 20260908000000 reads these into the profile row, and
+      // treats an empty string as "not answered".
+      user_metadata: {
+        full_name: fullName || email.split('@')[0],
+        father_name: fatherName || '',
+        phone: phone || '',
+      },
     }));
   } catch {
     return NextResponse.json(

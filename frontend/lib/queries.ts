@@ -335,6 +335,30 @@ export function useSaveLessonResult() {
   });
 }
 
+/**
+ * Save the fields an older account is missing.
+ *
+ * The auth store is updated from the row the server returns rather than from
+ * what was typed, so what the app believes and what the database holds cannot
+ * drift — the same rule the lesson XP award follows.
+ */
+export function useCompleteProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ father_name, phone }: { father_name: string; phone: string }) =>
+      api.completeProfile(father_name, phone),
+    onSuccess: (saved) => {
+      useAuthStore.getState().updateUser({
+        full_name: saved.fullName,
+        father_name: saved.fatherName,
+        phone: saved.phone,
+      });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    },
+  });
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
 

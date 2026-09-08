@@ -17,6 +17,14 @@ import { PeekingTypist } from './peeking-typist';
  *
  * The panel is hidden below `lg`, where a second column would only push the
  * form down again.
+ *
+ * From `lg` up the two halves scroll independently: the illustration panel is
+ * pinned to the viewport and the form column scrolls on its own, so a taller
+ * form never drags the artwork off the top of the screen. Centring is done
+ * with `m-auto` on the form rather than `justify-center` on its container —
+ * `justify-content` clips the overflowing top of a scroll container and puts
+ * the first field out of reach, whereas auto margins collapse to zero once the
+ * content is taller than the box.
  */
 
 const PROOF = [
@@ -40,9 +48,9 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen lg:h-screen lg:grid-cols-2 lg:overflow-hidden">
       {/* ------------------------------------------------------------ panel */}
-      <aside className="on-dark relative hidden flex-col justify-between overflow-hidden bg-fathom p-12 lg:flex xl:p-16">
+      <aside className="on-dark relative hidden flex-col justify-between overflow-hidden bg-fathom p-12 lg:flex lg:h-screen xl:p-16">
         <Link href="/" className="relative z-10 flex items-center gap-2.5">
           <Image
             src={APP.logo}
@@ -86,8 +94,8 @@ export function AuthShell({
       </aside>
 
       {/* ------------------------------------------------------------- form */}
-      <div className="flex items-center justify-center bg-lumen px-5 py-12 sm:px-10">
-        <div className="w-full max-w-sm">
+      <div className="flex flex-col bg-lumen px-5 py-12 sm:px-10 lg:h-screen lg:overflow-y-auto">
+        <div className="m-auto w-full max-w-sm">
           {/* The mark only appears here on small screens, where the panel that
               normally carries it is hidden. */}
           <Link

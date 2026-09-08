@@ -6,6 +6,8 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
   fullName: varchar('full_name', { length: 255 }).notNull(),
+  /** Father's name, as written on the SSC application form. */
+  fatherName: varchar('father_name', { length: 255 }),
   passwordHash: varchar('password_hash', { length: 255 }),
   role: varchar('role', { length: 50 }).default('student').notNull(),
   state: varchar('state', { length: 100 }),

@@ -5,7 +5,7 @@ import { users } from '../../db/schema/users';
 import { typingTests } from '../../db/schema/typing-tests';
 import { eq, desc, count, avg, max, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
-import { profileSchema } from '@/lib/schemas';
+import { profileSchema, completeProfileSchema } from '@/lib/schemas';
 import { getLessonById } from '@/lib/typing-curriculum';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
@@ -232,6 +232,47 @@ export const userRouter = router({
       return { xp: updated.xp, level, awarded };
     }),
 
+  /**
+   * Fill in the fields an older account never supplied.
+   *
+   * Accounts created before phone and father's name were collected have
+   * neither. Rather than lock those candidates out of a row that was perfectly
+   * valid when it was written, the app asks on the next sign-in and writes the
+   * answers here. Validated with the same schema the form uses, so a client
+   * that skips the form cannot write a number the form would have rejected.
+   */
+  completeProfile: protectedProcedure
+    .input(completeProfileSchema)
+    .output(
+      z.object({
+        fullName: z.string(),
+        fatherName: z.string().nullable(),
+        phone: z.string().nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const [updated] = await db
+        .update(users)
+        .set({
+          fatherName: input.father_name,
+          phone: input.phone,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, ctx.user.id))
+        .returning({
+          fullName: users.fullName,
+          fatherName: users.fatherName,
+          phone: users.phone,
+        });
+
+      if (!updated) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found.' });
+      }
+
+      await responseCache.invalidate(dashboardCacheKey(ctx.user.id));
+      return updated;
+    }),
+
   profile: protectedProcedure
     .input(z.void())
     .output(
@@ -239,6 +280,8 @@ export const userRouter = router({
         id: z.string(),
         email: z.string(),
         fullName: z.string(),
+        fatherName: z.string().nullable(),
+        phone: z.string().nullable(),
         role: z.string(),
         xp: z.number(),
         level: z.number(),
@@ -265,6 +308,8 @@ export const userRouter = router({
         id: user.id,
         email: user.email,
         fullName: user.fullName,
+        fatherName: user.fatherName,
+        phone: user.phone,
         role: user.role,
         xp: user.xp,
         level: user.level,

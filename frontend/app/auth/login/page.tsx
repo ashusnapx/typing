@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -9,6 +9,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '@/store/auth-store';
+import { createClient } from '@/lib/supabase/client';
 import { prefetchDashboard } from '@/lib/queries';
 import { ROUTES } from '@/lib/config';
 import { loginSchema, type LoginFormData } from '@/lib/schemas';
@@ -39,6 +40,49 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  /**
+   * Recover a session the server could not see.
+   *
+   * The middleware decides who is signed in from the auth cookie. A browser
+   * can hold a perfectly good Supabase session while that cookie is missing or
+   * expired — an older cookie format, a cleared cookie, a token that lapsed
+   * while the tab was closed — and the result is a bounce to this page from
+   * someone who is, as far as their browser is concerned, already logged in.
+   * They were shown a login form with no explanation.
+   *
+   * Refreshing the session rewrites the cookie, which is all the server was
+   * missing. Guarded by a one-shot flag: if the cookie still does not take, the
+   * form is shown rather than bouncing between here and the page they wanted.
+   */
+  const recovery = useRef(false);
+  useEffect(() => {
+    const next = params.get('next');
+    if (!next || recovery.current) return;
+    recovery.current = true;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (sessionStorage.getItem('tm-session-recovered') === '1') return;
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        if (!data.session || cancelled) return;
+        // Rewrites the auth cookie the middleware reads.
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed.session || cancelled) return;
+        sessionStorage.setItem('tm-session-recovered', '1');
+        toast.success('Welcome back');
+        router.replace(next.startsWith('/') && !next.startsWith('//') ? next : ROUTES.dashboard);
+      } catch {
+        /* fall through to the form */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params, router]);
 
   /** Only ever an in-app path — never an arbitrary URL from the query string. */
   const nextPath = () => {
@@ -82,6 +126,11 @@ function LoginForm() {
     setLoading(true);
     try {
       await login(data.email, data.password);
+      try {
+        sessionStorage.removeItem('tm-session-recovered');
+      } catch {
+        /* private mode */
+      }
       toast.success('Signed in');
       goIn();
     } catch (err: any) {

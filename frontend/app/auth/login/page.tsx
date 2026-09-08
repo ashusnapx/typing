@@ -14,11 +14,19 @@ import { ROUTES } from '@/lib/config';
 import { loginSchema, type LoginFormData } from '@/lib/schemas';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { LogoSpinner } from '@/components/ui/loading-logo';
+import { FinishSignupModal } from '@/components/auth/finish-signup-modal';
+import type { IdentityValues } from '@/components/auth/identity-fields';
 
 function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Held only while the modal is open, and only in memory — the credentials
+  // the candidate already typed, so the sign-up does not ask for them twice.
+  const [pendingSignup, setPendingSignup] = useState<
+    { email: string; password: string } | null
+  >(null);
   const login = useAuthStore((s) => s.login);
+  const registerAccount = useAuthStore((s) => s.register);
   const queryClient = useQueryClient();
   const router = useRouter();
   const params = useSearchParams();
@@ -32,27 +40,103 @@ function LoginForm() {
     defaultValues: { email: '', password: '' },
   });
 
+  /** Only ever an in-app path — never an arbitrary URL from the query string. */
+  const nextPath = () => {
+    const next = params.get('next');
+    return next && next.startsWith('/') && !next.startsWith('//')
+      ? next
+      : ROUTES.dashboard;
+  };
+
+  const goIn = () => {
+    // Starts the dashboard round trip now, so it overlaps the route transition
+    // instead of beginning after the page mounts.
+    prefetchDashboard(queryClient);
+    router.push(nextPath());
+  };
+
+  /**
+   * Supabase answers a wrong password and a non-existent account with the same
+   * message, so "Wrong email or password" was the only thing we could say —
+   * and it is the wrong thing to say to someone who has not signed up yet.
+   * Ask which it was, and only then decide what to show.
+   */
+  const accountExists = async (email: string): Promise<boolean | null> => {
+    try {
+      const res = await fetch('/api/auth/exists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) return null;
+      const { exists } = await res.json();
+      return typeof exists === 'boolean' ? exists : null;
+    } catch {
+      // Unknown, not "no account". Inviting someone to re-create an account
+      // they already have is worse than the generic message.
+      return null;
+    }
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     try {
       await login(data.email, data.password);
-      // Starts the dashboard round trip now, so it overlaps the route
-      // transition instead of beginning after the page mounts.
-      prefetchDashboard(queryClient);
       toast.success('Signed in');
-      // Only ever an in-app path — never an arbitrary URL from the query string.
-      const next = params.get('next');
-      const safe =
-        next && next.startsWith('/') && !next.startsWith('//') ? next : null;
-      router.push(safe ?? ROUTES.dashboard);
+      goIn();
     } catch (err: any) {
-      toast.error(err?.message || 'Could not sign in');
+      const wrongCredentials = /wrong email or password/i.test(err?.message || '');
+      if (wrongCredentials) {
+        const exists = await accountExists(data.email);
+        if (exists === false) {
+          // No dead end: carry the credentials into the sign-up they meant.
+          setPendingSignup({ email: data.email, password: data.password });
+          setLoading(false);
+          return;
+        }
+        // The account is there, so the password is the part that was wrong —
+        // which is more useful than the message that covers both.
+        toast.error(
+          exists === true ? 'Wrong password.' : err?.message || 'Could not sign in'
+        );
+      } else {
+        toast.error(err?.message || 'Could not sign in');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishSignup = async (values: IdentityValues) => {
+    if (!pendingSignup) return;
+    setLoading(true);
+    try {
+      await registerAccount(
+        pendingSignup.email,
+        pendingSignup.password,
+        values.full_name,
+        { father_name: values.father_name, phone: values.phone }
+      );
+      setPendingSignup(null);
+      toast.success('Account created');
+      goIn();
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not create your account');
     } finally {
       setLoading(false);
     }
   };
 
   return (
+    <>
+    {pendingSignup && (
+      <FinishSignupModal
+        email={pendingSignup.email}
+        submitting={loading}
+        onSubmit={finishSignup}
+        onClose={() => setPendingSignup(null)}
+      />
+    )}
     <AuthShell
       title={
         <>
@@ -154,6 +238,7 @@ function LoginForm() {
         </button>
       </form>
     </AuthShell>
+    </>
   );
 }
 

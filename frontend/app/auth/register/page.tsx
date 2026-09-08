@@ -14,7 +14,7 @@ import { ROUTES } from '@/lib/config';
 import { registerSchema, type RegisterFormData } from '@/lib/schemas';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { LogoSpinner } from '@/components/ui/loading-logo';
-import { PhoneField } from '@/components/ui/phone-field';
+import { IdentityFields } from '@/components/auth/identity-fields';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -81,62 +81,12 @@ export default function RegisterPage() {
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-7" noValidate>
-        <div>
-          <label
-            htmlFor="reg-name"
-            className="mb-1.5 block text-sm font-medium text-vast/70"
-          >
-            Your name
-          </label>
-          <input
-            id="reg-name"
-            type="text"
-            {...register('full_name')}
-            className="field-line"
-            placeholder="Priya Sharma"
-            autoComplete="name"
-            autoFocus
-            disabled={loading}
-            aria-invalid={!!errors.full_name}
-            aria-describedby={errors.full_name ? 'reg-name-error' : undefined}
-          />
-          {errors.full_name && (
-            <p id="reg-name-error" role="alert" className="mt-2 text-sm text-err">
-              {errors.full_name.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="reg-father"
-            className="mb-1.5 block text-sm font-medium text-vast/70"
-          >
-            Father&rsquo;s name
-          </label>
-          <input
-            id="reg-father"
-            type="text"
-            {...register('father_name')}
-            className="field-line"
-            placeholder="Rajesh Sharma"
-            autoComplete="off"
-            disabled={loading}
-            aria-invalid={!!errors.father_name}
-            aria-describedby={errors.father_name ? 'reg-father-error' : undefined}
-          />
-          {errors.father_name && (
-            <p id="reg-father-error" role="alert" className="mt-2 text-sm text-err">
-              {errors.father_name.message}
-            </p>
-          )}
-        </div>
-
-        <PhoneField
-          id="reg-phone"
-          registration={register('phone')}
-          error={errors.phone}
+        <IdentityFields
+          register={register}
+          errors={errors}
           disabled={loading}
+          idPrefix="reg"
+          autoFocus
         />
 
         <div>

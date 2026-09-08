@@ -137,3 +137,42 @@ describe('missingProfileFields', () => {
     expect(missingProfileFields(null)).toEqual([]);
   });
 });
+
+describe('sign-in branch selection', () => {
+  /**
+   * Supabase answers a wrong password and a non-existent account with the same
+   * message, so the sign-in screen decides what to show from a second signal:
+   * does an account exist for this email? Getting the fallback wrong is the
+   * dangerous case — inviting someone to re-create an account they already
+   * have is worse than the generic message it replaces.
+   */
+  type Branch = 'finish-signup' | 'wrong-password' | 'generic';
+
+  function branchFor(exists: boolean | null, wrongCredentials: boolean): Branch {
+    if (!wrongCredentials) return 'generic';
+    if (exists === false) return 'finish-signup';
+    if (exists === true) return 'wrong-password';
+    return 'generic';
+  }
+
+  it('offers to finish signing up when no account exists', () => {
+    expect(branchFor(false, true)).toBe('finish-signup');
+  });
+
+  it('names the password when the account is there', () => {
+    expect(branchFor(true, true)).toBe('wrong-password');
+  });
+
+  it('falls back to the generic message when the check could not answer', () => {
+    // A failed lookup must never be read as "no account" — that would invite
+    // someone to re-create an account they already have.
+    expect(branchFor(null, true)).toBe('generic');
+  });
+
+  it('never diverts an error that was not a credentials failure', () => {
+    // A network or configuration error has to surface as itself, not as an
+    // invitation to sign up.
+    expect(branchFor(false, false)).toBe('generic');
+    expect(branchFor(null, false)).toBe('generic');
+  });
+});

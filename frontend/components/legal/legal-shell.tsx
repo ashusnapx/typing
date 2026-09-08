@@ -188,10 +188,17 @@ export function LegalPage({
 
       <section className="slab slab-white">
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+          {/* `min-w-0` on both children is load-bearing. A grid item defaults
+              to `min-width: auto`, which is its content's min-content width —
+              so the `min-w-[30rem]` data table below propagated straight out
+              through its own `overflow-x-auto` wrapper, widened the track past
+              the viewport and gave the whole site a horizontal scrollbar on a
+              phone. With the track free to shrink, the wrapper scrolls
+              internally the way it was always meant to. */}
           <div className="grid gap-12 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] lg:gap-16">
             {/* Plain anchors — the contents work with JS off, and on mobile
                 they simply sit above the document instead of sticking. */}
-            <nav aria-label="On this page" className="lg:sticky lg:top-24 lg:self-start">
+            <nav aria-label="On this page" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
               <h2 className="eyebrow">On this page</h2>
               <ol className="mt-4 space-y-2">
                 {sections.map((s, i) => (
@@ -210,7 +217,7 @@ export function LegalPage({
               </ol>
             </nav>
 
-            <div className="max-w-2xl">
+            <div className="min-w-0 max-w-2xl">
               {sections.map((s, i) => (
                 <section
                   key={s.id}

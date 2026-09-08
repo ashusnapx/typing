@@ -14,11 +14,11 @@ function VariantRow({ v }: { v: ExamVariant }) {
   return (
     <Link
       href={v.href}
-      className="group flex items-center gap-4 border-b-2 border-vast/10 py-4 last:border-0"
+      className="group flex items-center gap-3 border-b-2 border-vast/10 py-4 last:border-0"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="text-xl">{v.post}</h3>
+          <h3 className="truncate text-xl">{v.post}</h3>
           {v.hindiAvailable && (
             <span className="chip chip-lilac font-hindi shrink-0">हिंदी</span>
           )}
@@ -28,13 +28,14 @@ function VariantRow({ v }: { v: ExamVariant }) {
 
       <div className="tnum shrink-0 text-right">
         <div className="text-base font-semibold">{v.requirement}</div>
-        <div className="mt-0.5 text-sm text-vast/50">
-          {v.durationSeconds / 60} min · {v.errorCapUr}% errors
+        <div className="mt-0.5 whitespace-nowrap text-sm text-vast/50">
+          {v.durationSeconds / 60} min · {v.errorCapUr}%
         </div>
       </div>
 
+      {/* Decorative, and the first thing worth losing when the row is tight. */}
       <ArrowRight
-        className="h-4 w-4 shrink-0 text-vast/30 transition-transform group-hover:translate-x-1 group-hover:text-vast"
+        className="hidden h-4 w-4 shrink-0 text-vast/30 transition-transform group-hover:translate-x-1 group-hover:text-vast sm:block"
         strokeWidth={2.2}
       />
     </Link>
@@ -55,7 +56,7 @@ export default function ExamListingPage() {
       </p>
 
       <div className="mt-12 grid gap-8 lg:grid-cols-2">
-        <section aria-labelledby="chsl-heading">
+        <section aria-labelledby="chsl-heading" className="min-w-0">
           <h2 id="chsl-heading" className="text-3xl">
             SSC CHSL
           </h2>
@@ -66,7 +67,7 @@ export default function ExamListingPage() {
           </div>
         </section>
 
-        <section aria-labelledby="cgl-heading">
+        <section aria-labelledby="cgl-heading" className="min-w-0">
           <h2 id="cgl-heading" className="text-3xl">
             SSC CGL
           </h2>

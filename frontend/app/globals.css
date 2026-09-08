@@ -316,6 +316,23 @@
   .segment-item[aria-selected='true'],
   .segment-item[data-active='true'] { background-color: rgb(var(--white)); }
 
+  /* A pill with four options has nowhere to go on a 390px screen: it wrapped
+     to a second row and the 1600px radius turned the result into a blob. This
+     variant lays the options out as a grid until there is room for the pill. */
+  .segment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px;
+    border-radius: 14px;
+  }
+  @media (min-width: 640px) {
+    .segment-grid {
+      display: inline-flex;
+      gap: 0;
+      border-radius: 1600px;
+    }
+  }
+
   /* ---- Cards ------------------------------------------------------------ */
   .card {
     background-color: rgb(var(--white));

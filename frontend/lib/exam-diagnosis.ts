@@ -355,11 +355,6 @@ export function diagnose(original: string, typed: string): Diagnosis {
   const typedWords = typed.trim() ? typed.trim().split(/\s+/) : [];
   const allExpected = original.trim() ? original.trim().split(/\s+/) : [];
 
-  // Compare against as much of the passage as the attempt reached, plus a
-  // little slack so trailing skips and extras still register.
-  const reach = Math.min(allExpected.length, Math.ceil(typedWords.length * 1.15) + 2);
-  const expectedWords = allExpected.slice(0, Math.max(reach, typedWords.length ? 1 : 0));
-
   // An empty attempt has nothing to diagnose. Listing every word of the
   // passage as "skipped" would bury the only thing worth saying, which is that
   // nothing was typed.
@@ -374,7 +369,22 @@ export function diagnose(original: string, typed: string): Diagnosis {
     };
   }
 
-  const pairs = alignWords(expectedWords, typedWords);
+  /* Align against the whole passage, then drop the tail the candidate never
+     reached.
+
+     The reach used to be guessed as `typedWords * 1.15 + 2`, which charged
+     every unfinished attempt about fifteen percent of its length in phantom
+     "skipped word" mistakes — typing 66% of a passage perfectly was reported
+     as 32 skipped words. The words after the last one you typed were never
+     attempted, and that is a completion figure the result screen reports on
+     its own, not thirty-two separate mistakes. A word skipped in the middle
+     still has a typed word after it, so it survives this trim and is still
+     charged. */
+  const allPairs = alignWords(allExpected, typedWords);
+  let end = allPairs.length;
+  while (end > 0 && allPairs[end - 1].typed === null) end--;
+  const pairs = allPairs.slice(0, end);
+
   const mistakes = refine(pairs);
 
   const grouped = new Map<MistakeKind, { expected: string; typed: string }[]>();

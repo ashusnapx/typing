@@ -173,3 +173,44 @@ describe('diagnose — learn mapping', () => {
     ]);
   });
 });
+
+describe('unfinished attempts are not charged for the part never reached', () => {
+  const passage = Array.from({ length: 300 }, (_, i) => `word${i}`).join(' ');
+  const twoThirds = Array.from({ length: 200 }, (_, i) => `word${i}`).join(' ');
+
+  it('charges nothing for stopping early with everything typed correct', () => {
+    // The reach used to be guessed as typedWords * 1.15, which charged about
+    // fifteen percent of the attempt's length in phantom skipped words: two
+    // thirds of a passage typed perfectly came back as 32 mistakes and a
+    // 12.8% error rate.
+    const d = diagnose(passage, twoThirds);
+    expect(d.totalMistakes).toBe(0);
+    expect(d.findings).toEqual([]);
+  });
+
+  it('still charges a word skipped in the middle', () => {
+    // The trim must only remove the untouched tail. A gap with typed words
+    // after it is a real omission and stays chargeable.
+    const withGap = Array.from({ length: 200 }, (_, i) => `word${i}`)
+      .filter((w) => w !== 'word50')
+      .join(' ');
+    const d = diagnose(passage, withGap);
+    expect(d.findings.map((f) => f.kind)).toEqual(['skipped']);
+    expect(d.totalMistakes).toBe(1);
+  });
+
+  it('still charges a slip inside the part that was typed', () => {
+    const d = diagnose(passage, twoThirds.replace('word50', 'wrod50'));
+    expect(d.totalMistakes).toBe(1);
+  });
+
+  it('charges nothing for a complete, perfect attempt', () => {
+    expect(diagnose(passage, passage).totalMistakes).toBe(0);
+  });
+
+  it('scales: a one-word attempt is not charged for the other 299', () => {
+    const d = diagnose(passage, 'word0');
+    expect(d.totalMistakes).toBe(0);
+    expect(d.wordsCorrect).toBe(1);
+  });
+});

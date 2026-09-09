@@ -214,3 +214,29 @@ describe('unfinished attempts are not charged for the part never reached', () =>
     expect(d.wordsCorrect).toBe(1);
   });
 });
+
+describe('a trailing fragment does not drag the alignment to the end', () => {
+  const words = Array.from({ length: 300 }, (_, i) => `word${i}`);
+  const passage = words.join(' ');
+  const upTo222 = words.slice(0, 222).join(' ');
+
+  it('charges one mistake for stopping mid-word, not eighty', () => {
+    // Stopping mid-word leaves a fragment that matches nothing well, so the
+    // aligner parked it against the LAST word of the passage — every untyped
+    // word in between then read as a skip. A 74% attempt was charged 80
+    // phantom mistakes and a 29% error rate.
+    const midWord = upTo222.slice(0, upTo222.length - 3);
+    const d = diagnose(passage, midWord);
+    expect(d.totalMistakes).toBe(1);
+  });
+
+  it('still charges nothing for stopping on a clean word boundary', () => {
+    expect(diagnose(passage, upTo222).totalMistakes).toBe(0);
+  });
+
+  it('bounds an attempt that matches nothing at all', () => {
+    // No anchor to trim from. Three wrong words against a 300-word passage
+    // must not be scored as 300 mistakes.
+    expect(diagnose(passage, 'xxx yyy zzz').totalMistakes).toBeLessThanOrEqual(5);
+  });
+});

@@ -381,9 +381,38 @@ export function diagnose(original: string, typed: string): Diagnosis {
      still has a typed word after it, so it survives this trim and is still
      charged. */
   const allPairs = alignWords(allExpected, typedWords);
-  let end = allPairs.length;
-  while (end > 0 && allPairs[end - 1].typed === null) end--;
-  const pairs = allPairs.slice(0, end);
+
+  /* Anchor the trim on the last word that genuinely matched, not on a run of
+     nulls at the end.
+
+     A candidate who stops mid-word leaves a fragment — "administr" — that
+     matches nothing well, and the aligner parks it against the last word of
+     the passage. Every untyped word in between then sits above it as a skip,
+     and a trim that only strips a trailing null run finds nothing to strip.
+     That single fragment was charging 80 phantom mistakes on a 74% attempt.
+
+     From the last exact match onwards, anything with no typed word against it
+     was never reached and is dropped. The fragment itself is kept, because an
+     incomplete word is a real mistake and the Commission charges it. */
+  let lastExact = -1;
+  for (let i = allPairs.length - 1; i >= 0; i--) {
+    if (allPairs[i].expected !== null && allPairs[i].expected === allPairs[i].typed) {
+      lastExact = i;
+      break;
+    }
+  }
+
+  let pairs: AlignedPair[];
+  if (lastExact === -1) {
+    /* Not a single word matched — a wrong-passage or gibberish attempt. There
+       is no anchor to trim from, and the candidate plainly never reached the
+       end, so the comparison is bounded by how much they typed. Without this,
+       three wrong words against a 300-word passage scored 300 mistakes. */
+    const bound = Math.min(allExpected.length, typedWords.length + 2);
+    pairs = alignWords(allExpected.slice(0, bound), typedWords);
+  } else {
+    pairs = allPairs.filter((p, i) => i <= lastExact || p.typed !== null);
+  }
 
   const mistakes = refine(pairs);
 

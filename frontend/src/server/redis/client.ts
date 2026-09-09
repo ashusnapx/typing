@@ -2,6 +2,23 @@ import Redis from 'ioredis';
 
 let redisClient: Redis | undefined;
 
+/**
+ * Whether there is a Redis worth talking to.
+ *
+ * Production has had REDIS_URL pointed at 127.0.0.1 — a Redis that exists on
+ * nobody's machine but a developer's. Every cache read and write then spent
+ * its way through ten retries before giving up, on the request path, and
+ * filled the logs with ECONNREFUSED for a cache that was never going to
+ * answer. An address inside the function's own container is not a cache; it is
+ * a mistake, and treating it as absent is the honest reading.
+ */
+export function redisConfigured(): boolean {
+  const url = process.env.REDIS_URL;
+  if (!url) return false;
+  if (process.env.NODE_ENV !== 'production') return true;
+  return !/(^|[/@])(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
+}
+
 function createRedisClient(): Redis {
   let redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {

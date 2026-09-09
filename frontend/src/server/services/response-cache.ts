@@ -1,8 +1,9 @@
-import { redis } from '../redis/client';
+import { redis, redisConfigured } from '../redis/client';
 import crypto from 'crypto';
 
 class ResponseCacheService {
   async get(key: string): Promise<any | null> {
+    if (!redisConfigured()) return null;
     try {
       const raw = await redis.get(`rc:${key}`);
       if (!raw) return null;
@@ -13,18 +14,21 @@ class ResponseCacheService {
   }
 
   async set(key: string, value: any, ttl: number = 60): Promise<void> {
+    if (!redisConfigured()) return;
     try {
       await redis.setex(`rc:${key}`, ttl, JSON.stringify(value));
     } catch {}
   }
 
   async invalidate(key: string): Promise<void> {
+    if (!redisConfigured()) return;
     try {
       await redis.del(`rc:${key}`);
     } catch {}
   }
 
   async invalidatePrefix(prefix: string): Promise<void> {
+    if (!redisConfigured()) return;
     try {
       let cursor = '0';
       const pattern = `rc:${prefix}*`;

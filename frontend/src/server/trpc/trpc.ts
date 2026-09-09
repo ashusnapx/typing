@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { Context } from './context';
 import { logStorage } from '../observability/logger';
 import { traceSpan } from '../observability/tracing';
-import { redis } from '../redis/client';
+import { redis, redisConfigured } from '../redis/client';
 import crypto from 'crypto';
 
 const t = initTRPC.context<Context>().create();
@@ -19,6 +19,16 @@ async function checkRateLimit(ctx: Context): Promise<void> {
   const key = ctx.user?.id
     ? `ratelimit:user:${ctx.user.id}`
     : `ratelimit:ip:${hashIp(ctx.clientIp || 'unknown')}`;
+  /* No Redis, no counter.
+  
+     This ran on every call, and with REDIS_URL pointed at an address inside
+     the function's own container each attempt worked through ten retries
+     before the catch below swallowed it — latency on every request for a limit
+     that was never actually applied. Skipping it is the same behaviour without
+     the wait, and it is now visible rather than accidental: with no shared
+     counter there is no rate limiting, and that wants a real Redis. */
+  if (!redisConfigured()) return;
+
   try {
     const current = await redis.incr(key);
     if (current === 1) {

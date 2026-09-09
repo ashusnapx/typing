@@ -188,10 +188,20 @@ export default function AboutPage() {
               <h2 className="mt-4 text-4xl sm:text-5xl">
                 {operator}, and a <em>keyboard</em>
               </h2>
+              {/* The house name is a link, not just a word.
+                  Structured data states that these two brands are one house;
+                  a crawler still needs an edge it can follow to believe it,
+                  and this is the only outbound one on the site. */}
               <p className="mt-5 max-w-sm text-base leading-relaxed text-lumen/70">
-                {operator} has taught candidates for Indian government exams for
-                years. A skill test cannot be taught in a video — only
-                practised, and only if the practice is marked like the real one.
+                <a
+                  href={LEGAL.operatorUrl}
+                  className="underline decoration-cream/40 underline-offset-4 transition-colors hover:text-lumen"
+                >
+                  {operator}
+                </a>{' '}
+                has taught candidates for Indian government exams for years. A
+                skill test cannot be taught in a video — only practised, and
+                only if the practice is marked like the real one.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/exam/chsl" className="btn btn-primary btn-lg">

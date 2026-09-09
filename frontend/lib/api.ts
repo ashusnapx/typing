@@ -365,7 +365,7 @@ class ApiClient {
     if (ENABLE_TRPC) {
       const data = await this._t(() => trpcClient.tests.replay.query({ testId }));
       return {
-        events: data.events,
+        summary: data.summary,
         original_content: data.original_content,
         typed_content: data.typed_content,
         total_duration_ms: data.total_duration_ms,

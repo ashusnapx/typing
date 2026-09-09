@@ -1,6 +1,6 @@
 import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { db } from '../db/client';
-import { redis } from '../redis/client';
+import { redis, redisConfigured } from '../redis/client';
 import { users } from '../db/schema/users';
 import { eq } from 'drizzle-orm';
 import { logger } from '../observability/logger';
@@ -80,11 +80,17 @@ export async function createContext(opts: FetchCreateContextFnOptions) {
         logger.warn('JWT missing sub or email claim', { hasSub: !!decodedSub, hasEmail: !!decodedEmail });
       } else {
         const cacheKey = `user:id:${decodedSub}`;
+        /* Looked up on every authenticated call. With no Redis behind it the
+           lookup was pure latency — ten retries against an address that was
+           never going to answer — so it is skipped and the user is read from
+           Postgres, which is a millisecond away and always there. */
         let cached: UserSession | null = null;
-        try {
-          const raw = await redis.get(cacheKey);
-          if (raw) cached = JSON.parse(raw);
-        } catch {}
+        if (redisConfigured()) {
+          try {
+            const raw = await redis.get(cacheKey);
+            if (raw) cached = JSON.parse(raw);
+          } catch {}
+        }
 
         if (cached) {
           user = cached;
@@ -109,7 +115,9 @@ export async function createContext(opts: FetchCreateContextFnOptions) {
               role: existingUser.role,
             };
             session = { userId: existingUser.id };
-            try { await redis.setex(cacheKey, USER_CACHE_TTL, JSON.stringify(user)); } catch {}
+            if (redisConfigured()) {
+              try { await redis.setex(cacheKey, USER_CACHE_TTL, JSON.stringify(user)); } catch {}
+            }
           } else {
             const decodedMeta = (payload as Record<string, any>)?.user_metadata || {};
             const displayName = String(decodedMeta.full_name || decodedMeta.name || decodedEmail.split('@')[0] || 'User');

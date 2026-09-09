@@ -38,6 +38,16 @@ export const APP = {
     'free typing test India',
     'SSC typing test 2026',
     'typing speed test SSC',
+    /* The house brand and its variants. Someone who knows the teaching brand
+       and not this product searches the former; these are the strings that
+       carry the association on the page itself, alongside the structured data
+       that states it outright. */
+    'Maths Mania',
+    'Maths Mania typing test',
+    'Maths Mania typing practice',
+    'Maths Mania SSC',
+    'Typing Mania',
+    'Typing Mania by Maths Mania',
   ].join(', '),
   /* The address the site is actually served from.
   
@@ -229,6 +239,14 @@ export const LEGAL = {
   brand: 'Typing Mania',
   /** Publisher of the service. */
   operator: 'Maths Mania',
+  /** The operator's own site.
+   *
+   *  Load-bearing for search, not decoration. It is the `@id` of the parent
+   *  organisation in our structured data and the target of the one outbound
+   *  brand link on the about page, which together are what tell a crawler that
+   *  the house someone searched for and this site are one entity. Confirmed
+   *  against the CORS allow-list and the k8s ingress host. */
+  operatorUrl: 'https://mathsmania.com',
   /** Registered legal name, e.g. "Maths Mania Edutech Private Limited". */
   legalEntityName: '' as string,
   /** Full registered office address, one line per element. */

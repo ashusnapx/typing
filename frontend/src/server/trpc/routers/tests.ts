@@ -2,10 +2,8 @@ import { router, protectedProcedure } from '../trpc';
 import { z } from 'zod';
 import { db } from '../../db/client';
 import { typingTests } from '../../db/schema/typing-tests';
-import { keystrokeSummaries } from '../../db/schema/keystroke-summaries';
 import { users } from '../../db/schema/users';
 import { passages } from '../../db/schema/passages';
-import { LeaderboardService } from '../../redis/leaderboard-service';
 import { errorEngine, type ErrorReport } from '../../services/error-engine';
 import { analyticsService } from '../../services/analytics';
 import { qualificationPredictor } from '../../services/qualification-predictor';
@@ -13,6 +11,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
 import { TEST_MODES } from '@/types';
+import { summariseKeystrokes, type KeystrokeSummary } from '@/lib/keystroke-summary';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 import { dashboardCacheKey } from './user';
@@ -178,6 +177,14 @@ export const testsRouter = router({
               pauseCount,
               consistencyScore: report ? 100 : null,
               typingRhythmScore: report ? 100 : null,
+              /* The answer, not the raw material. Storing a row per key cost
+                 about 300 KB an attempt to power one panel that lists where
+                 the candidate paused; the pauses are worked out here, once,
+                 while the keystrokes are in hand. */
+              keystrokeSummary: summariseKeystrokes(
+                input.typedContent ?? '',
+                input.keystrokeEvents,
+              ),
               timeTakenSeconds: elapsedSeconds,
               // Computed since the first version of this mutation and returned
               // to the client, but never written — so every stored attempt had
@@ -187,21 +194,6 @@ export const testsRouter = router({
               errorPercentage: report?.sscErrorPercentage,
             })
             .returning();
-
-          if (input.keystrokeEvents.length > 0) {
-            const keystrokeRecords = input.keystrokeEvents.map((event) => ({
-              id: crypto.randomUUID(),
-              testId,
-              key: event.key,
-              timestampMs: event.timestamp_ms,
-              durationMs: event.duration_ms,
-              isError: event.is_error,
-              isBackspace: event.is_backspace,
-              cursorPosition: event.cursor_position,
-              expectedChar: event.expected_char || '',
-            }));
-            await tx.insert(keystrokeSummaries).values(keystrokeRecords);
-          }
 
           /* XP is bounded, and bounded on purpose.
           
@@ -260,24 +252,14 @@ export const testsRouter = router({
           return { ...test, xpEarned };
         });
 
-        const [userData] = await db
-          .select({
-            state: users.state,
-            district: users.district,
-          })
-          .from(users)
-          .where(eq(users.id, ctx.user.id))
-          .limit(1);
+        /* The leaderboard is computed from the attempts themselves now, so the
+           Redis sorted set this used to write had no reader — and writing to
+           it meant a lookup of the candidate's state plus a round trip to a
+           Redis that production does not have, on the critical path of every
+           submission.
 
-        await LeaderboardService.updateScore({
-          userId: ctx.user.id,
-          wpm: report?.sscNetWpm ?? input.netWpm,
-          accuracy: report?.sscAccuracy ?? input.accuracy,
-          errors: report?.totalErrors ?? input.totalErrors,
-          state: userData?.state || undefined,
-          district: userData?.district || undefined,
-        });
-
+           What is left runs after the attempt is safely stored, and its
+           failure cannot cost the candidate their result. */
         await analyticsService.updateUserAnalytics(ctx.user.id, {
           id: testId,
           net_wpm: report?.sscNetWpm ?? input.netWpm,
@@ -462,20 +444,14 @@ export const testsRouter = router({
         });
       }
 
-      const events = await db
-        .select()
-        .from(keystrokeSummaries)
-        .where(eq(keystrokeSummaries.testId, input.testId))
-        .orderBy(keystrokeSummaries.timestampMs);
+      /* The pauses, worked out when the attempt was submitted. Reading them
+         back beats replaying a few thousand rows to derive the same dozen
+         numbers, and the rows are no longer kept. Attempts saved before this
+         have no summary, and the report simply omits the panel. */
+      const summary = (test.keystrokeSummary ?? null) as KeystrokeSummary | null;
 
       return {
-        events: events.map((e) => ({
-          key: e.key,
-          timestamp_ms: e.timestampMs,
-          duration_ms: e.durationMs,
-          is_error: e.isError,
-          is_backspace: e.isBackspace,
-        })),
+        summary,
         original_content: test.originalContent || '',
         typed_content: test.typedContent || '',
         total_duration_ms: (test.durationSeconds || 0) * 1000,

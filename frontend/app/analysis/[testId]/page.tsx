@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { useTestResult, useTestReplay } from '@/lib/queries';
 import { getExamBar, isHindiMode } from '@/lib/exam-config';
 import { summariseAttempt } from '@/lib/attempt-summary';
+import type { Hesitation } from '@/lib/keystroke-summary';
 import { diagnose } from '@/lib/exam-diagnosis';
 import { getModeDisplayName } from '@/lib/utils';
 import { FullPageLoader } from '@/components/ui/loading-logo';
-import PassageDiffView, { getWordTiming, formatMs } from '@/components/exam/passage-diff';
+import PassageDiffView, { formatMs } from '@/components/exam/passage-diff';
 import { MistakeBreakdown, formatCost } from '@/components/exam/mistake-breakdown';
 import { ArrowLeft, ArrowRight, Check, X, AlertTriangle } from 'lucide-react';
 
@@ -107,10 +108,10 @@ export default function AnalysisPage() {
     [originalContent, typedContent],
   );
 
-  const wordAnalyses = useMemo(() => {
-    if (!originalContent || !typedContent || !replay?.events?.length) return [];
-    return getWordTiming(originalContent, typedContent, replay.events);
-  }, [originalContent, typedContent, replay]);
+  /* Worked out when the attempt was submitted and stored with it, rather than
+     replayed from a few thousand keystroke rows to derive the same dozen
+     numbers. Attempts saved before that simply have no panel. */
+  const hesitations = replay?.summary?.hesitations ?? [];
 
   if (isLoading) return <FullPageLoader />;
 
@@ -161,11 +162,6 @@ export default function AnalysisPage() {
   const mistakes =
     (testData.full_mistakes ?? 0) + (testData.half_mistakes ?? 0) / 2 ||
     diagnosis.totalMistakes;
-
-  const hesitations = wordAnalyses
-    .filter((w) => w.pauseBeforeMs > 700 && w.original)
-    .sort((a, b) => b.pauseBeforeMs - a.pauseBeforeMs)
-    .slice(0, 8);
 
   const dateStr = testData.date || testData.completed_at || '';
 
@@ -356,11 +352,11 @@ export default function AnalysisPage() {
             not a mistake, but it is where your speed goes.
           </p>
           <ul className="divide-y-2 divide-vast/10">
-            {hesitations.map((w, i) => (
+            {hesitations.slice(0, 8).map((w: Hesitation, i: number) => (
               <li key={i} className="flex items-center justify-between py-2">
-                <span className="text-sm">{w.original}</span>
+                <span className="text-sm">{w.word}</span>
                 <span className="tnum text-sm text-vast/55">
-                  {formatMs(w.pauseBeforeMs)}
+                  {formatMs(w.pauseMs)}
                 </span>
               </li>
             ))}

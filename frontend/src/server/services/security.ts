@@ -1,12 +1,19 @@
 import crypto from 'crypto';
-import { redis } from '../redis/client';
+import { redis, redisConfigured } from '../redis/client';
 
 export class SecurityService {
+  /* A token blacklist needs somewhere shared to keep it. With no Redis there
+     is nowhere, and pretending otherwise would mean every check waiting on a
+     connection that cannot be made — so these become no-ops, and a token stays
+     valid until it expires on its own. Restoring a real Redis restores this
+     with no other change. */
   async blacklistToken(jti: string, expirySeconds: number): Promise<void> {
+    if (!redisConfigured()) return;
     await redis.setex(`bl:${jti}`, Math.max(1, expirySeconds), '1');
   }
 
   async isTokenBlacklisted(jti: string): Promise<boolean> {
+    if (!redisConfigured()) return false;
     const result = await redis.exists(`bl:${jti}`);
     return result > 0;
   }

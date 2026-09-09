@@ -1,4 +1,4 @@
-import { APP, EXAM_MODES } from '@/lib/config';
+import { APP, EXAM_MODES, FOOTER, LEGAL } from '@/lib/config';
 import { getFlatLessons } from '@/lib/typing-curriculum';
 
 /**
@@ -26,17 +26,48 @@ function Json({ id, data }: { id: string; data: unknown }) {
 
 const ORG_ID = `${APP.url}/#organisation`;
 const SITE_ID = `${APP.url}/#website`;
+const OPERATOR_ID = `${LEGAL.operatorUrl}/#organisation`;
 
 export function SiteStructuredData() {
+  /* The house that publishes this site, as its own entity.
+   *
+   * This site named its operator in three metadata fields and nowhere a
+   * crawler could act on: a string in `creator` is a label, not a link between
+   * two things. Someone who knows the teaching brand and searches for it was
+   * never going to be shown this product, because nothing on the page said the
+   * two were related.
+   *
+   * A parent node with its own `@id` and `url` says it outright, and
+   * `sameAs`/`subOrganization` give the claim something to hang on: the
+   * channels below are the operator's own accounts, which is the evidence a
+   * search engine reconciles an entity against. The link runs both ways —
+   * `subOrganization` here, `parentOrganization` on the node below — because
+   * one direction alone reads as a mention. */
+  const operator = {
+    '@type': 'EducationalOrganization',
+    '@id': OPERATOR_ID,
+    name: LEGAL.operator,
+    url: LEGAL.operatorUrl,
+    /* The same accounts the footer links. They belong to the house, so they
+       identify the house — claiming them for this site instead would put two
+       entities on one profile and reconcile as neither. */
+    sameAs: FOOTER.socialLinks.map((link) => link.href),
+    areaServed: { '@type': 'Country', name: 'India' },
+    subOrganization: { '@id': ORG_ID },
+  };
+
   const organisation = {
     '@type': 'EducationalOrganization',
     '@id': ORG_ID,
     name: APP.fullName,
-    alternateName: APP.name,
+    /* Both the bare product name and the name someone would use who knows the
+       house but not this product. */
+    alternateName: [APP.name, `${LEGAL.operator} Typing Test`],
     url: APP.url,
     logo: `${APP.url}${APP.logo}`,
     description: APP.description,
     areaServed: { '@type': 'Country', name: 'India' },
+    parentOrganization: { '@id': OPERATOR_ID },
   };
 
   const website = {
@@ -74,7 +105,7 @@ export function SiteStructuredData() {
   return (
     <Json
       id="ld-site"
-      data={{ '@context': 'https://schema.org', '@graph': [organisation, website, app] }}
+      data={{ '@context': 'https://schema.org', '@graph': [operator, organisation, website, app] }}
     />
   );
 }

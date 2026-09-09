@@ -934,61 +934,30 @@ export function isLessonUnlocked(
   return true;
 }
 
-export const LEVEL_NAMES = [
-  'Rookie',
-  'Novice',
-  'Learner',
-  'Typist',
-  'Operator',
-  'Clerk',
-  'Assistant',
-  'Officer',
-  'Expert',
-  'Master',
-] as const;
+/* The rank ladder lives in one place.
+ *
+ * There were two. This file carried its own — Rookie, Novice, Learner, Typist,
+ * Operator, Clerk, Assistant, Officer, Expert, Master — on a quadratic curve
+ * that topped out at 8,100 XP, while `lib/utils` carried the one the dashboard
+ * shows, First Keys through Topper, topping out at 40,000. The learn page read
+ * this one and the dashboard read that one, so the same candidate with the
+ * same XP was "Rookie" on one screen and "First Keys" on the other, with
+ * different amounts left to the next rank.
+ *
+ * These are re-exports now, so there is one ladder and one place to change it.
+ */
+export {
+  LEVEL_NAMES,
+  getLevelIndex,
+  getLevelProgress,
+  getLevelFromXP as getLevelName,
+} from '@/lib/utils';
 
 export function getTotalXp(): number {
   return LEVELS.reduce(
     (sum, level) => sum + level.lessons.reduce((s, l) => s + l.xpReward, 0),
     0
   );
-}
-
-function xpThreshold(index: number): number {
-  // Quadratic curve: early ranks come fast, later ones take real work.
-  return index * index * 100;
-}
-
-export function getLevelIndex(xp: number): number {
-  let i = 0;
-  while (i + 1 < LEVEL_NAMES.length && xp >= xpThreshold(i + 1)) i++;
-  return i;
-}
-
-export function getLevelName(xp: number): string {
-  return LEVEL_NAMES[getLevelIndex(xp)];
-}
-
-export function getLevelProgress(xp: number): {
-  current: string;
-  next: string | null;
-  currentXp: number;
-  nextXp: number;
-  progress: number;
-} {
-  const i = getLevelIndex(xp);
-  const currentXp = xpThreshold(i);
-  const isLast = i === LEVEL_NAMES.length - 1;
-  const nextXp = isLast ? currentXp : xpThreshold(i + 1);
-  return {
-    current: LEVEL_NAMES[i],
-    next: isLast ? null : LEVEL_NAMES[i + 1],
-    currentXp,
-    nextXp,
-    progress: isLast
-      ? 100
-      : Math.min(100, ((xp - currentXp) / (nextXp - currentXp)) * 100),
-  };
 }
 
 export default LEVELS;

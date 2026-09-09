@@ -209,3 +209,35 @@ describe('test modes', () => {
     }
   });
 });
+
+/**
+ * One ladder, not two.
+ *
+ * `lib/typing-curriculum` carried a second set of ranks — Rookie through
+ * Master, on a quadratic curve topping out at 8,100 XP — and the learn page
+ * read that one while the dashboard read this one. The same candidate with the
+ * same XP was shown a different rank, and a different distance to the next
+ * one, depending on which screen they were looking at.
+ */
+describe('the rank a candidate is shown', () => {
+  it('is the same one wherever it is read from', async () => {
+    const curriculum = await import('./typing-curriculum');
+    expect(curriculum.LEVEL_NAMES).toBe(LEVEL_NAMES);
+  });
+
+  it('names the same rank on the learn page as on the dashboard', async () => {
+    const { getLevelProgress: fromCurriculum } = await import('./typing-curriculum');
+    const { getLevelProgress: fromUtils } = await import('./utils');
+    for (const xp of [0, 250, 900, 4001, 16000, 39999, 40000, 250000]) {
+      expect(fromCurriculum(xp)).toEqual(fromUtils(xp));
+    }
+  });
+
+  it('has retired the names borrowed from chess and gaming', async () => {
+    const curriculum = await import('./typing-curriculum');
+    const names = curriculum.LEVEL_NAMES.map((l) => l.name);
+    for (const gone of ['Rookie', 'Novice', 'Grandmaster', 'Goated', 'Master']) {
+      expect(names).not.toContain(gone);
+    }
+  });
+});

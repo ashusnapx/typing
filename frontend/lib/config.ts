@@ -15,10 +15,43 @@ export const APP = {
   tagline: 'by Maths Mania',
   fullName: 'Typing Mania by Maths Mania',
   description:
-    'SSC skill-test simulator for CHSL and CGL. Full and half mistakes classified as the Commission defines them, net speed from the official formula, and a replica of the Eduquity exam screen. Free, with typing lessons from zero.',
-  keywords:
-    'SSC Typing Test, SSC CHSL Typing Practice, SSC CGL DEST Practice, SSC Hindi Typing Test, Free SSC Typing Test, Learn Typing, Touch Typing, Typing Lessons',
-  url: 'https://typingmania.com',
+    'Free SSC typing test practice for CGL and CHSL. Real DEST exam interface, 35 WPM and 8,000 KDPH targets, full and half mistakes marked the way the Commission marks them, and English and Hindi passages. Includes typing lessons from zero.',
+  /* What aspirants actually type into a search box. The exam is known by
+     several names at once — typing test, skill test, DEST, data entry speed
+     test — and by its numbers, so all of them are here. */
+  keywords: [
+    'SSC typing test',
+    'SSC CGL typing test',
+    'SSC CHSL typing test',
+    'SSC typing test online free',
+    'SSC DEST test',
+    'data entry speed test',
+    'SSC CGL DEST practice',
+    'SSC CHSL typing practice',
+    'typing test for government exams',
+    '35 WPM typing test',
+    '8000 key depressions per hour',
+    'SSC Hindi typing test',
+    'Mangal font typing test',
+    'LDC JSA typing test',
+    'DEO skill test',
+    'free typing test India',
+    'SSC typing test 2026',
+    'typing speed test SSC',
+  ].join(', '),
+  /* The address the site is actually served from.
+  
+     This was hardcoded to typingmania.com, which has no DNS record at all — so
+     every canonical link, the sitemap, the robots host and every Open Graph
+     URL pointed at a domain that does not exist. A crawler following those
+     finds nothing, which is the most complete way to not rank. Point
+     NEXT_PUBLIC_SITE_URL at a real domain once there is one; until then this
+     is where the site lives. */
+  url:
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_ENV === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : 'https://typingmania.vercel.app'),
   logo: '/images/logo.png?v=2',
   ogImage: '/images/logo.png?v=2',
 } as const;

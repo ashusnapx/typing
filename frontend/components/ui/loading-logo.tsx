@@ -95,7 +95,7 @@ function BrandMark({ text }: { text: string }) {
   return (
     <>
       <span className="animate-brand-breathe motion-reduce:animate-none">
-        <Brand size="lg" />
+        <Brand size="lg" tagline />
       </span>
       <p className="text-base text-vast/45">{text}</p>
       <span className="sr-only">{text}</span>

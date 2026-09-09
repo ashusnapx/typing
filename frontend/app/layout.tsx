@@ -6,6 +6,7 @@ import { APP } from "@/lib/config";
 import { Navbar } from "@/components/layout/navbar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Reveal } from "@/components/layout/reveal";
+import { SiteStructuredData } from "@/components/seo/structured-data";
 
 /* One typeface.
  *
@@ -32,20 +33,49 @@ const devanagari = Noto_Sans_Devanagari({
   display: "swap",
 });
 
+/* The title carries the words people search with.
+ *
+ * "Typing Mania — SSC Typing Test Simulator" led with a brand nobody is
+ * looking for and spent the rest on "simulator", which nobody types either.
+ * The exam is searched for by its name and its number — "ssc cgl typing test",
+ * "ssc chsl typing test", "35 wpm" — so those come first, and the brand takes
+ * the end of the line where it still reads as ours. */
+const TITLE = "SSC Typing Test — Free CGL & CHSL DEST Practice | Typing Mania";
+
 export const metadata: Metadata = {
   metadataBase: new URL(APP.url),
   title: {
-    default: "Typing Mania — SSC Typing Test Simulator",
-    template: "%s · Typing Mania",
+    default: TITLE,
+    template: "%s · SSC Typing Test | Typing Mania",
   },
   description: APP.description,
   keywords: APP.keywords,
+  applicationName: APP.name,
+  authors: [{ name: 'Maths Mania' }],
+  creator: 'Maths Mania',
+  publisher: 'Maths Mania',
+  alternates: { canonical: '/' },
+  category: 'education',
   icons: { icon: APP.logo, apple: APP.logo },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+  },
   openGraph: {
-    title: "Typing Mania — SSC Typing Test Simulator",
+    title: TITLE,
     description: APP.description,
     type: "website",
-    images: [{ url: APP.logo, width: 900, height: 900 }],
+    url: APP.url,
+    siteName: APP.fullName,
+    locale: 'en_IN',
+    images: [{ url: APP.logo, width: 900, height: 900, alt: APP.name }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: APP.description,
+    images: [APP.logo],
   },
 };
 
@@ -68,6 +98,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col bg-bg text-ink antialiased">
+        <SiteStructuredData />
         <Reveal />
         <a
           href="#main"

@@ -336,6 +336,27 @@
   .segment-item[aria-selected='true'],
   .segment-item[data-active='true'] { background-color: rgb(var(--white)); }
 
+  /* A hairline between neighbours, so two words on one grey pill read as two
+     choices rather than one label. It vanishes beside the selected item, where
+     the white block is already doing the separating. */
+  .segment-item + .segment-item { position: relative; }
+  .segment-item + .segment-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 52%;
+    width: 2px;
+    transform: translateY(-50%);
+    border-radius: 1px;
+    background-color: rgb(var(--vast) / 0.16);
+    transition: opacity var(--t-fast) var(--ease);
+  }
+  .segment-item[aria-selected='true']::before,
+  .segment-item[data-active='true']::before,
+  .segment-item[aria-selected='true'] + .segment-item::before,
+  .segment-item[data-active='true'] + .segment-item::before { opacity: 0; }
+
   /* A pill with four options has nowhere to go on a 390px screen: it wrapped
      to a second row and the 1600px radius turned the result into a blob. This
      variant lays the options out as a grid until there is room for the pill. */

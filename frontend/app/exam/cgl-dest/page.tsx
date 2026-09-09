@@ -1,5 +1,14 @@
+import type { Metadata } from 'next';
 import { TypingExam } from '@/components/exam/typing-exam';
 import { getPassagePool } from '@/lib/passages/server';
+
+
+export const metadata: Metadata = {
+  title: 'SSC CGL Typing Test — Free DEST Practice (8,000 KDPH)',
+  description: 'Free SSC CGL DEST practice. 15 minutes, 8,000 key depressions per hour, error limits by category, on a replica of the exam screen. No sign-up.',
+  alternates: { canonical: '/exam/cgl-dest' },
+};
+
 
 // Passages change only when we ship a migration, so the page is cached rather
 // than rebuilt per request. This route previously used `force-dynamic`, which

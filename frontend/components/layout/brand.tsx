@@ -12,12 +12,17 @@ import { APP } from '@/lib/config';
  */
 export function Brand({
   size = 'md',
+  /** The house name, under the product. Carried by the loader, which has the
+   *  room and the reader's attention; left off the navbar and footer, where it
+   *  was a second line of type doing no work. */
+  tagline = false,
   className = '',
 }: {
   size?: 'md' | 'lg';
+  tagline?: boolean;
   className?: string;
 }) {
-  const mark = size === 'lg' ? 64 : 34;
+  const mark = size === 'lg' ? 64 : 30;
   return (
     <span className={`flex items-center gap-3 ${className}`}>
       <Image
@@ -29,16 +34,18 @@ export function Brand({
         priority
       />
       <span className="text-right leading-none">
-        <span className={`block font-semibold ${size === 'lg' ? 'text-4xl' : 'text-2xl'}`}>
+        <span className={`block font-semibold ${size === 'lg' ? 'text-4xl' : 'text-xl'}`}>
           {APP.name}
         </span>
-        <span
-          className={`mt-1 block italic text-vast/50 ${
-            size === 'lg' ? 'text-sm' : 'text-[11px]'
-          }`}
-        >
-          {APP.tagline}
-        </span>
+        {tagline && (
+          <span
+            className={`mt-1 block italic text-vast/50 ${
+              size === 'lg' ? 'text-sm' : 'text-[11px]'
+            }`}
+          >
+            {APP.tagline}
+          </span>
+        )}
       </span>
     </span>
   );

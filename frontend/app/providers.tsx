@@ -88,21 +88,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthGate>{children}</AuthGate>
         <ProfileGate />
       </ErrorBoundary>
+      {/* Appearance lives in globals.css under `.tm-toast`. The inline styles
+          this replaces pointed at --ink, --text-inverse and --shadow-lg, none
+          of which are defined, so every toast rendered with no background at
+          all — invisible on a cream page. */}
       <Toaster
         position="bottom-center"
+        gutter={10}
         toastOptions={{
           duration: 3200,
           className: 'tm-toast',
-          style: {
-            background: 'rgb(var(--ink))',
-            color: 'rgb(var(--text-inverse))',
-            fontSize: '13px',
-            fontWeight: 500,
-            borderRadius: '10px',
-            padding: '10px 14px',
-            boxShadow: 'var(--shadow-lg)',
-            maxWidth: '90vw',
-          },
+          success: { duration: 2600, iconTheme: { primary: 'rgb(var(--ok))', secondary: 'rgb(var(--lumen))' } },
+          error: { duration: 4500, iconTheme: { primary: 'rgb(var(--flare))', secondary: 'rgb(var(--lumen))' } },
         }}
       />
     </QueryClientProvider>

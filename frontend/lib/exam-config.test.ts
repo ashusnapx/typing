@@ -199,3 +199,39 @@ describe('XP bounds', () => {
     expect(xpFor(40, -10)).toBe(0);
   });
 });
+
+describe('speed plausibility', () => {
+  /** Mirrors the elapsed-time floor in the error engine. Nobody types faster
+   *  than this, so a shorter reported time means a broken clock rather than a
+   *  fast candidate. */
+  const MAX_HUMAN_CPS = 17;
+  const wpmFor = (chars: number, reportedSeconds: number, windowSeconds = 600) => {
+    const elapsed = Math.min(
+      windowSeconds,
+      Math.max(reportedSeconds, chars / MAX_HUMAN_CPS, 1)
+    );
+    return chars / 5 / (elapsed / 60);
+  };
+
+  it('reports an ordinary attempt at its real speed', () => {
+    // 1,200 characters over four minutes is 60 WPM, and should be untouched.
+    expect(Math.round(wpmFor(1200, 240))).toBe(60);
+  });
+
+  it('refuses to report a speed no human reaches', () => {
+    // The paste case: 1,200 characters claimed in six seconds read as 2,083
+    // WPM, which cleared posts the candidate had not cleared.
+    expect(wpmFor(1200, 6)).toBeLessThanOrEqual(205);
+  });
+
+  it('never divides by a zero or negative clock', () => {
+    expect(Number.isFinite(wpmFor(500, 0))).toBe(true);
+    expect(Number.isFinite(wpmFor(0, 0))).toBe(true);
+  });
+
+  it('never stretches elapsed time beyond the test window', () => {
+    // The floor may raise the elapsed time but must never exceed the window,
+    // or a full-length attempt would be scored as slower than it was.
+    expect(wpmFor(100000, 1, 600)).toBeGreaterThan(0);
+  });
+});

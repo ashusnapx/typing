@@ -370,23 +370,29 @@ export default function DashboardPage() {
           label="Avg WPM"
           value={analytics?.avg_wpm?.toFixed(1) ?? '0'}
           sub={
-            predictions?.wpm_series && predictions.wpm_series.length >= 2 ? (
-              <MiniChart data={predictions.wpm_series} tone="text-fathom" />
-            ) : (
-              `Best ${analytics?.best_wpm?.toFixed(0) ?? 0}`
-            )
+            <>
+              <span className="tnum block">
+                Best {analytics?.best_wpm?.toFixed(0) ?? 0}
+              </span>
+              {predictions?.wpm_series && predictions.wpm_series.length >= 2 && (
+                <MiniChart data={predictions.wpm_series} tone="text-fathom" />
+              )}
+            </>
           }
         />
         <Figure
           label="Avg accuracy"
           value={`${analytics?.avg_accuracy?.toFixed(1) ?? 0}%`}
           sub={
-            predictions?.accuracy_series &&
-            predictions.accuracy_series.length >= 2 ? (
-              <MiniChart data={predictions.accuracy_series} tone="text-flare" />
-            ) : (
-              `Best ${analytics?.best_accuracy?.toFixed(0) ?? 0}%`
-            )
+            <>
+              <span className="tnum block">
+                Best {analytics?.best_accuracy?.toFixed(0) ?? 0}%
+              </span>
+              {predictions?.accuracy_series &&
+                predictions.accuracy_series.length >= 2 && (
+                  <MiniChart data={predictions.accuracy_series} tone="text-flare" />
+                )}
+            </>
           }
         />
         <Figure

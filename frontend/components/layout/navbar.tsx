@@ -7,7 +7,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   LogOut,
   LayoutDashboard,
-  BarChart3,
   Shield,
   Menu,
   X,
@@ -81,7 +80,6 @@ export function Navbar() {
     isAuthenticated && user
       ? [
           { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
           ...(user.role === 'admin'
             ? [{ href: '/admin', label: 'Admin', icon: Shield }]
             : []),

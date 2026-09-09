@@ -492,6 +492,28 @@
     border-radius: 6px;
   }
 
+  /* ---- Toasts ----------------------------------------------------------- */
+  /* Styled here rather than inline on <Toaster>, where it referenced --ink,
+     --text-inverse and --shadow-lg — three variables that do not exist. Each
+     resolved to nothing, so the toast had no background and no colour of its
+     own and was effectively invisible against the cream page. It now wears the
+     same hard-bordered card language as everything else, inverted so it reads
+     as chrome sitting over the page rather than part of it. */
+  .tm-toast {
+    background-color: rgb(var(--vast)) !important;
+    color: rgb(var(--lumen)) !important;
+    border: 2px solid rgb(var(--vast));
+    border-radius: var(--r-xtiny);
+    box-shadow: 0 6px 0 0 var(--ink-15);
+    padding: 0.75rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.4;
+    max-width: min(90vw, 28rem);
+  }
+  /* The icon carries the outcome, so the panel does not have to shout it. */
+  .tm-toast [data-icon] { flex-shrink: 0; }
+
   /* ======================================================================
      EXAM REGISTER — deliberately plain
      ====================================================================== */

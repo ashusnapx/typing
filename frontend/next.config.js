@@ -18,6 +18,25 @@ const cspHeader = `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * /dashboard/analytics was a second view of the same `useDashboard()` data
+   * the dashboard already renders — the same four figures, the same history,
+   * plus a "qualification prediction" whose 20%/30% were floor values a
+   * formula returns when it has no data at all. It also still wore the old
+   * sketched visual language. One page that answers the question well beats
+   * two that disagree about how to look, so it is gone and its URL points at
+   * the survivor.
+   */
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/analytics',
+        destination: '/dashboard',
+        permanent: true,
+      },
+    ];
+  },
+
   output: 'standalone',
   transpilePackages: ['react-hot-toast'],
 

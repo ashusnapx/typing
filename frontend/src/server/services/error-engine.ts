@@ -132,9 +132,25 @@ export class SSCErrorEngine {
     _mode: string = 'ssc_chsl',
     timeTakenSeconds?: number,
   ): ErrorReport {
+    /* The elapsed reading is the suspect, not the keystrokes.
+    
+       Nobody produces 1,200 characters in six seconds, so a submission that
+       claims to has a broken clock — a throttled tab, a paste, a scripted
+       client. Taken at face value it reported 2,083 WPM, which told the
+       candidate nothing, cleared posts they had not cleared, and would have
+       set a leaderboard best.
+    
+       Rather than clamp the speed afterwards and show a number the inputs do
+       not support, the elapsed time is floored at the fastest a person could
+       physically have typed that many keys. Speed then tops out at
+       MAX_HUMAN_CPS on its own, and every figure derived from it — KDPH, the
+       posts table, the personal best — stays consistent with it. */
+    const MAX_HUMAN_CPS = 17; // ~200 WPM, beyond any sustained human record.
+    const reported = Math.max(1, timeTakenSeconds ?? durationSeconds);
+    const physicalFloor = typed.trim().length / MAX_HUMAN_CPS;
     const elapsedSeconds = Math.min(
       durationSeconds > 0 ? durationSeconds : Number.MAX_SAFE_INTEGER,
-      Math.max(1, timeTakenSeconds ?? durationSeconds),
+      Math.max(reported, physicalFloor, 1),
     );
     const originalClean = original.trim();
     const typedClean = typed.trim();

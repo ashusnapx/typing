@@ -149,6 +149,23 @@ export class SSCErrorEngine {
     const reported = Math.max(1, timeTakenSeconds ?? durationSeconds);
     const physicalFloor = typed.trim().length / MAX_HUMAN_CPS;
 
+    /* Flooring the impossible clock still left the attempt sitting on the
+       ceiling: a submission claiming one second for 1,609 keys was marked at
+       204 WPM, stored as qualified, and paid the full XP award — a leaderboard
+       best, from a clock nobody could have kept.
+
+       A reading below the floor is not a fast candidate, it is a broken one —
+       a throttled tab, a paste, a scripted client — and there is nothing in it
+       worth keeping. So it is discarded rather than salvaged, and the window
+       stands in for it, exactly as it does when no clock is sent at all. In
+       the hall the clock runs for the whole window anyway. */
+    const clockIsCredible = reported >= physicalFloor;
+    const trustedElapsed = clockIsCredible
+      ? reported
+      : durationSeconds > 0
+        ? durationSeconds
+        : physicalFloor;
+
     const originalClean = original.trim();
     const typedClean = typed.trim();
     const diagnosis = diagnose(originalClean, typedClean);
@@ -168,9 +185,9 @@ export class SSCErrorEngine {
     const reachedTheEnd = diagnosis.wordsUnreached === 0;
     const window = durationSeconds > 0 ? durationSeconds : Number.MAX_SAFE_INTEGER;
     const elapsedSeconds = reachedTheEnd
-      ? Math.min(window, Math.max(reported, physicalFloor, 1))
+      ? Math.min(window, Math.max(trustedElapsed, 1))
       : window === Number.MAX_SAFE_INTEGER
-        ? Math.max(reported, physicalFloor, 1)
+        ? Math.max(trustedElapsed, 1)
         : window;
 
     /* Against the whole passage, not a prefix of it cut to the number of words
@@ -232,8 +249,13 @@ export class SSCErrorEngine {
 
     const grossWords = keyDepressionCount / 5;
     const sscAccuracy = this.calculateSscAccuracy(grossWords, fullMistakes, halfMistakes);
-    const sscErrorPct =
-      keyDepressionCount > 0 ? Math.round((100 - sscAccuracy) * 100) / 100 : 0;
+    /* An attempt with no key depressions scores nought accuracy, so it is
+       nought accuracy and a hundred per cent error — not nought and nought.
+       The guard here forced the error to zero while `calculateSscAccuracy`
+       returned zero above it, so a candidate who submitted only whitespace was
+       shown "0.00% mistakes — met" against the error cap, while submitting a
+       genuinely empty box was shown 100%. The same attempt, marked two ways. */
+    const sscErrorPct = Math.round((100 - sscAccuracy) * 100) / 100;
 
     return {
       grossWpm: Math.round(grossWpm * 100) / 100,

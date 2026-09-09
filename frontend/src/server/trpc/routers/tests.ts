@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import { TEST_MODES } from '@/types';
 import { summariseKeystrokes, type KeystrokeSummary } from '@/lib/keystroke-summary';
 import { xpForAttempt } from '@/lib/exam-xp';
+import { UNMARKABLE } from '@/lib/attempt-trust';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 import { dashboardCacheKey } from './user';
@@ -138,9 +139,18 @@ export const testsRouter = router({
         Math.max(1, input.timeTakenSeconds ?? input.durationSeconds),
       );
 
+      /* An attempt the server could not mark is not a pass.
+
+         This fell back to the client's own netWpm and accuracy, judged against
+         a flat 35/95 — the LDC bar applied to every post, which is the rule
+         this codebase removed everywhere else. The branch is only reachable
+         when the passage or the typing is missing, so the effect was that a
+         submission carrying neither was stored as a qualified 36 WPM attempt
+         worth 83 XP, counted towards the level, and fed the leaderboard. It is
+         measured, not asserted: nothing typed, nothing earned. */
       const isQualified = report
         ? errorEngine.isQualifiedFromReport(report, input.mode)
-        : input.netWpm >= 35 && input.accuracy >= 95;
+        : UNMARKABLE.isQualified;
 
       try {
         const result = await db.transaction(async (tx) => {
@@ -157,10 +167,14 @@ export const testsRouter = router({
               userId: ctx.user.id,
               mode: input.mode,
               durationSeconds: input.durationSeconds,
-              grossWpm: sscNetWpm ?? input.grossWpm,
-              netWpm: sscNetWpm ?? input.netWpm,
-              accuracy: sscAccuracy ?? input.accuracy,
-              totalErrors: report?.totalErrors ?? input.totalErrors,
+              /* Zero, not the figure the client sent for itself. Every one of
+                 these used to fall back to the submission's own numbers when
+                 the server had no passage to mark against, which is how an
+                 attempt with nothing in it reached the leaderboard. */
+              grossWpm: sscNetWpm ?? UNMARKABLE.grossWpm,
+              netWpm: sscNetWpm ?? UNMARKABLE.netWpm,
+              accuracy: sscAccuracy ?? UNMARKABLE.accuracy,
+              totalErrors: report?.totalErrors ?? UNMARKABLE.totalErrors,
               fullMistakes: report?.fullMistakes,
               halfMistakes: report?.halfMistakes,
               trustScore: input.trustScore,
@@ -192,7 +206,7 @@ export const testsRouter = router({
               // a null verdict and anything reading the row had to re-derive it
               // from a bar that may not be the candidate's.
               isQualified,
-              errorPercentage: report?.sscErrorPercentage,
+              errorPercentage: report?.sscErrorPercentage ?? UNMARKABLE.errorPercentage,
             })
             .returning();
 
@@ -203,8 +217,10 @@ export const testsRouter = router({
              typing fast than for clearing the bar. */
           const xpEarned = xpForAttempt({
             mode: input.mode,
-            netWpm: sscNetWpm ?? input.netWpm,
-            errorPercentage: report?.sscErrorPercentage ?? Math.max(0, 100 - input.accuracy),
+            netWpm: sscNetWpm ?? UNMARKABLE.netWpm,
+            // Unmarkable is not flawless. `100 - input.accuracy` let a
+            // submission declare its own error rate and be paid XP for it.
+            errorPercentage: report?.sscErrorPercentage ?? UNMARKABLE.errorPercentage,
             isQualified,
           });
 

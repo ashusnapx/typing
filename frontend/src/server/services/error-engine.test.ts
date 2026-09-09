@@ -189,3 +189,95 @@ describe('a full-length passage is scored without exhausting the heap', () => {
     expect(r.substitutionErrors).toBe(0);
   });
 });
+
+/**
+ * An attempt with nothing in it.
+ *
+ * Nought accuracy and nought error is a contradiction, and it was reachable:
+ * the error percentage was forced to zero whenever no key was depressed, while
+ * the accuracy beside it was already zero. A candidate who submitted only
+ * whitespace was told "0.00% mistakes" against a 7% cap — met — on an attempt
+ * where they had typed nothing at all, and the same attempt submitted as a
+ * genuinely empty box reported 100%.
+ */
+describe('an attempt with no key depressions', () => {
+  const PASSAGE = 'The Reserve Bank of India said that growth would rise this year. '.repeat(4).trim();
+
+  it.each([
+    ['nothing at all', ''],
+    ['only spaces', '     '],
+    ['only whitespace', '  \n\t  '],
+  ])('marks %s as a total loss, not a clean sheet', (_label, typed) => {
+    const r = errorEngine.evaluate(PASSAGE, typed, 600, 'ssc_chsl', 600);
+    expect(r.keyDepressionCount).toBe(0);
+    expect(r.sscAccuracy).toBe(0);
+    // The half of the pair that used to disagree with the other half.
+    expect(r.sscErrorPercentage).toBe(100);
+    expect(r.sscNetWpm).toBe(0);
+  });
+
+  it('agrees with itself however the empty attempt arrives', () => {
+    const kinds = ['', ' ', '\n', '\t\t', '   \n  '].map((t) => {
+      const r = errorEngine.evaluate(PASSAGE, t, 600, 'ssc_chsl', 600);
+      return `${r.sscAccuracy}/${r.sscErrorPercentage}`;
+    });
+    expect(new Set(kinds).size).toBe(1);
+  });
+
+  it('still charges a real attempt its real error rate', () => {
+    // The guard removed above must not have flattened everything to 100%.
+    const r = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', 600);
+    expect(r.sscErrorPercentage).toBe(0);
+    expect(r.sscAccuracy).toBe(100);
+  });
+});
+
+/**
+ * A clock that could not have been kept.
+ *
+ * The elapsed reading arrives from the browser and is the one number in a
+ * submission that nothing else can corroborate. Flooring it at the fastest a
+ * person could physically type stopped the 2,083 WPM readings, but left the
+ * attempt resting on that ceiling: one second for 1,609 keys was marked at
+ * 204 WPM, stored as qualified and paid the full XP award. The ceiling is not
+ * a plausible score either — it is the shape of the same broken clock.
+ */
+describe('an impossible elapsed time', () => {
+  const PASSAGE = 'The Reserve Bank of India said that growth would rise this year. '.repeat(14).trim();
+
+  it.each([
+    ['one second', 1],
+    ['zero seconds', 0],
+    ['four seconds', 4],
+  ])('does not turn %s of typing into a record speed', (_label, secs) => {
+    const r = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', secs);
+    // The window stands in for the unusable reading, so the speed is the one
+    // the candidate would have had typing for the whole ten minutes.
+    expect(r.sscNetWpm).toBeLessThan(60);
+    expect(errorEngine.isQualifiedFromReport(r, 'ssc_chsl')).toBe(false);
+  });
+
+  it('agrees with a submission that sent no clock at all', () => {
+    const impossible = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', 1);
+    const missing = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', undefined);
+    expect(impossible.sscNetWpm).toBe(missing.sscNetWpm);
+  });
+
+  it('still believes a fast but possible candidate', () => {
+    // Finishing this passage in 200 of the 600 seconds is quick and entirely
+    // possible, so the saved time has to count for them: the speed must beat
+    // what the same attempt scores when the clock is thrown away.
+    const believed = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', 200);
+    const discarded = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', 1);
+    expect(believed.sscNetWpm).toBeGreaterThan(discarded.sscNetWpm);
+    // Three times the window left, three times the speed.
+    expect(believed.sscNetWpm).toBeCloseTo(discarded.sscNetWpm * 3, 0);
+  });
+
+  it('never reports a speed beyond a human ceiling, whatever it is sent', () => {
+    for (const secs of [0, 1, 2, 5, 10, 30]) {
+      const r = errorEngine.evaluate(PASSAGE, PASSAGE, 600, 'ssc_chsl', secs);
+      expect(r.sscNetWpm).toBeLessThanOrEqual(200);
+    }
+  });
+});

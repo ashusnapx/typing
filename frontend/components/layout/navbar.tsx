@@ -97,12 +97,12 @@ export function Navbar() {
             alt=""
             width={30}
             height={30}
-            className="h-[30px] w-[30px] rounded-md"
+            className="h-[34px] w-[34px]"
             priority
           />
-          <span className="font-display text-xl leading-none tracking-tight">
-            {APP.name}
-          </span>
+          {/* Set the same as the footer: one mark, one weight, one size, so
+              the top and the bottom of the page are plainly the same product. */}
+          <span className="text-2xl font-semibold leading-none">{APP.name}</span>
         </Link>
 
         {/* Segmented pill for the two primary destinations. */}

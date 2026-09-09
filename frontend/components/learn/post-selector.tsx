@@ -1,15 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { ChevronDown, Info, Accessibility, Check } from 'lucide-react';
+import { useCallback, useEffect, useId, useState } from 'react';
+import { Info, Accessibility } from 'lucide-react';
 import {
   SSC_POSTS,
   CATEGORY_LABELS,
   errorCapFor,
   speedFor,
   getPost,
-  postsFor,
-  kdphFromWpm,
   type SscPost,
   type CategoryKey,
 } from '@/lib/ssc-posts';
@@ -74,13 +72,21 @@ const CATEGORIES: CategoryKey[] = ['ur', 'obcEws', 'scSt', 'pwbd'];
 const EXAMS = ['CHSL', 'CGL'] as const;
 type Exam = (typeof EXAMS)[number];
 
-/** Two ways in, because aspirants arrive in two states.
+/**
+ * The post each exam is set against.
  *
- *  Most know their exam but not the post they will be allotted — so the exam
- *  is asked first and the post list narrows to it. The rest only know what
- *  they can currently type, so "by score" runs the same comparison backwards
- *  and names the posts that speed already clears. */
-type Mode = 'post' | 'score';
+ * A candidate applies for CHSL or CGL. Which post they are allotted is decided
+ * long after the skill test, so asking them to pick one up front was asking a
+ * question they cannot answer — and a "by score" tab that named the posts a
+ * speed already clears was the same question backwards. Both are gone. The
+ * exam sets the bar, and which posts a score actually clears is worked out
+ * from the attempt afterwards, on the result screen, where it is a fact rather
+ * than a guess.
+ */
+const EXAM_POST: Record<Exam, string> = {
+  CHSL: 'chsl_ldc_jsa',
+  CGL: 'cgl_tax_assistant',
+};
 
 export function PostSelector({
   post,
@@ -97,10 +103,6 @@ export function PostSelector({
   onCategoryChange: (c: CategoryKey) => void;
   onScribeChange?: (v: boolean) => void;
 }) {
-  const [mode, setMode] = useState<Mode>('post');
-  const [wpm, setWpm] = useState(30);
-  const [accuracy, setAccuracy] = useState(95);
-
   const cap = errorCapFor(post, category);
   const speed = speedFor(post, 'english');
   const totalMinutes =
@@ -110,181 +112,41 @@ export function PostSelector({
   // announces the same thing a sighted user reads.
   const categoryLabelId = useId();
   const examLabelId = useId();
-  const postLabelId = useId();
-
-  // The exam follows whatever post is selected, so switching exams and
-  // switching posts can never disagree.
+  // The exam follows whatever post is selected, so the two can never disagree.
   const exam = post.exam;
-  const postsInExam = useMemo(
-    () => SSC_POSTS.filter((p) => p.exam === exam),
-    [exam]
-  );
 
   const chooseExam = (next: Exam) => {
     if (next === exam) return;
-    // Land on that exam's first post rather than an empty select.
-    const first = SSC_POSTS.find((p) => p.exam === next);
-    if (first) onPostChange(first.id);
+    onPostChange(EXAM_POST[next]);
   };
-
-  const standing = useMemo(
-    () =>
-      postsFor(
-        {
-          netWpm: wpm,
-          kdph: kdphFromWpm(wpm),
-          errorPct: Math.max(0, 100 - accuracy),
-        },
-        category
-      ),
-    [wpm, accuracy, category]
-  );
 
   return (
     <section className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b-2 border-vast bg-dawn px-5 py-4">
+      <div className="border-b-2 border-vast bg-lumen-dark px-5 py-4">
         <h2 className="text-2xl">Your target</h2>
-        <div role="tablist" aria-label="How to set your target" className="segment">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'post'}
-            data-active={mode === 'post'}
-            onClick={() => setMode('post')}
-            className="segment-item text-sm"
-          >
-            By post
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'score'}
-            data-active={mode === 'score'}
-            onClick={() => setMode('score')}
-            className="segment-item text-sm"
-          >
-            By score
-          </button>
-        </div>
       </div>
 
       <div className="grid gap-6 p-5 sm:grid-cols-2 sm:p-6">
-        {mode === 'post' ? (
-          <div className="min-w-0">
-            <span id={examLabelId} className="mb-2 block text-base font-medium">
-              Which exam are you sitting?
-            </span>
-            <div
-              role="radiogroup"
-              aria-labelledby={examLabelId}
-              className="segment"
-            >
-              {EXAMS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  role="radio"
-                  aria-checked={exam === e}
-                  data-active={exam === e}
-                  onClick={() => chooseExam(e)}
-                  className="segment-item text-sm"
-                >
-                  SSC {e}
-                </button>
-              ))}
-            </div>
-
-            <label htmlFor={postLabelId} className="mb-2 mt-5 block text-base font-medium">
-              Post applied for
-            </label>
-            <div className="relative">
-              <select
-                id={postLabelId}
-                value={post.id}
-                onChange={(e) => onPostChange(e.target.value)}
-                className="field appearance-none pr-10"
+        <div className="min-w-0">
+          <span id={examLabelId} className="mb-2 block text-base font-medium">
+            Which exam are you sitting?
+          </span>
+          <div role="radiogroup" aria-labelledby={examLabelId} className="segment">
+            {EXAMS.map((e) => (
+              <button
+                key={e}
+                type="button"
+                role="radio"
+                aria-checked={exam === e}
+                data-active={exam === e}
+                onClick={() => chooseExam(e)}
+                className="segment-item text-sm"
               >
-                {postsInExam.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.shortName} — {p.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-vast/50"
-                strokeWidth={2}
-              />
-            </div>
-            {post.department && (
-              <span className="mt-2 block text-sm text-vast/50">
-                {post.department}
-              </span>
-            )}
+                SSC {e}
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="min-w-0">
-            <span className="mb-2 block text-base font-medium">
-              What can you type today?
-            </span>
-            <div className="flex gap-3">
-              <label className="min-w-0 flex-1 text-sm text-vast/60">
-                Net WPM
-                <input
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={wpm}
-                  onChange={(e) =>
-                    setWpm(Math.max(0, Math.min(120, Number(e.target.value) || 0)))
-                  }
-                  className="field tnum mt-1"
-                />
-              </label>
-              <label className="min-w-0 flex-1 text-sm text-vast/60">
-                Accuracy %
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={accuracy}
-                  onChange={(e) =>
-                    setAccuracy(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
-                  }
-                  className="field tnum mt-1"
-                />
-              </label>
-            </div>
-
-            <p className="mt-4 text-sm text-vast/60">
-              {standing.cleared.length === 0
-                ? 'That score clears no SSC post yet.'
-                : 'Clears — tap one to make it your target:'}
-            </p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {standing.cleared.map((v) => (
-                <li key={v.post.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onPostChange(v.post.id);
-                      setMode('post');
-                    }}
-                    className="chip chip-ok"
-                  >
-                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-                    {v.post.shortName}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {standing.missed[0] && (
-              <p className="mt-3 text-sm text-vast/50">
-                Nearest miss: {standing.missed[0].post.shortName} —{' '}
-                {standing.missed[0].gapLabel}.
-              </p>
-            )}
-          </div>
-        )}
+        </div>
 
         <div className="min-w-0">
           <span id={categoryLabelId} className="mb-2 block text-base font-medium">

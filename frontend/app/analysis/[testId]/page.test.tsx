@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import AnalysisPage from './page';
 
 /**
@@ -107,8 +107,12 @@ describe('the two requirements', () => {
     result.mockReturnValue(attempt({ mode: 'ssc_chsl_deo', ssc_net_wpm: 28, net_wpm: 28 }));
     render(<AnalysisPage />);
     expect(screen.getByText(/8,000 needed/)).toBeInTheDocument();
+    // Scoped, because the plan at the foot of the page quotes the candidate's
+    // own speed back at them in the same unit — deliberately, so the advice
+    // and the bar cannot drift apart.
+    const stand = screen.getByRole('heading', { name: /Where you stand/ }).closest('section')!;
     // Net of mistakes: 28 x 300, not the raw depression rate.
-    expect(screen.getByText(/8,400 KDPH/)).toBeInTheDocument();
+    expect(within(stand).getByText(/8,400 KDPH/)).toBeInTheDocument();
   });
 
   it('shows the arithmetic that produced the speed', () => {
@@ -202,5 +206,99 @@ describe('the category a candidate picks', () => {
     result.mockReturnValue(attempt());
     render(<AnalysisPage />);
     expect(screen.getByRole('tab', { name: 'PwBD' })).toBeInTheDocument();
+  });
+});
+
+describe('the arrangement', () => {
+  it('keeps the bars and the evidence for them on the screen at the same time', () => {
+    // Seven full-width panels meant the two bars that decide the result had
+    // scrolled away by the time a candidate reached the mistakes that caused
+    // them. The scoreboard is its own column now, and it stays put.
+    result.mockReturnValue(attempt({ is_qualified: false, ssc_error_percentage: 12 }));
+    render(<AnalysisPage />);
+    const stand = screen.getByRole('heading', { name: /Where you stand/ }).closest('section')!;
+    expect(stand.className).toMatch(/card/);
+    expect(within(stand).getByText(/35 WPM needed/)).toBeInTheDocument();
+    expect(within(stand).getByText(/7% or less needed/)).toBeInTheDocument();
+    // How far they got sits with the other two, labelled as not being a bar.
+    expect(within(stand).getByText('not a requirement')).toBeInTheDocument();
+    expect(stand.closest('aside')!.className).toMatch(/sticky/);
+  });
+
+  it('marks the one bar that actually cost the attempt', () => {
+    result.mockReturnValue(
+      attempt({ is_qualified: false, ssc_error_percentage: 20, ssc_accuracy: 80 }),
+    );
+    render(<AnalysisPage />);
+    // Speed was met, mistakes were not. Exactly one thing to fix first.
+    expect(screen.getAllByText('Fix this first')).toHaveLength(1);
+  });
+
+  it('does not tell a candidate to look for colours this palette does not have', () => {
+    // The legend named green, orange and red. All three tokens resolve to the
+    // same near-black now, so it described a picture nobody could see.
+    result.mockReturnValue(attempt());
+    render(<AnalysisPage />);
+    const legend = screen.getByRole('heading', { name: /word by word/ }).closest('div')!;
+    expect(legend.textContent).not.toMatch(/green|orange|red/i);
+    expect(within(legend).getByText('filled')).toBeInTheDocument();
+    expect(within(legend).getByText('shaded')).toBeInTheDocument();
+  });
+
+  it('folds the arithmetic away rather than spending a paragraph on it', () => {
+    result.mockReturnValue(attempt());
+    render(<AnalysisPage />);
+    const summary = screen.getByText(/How this was worked out/);
+    expect(summary.tagName).toBe('SUMMARY');
+  });
+});
+
+describe('the plan at the foot of it', () => {
+  it('closes with advice in the language the advice would be given in', () => {
+    result.mockReturnValue(
+      attempt({ is_qualified: false, ssc_error_percentage: 20, ssc_accuracy: 80 }),
+    );
+    render(<AnalysisPage />);
+    expect(screen.getByRole('heading', { name: /Dekh bhai/ })).toBeInTheDocument();
+    expect(screen.getByText(/Speed to ho gayi teri/)).toBeInTheDocument();
+  });
+
+  it('asks the candidate to accept each item before moving on', () => {
+    const typed = PASSAGE.replace('Reserve', 'reserve').replace('growth', 'growht');
+    result.mockReturnValue(attempt({ typed_content: typed, is_qualified: false }));
+    render(<AnalysisPage />);
+
+    const plan = screen.getByRole('heading', { name: /Dekh bhai/ }).closest('section')!;
+    const ticks = within(plan).getAllByRole('button', { name: /Theek hai:/ });
+    expect(ticks.length).toBeGreaterThan(0);
+    for (const t of ticks) expect(t).toHaveAttribute('aria-pressed', 'false');
+
+    // Until every item is accepted, the way on is the quiet button.
+    expect(within(plan).getByText(/Upar sab tick kar de/)).toBeInTheDocument();
+    ticks.forEach((t) => fireEvent.click(t));
+    expect(within(plan).queryByText(/Upar sab tick kar de/)).not.toBeInTheDocument();
+    expect(within(plan).getByRole('link', { name: /agla test dete hain/ })).toBeInTheDocument();
+  });
+
+  it('remembers what was already accepted on this attempt', () => {
+    localStorage.setItem('tm-plan-test-1', JSON.stringify(['fix-spelling']));
+    const typed = PASSAGE.replace('growth', 'growht');
+    result.mockReturnValue(attempt({ typed_content: typed, is_qualified: false }));
+    render(<AnalysisPage />);
+    const plan = screen.getByRole('heading', { name: /Dekh bhai/ }).closest('section')!;
+    const ticked = within(plan)
+      .getAllByRole('button', { name: /Theek hai:/ })
+      .filter((b) => b.getAttribute('aria-pressed') === 'true');
+    expect(ticked).toHaveLength(1);
+  });
+
+  it('sends a Hindi candidate back to the Hindi test, not the English one', () => {
+    result.mockReturnValue(attempt({ mode: 'ssc_hindi' }));
+    render(<AnalysisPage />);
+    const plan = screen.getByRole('heading', { name: /Dekh bhai/ }).closest('section')!;
+    expect(within(plan).getByRole('link', { name: /test/i })).toHaveAttribute(
+      'href',
+      '/exam/hindi',
+    );
   });
 });

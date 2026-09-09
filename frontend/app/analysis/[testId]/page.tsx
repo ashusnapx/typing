@@ -6,13 +6,15 @@ import Link from 'next/link';
 import { useTestResult, useTestReplay } from '@/lib/queries';
 import { getExamBar, isHindiMode } from '@/lib/exam-config';
 import { summariseAttempt } from '@/lib/attempt-summary';
+import { buildPlan } from '@/lib/analysis-plan';
 import type { Hesitation } from '@/lib/keystroke-summary';
 import { diagnose } from '@/lib/exam-diagnosis';
 import { getModeDisplayName } from '@/lib/utils';
 import { FullPageLoader } from '@/components/ui/loading-logo';
 import PassageDiffView, { formatMs } from '@/components/exam/passage-diff';
 import { MistakeBreakdown, formatCost } from '@/components/exam/mistake-breakdown';
-import { ArrowLeft, ArrowRight, Check, X, AlertTriangle } from 'lucide-react';
+import { NextSteps } from '@/components/exam/next-steps';
+import { ArrowLeft, Check, X, AlertTriangle } from 'lucide-react';
 
 /** The same four the result screen offers, and the same storage key, so a
  *  candidate picks their category once. */
@@ -28,7 +30,11 @@ type CategoryKey = (typeof CATEGORIES)[number]['key'];
 const CATEGORY_STORAGE_KEY = 'tm-category-v2';
 
 /** A bar with the mark on it, because "35 needed, you did 31" is the whole
- *  exam and a candidate should not have to work it out from two numbers. */
+ *  exam and a candidate should not have to work it out from two numbers.
+ *
+ *  `blocking` outlines the one that actually cost the attempt. With two bars
+ *  side by side a candidate reads both and concludes nothing; marking the one
+ *  standing between them and the post is the entire job of this panel. */
 function BarRow({
   label,
   youLabel,
@@ -36,6 +42,7 @@ function BarRow({
   fraction,
   met,
   note,
+  blocking = false,
 }: {
   label: string;
   youLabel: string;
@@ -43,15 +50,19 @@ function BarRow({
   fraction: number;
   met: boolean;
   note: string;
+  blocking?: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, fraction * 100));
   return (
-    <div className="py-3">
+    <div className={blocking ? '-mx-2 border-2 border-vast bg-accent-soft px-2 py-3' : 'py-3'}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-sm font-bold">{label}</span>
         <span className={`chip ${met ? 'chip-ok' : 'chip-err'} text-[11px]`}>
           {met ? 'met' : 'not met'}
         </span>
+        {blocking && (
+          <span className="text-[11px] font-bold uppercase tracking-wide">Fix this first</span>
+        )}
         <span className="tnum ml-auto text-sm">
           <strong>{youLabel}</strong>
           <span className="text-vast/50"> / {needLabel} needed</span>
@@ -165,8 +176,31 @@ export default function AnalysisPage() {
 
   const dateStr = testData.date || testData.completed_at || '';
 
+  const plan = buildPlan({
+    qualified,
+    speedMet,
+    errorsMet,
+    nature: summary.nature,
+    netWpm,
+    speedTarget: summary.speedTarget,
+    kdph,
+    kdphTarget: summary.kdphTarget,
+    errorPct,
+    errorCap,
+    findings: diagnosis.findings,
+    wordsUnreached: diagnosis.wordsUnreached,
+    hesitationCount: hesitations.length,
+  });
+
+  const categoryLabel = CATEGORIES.find((c) => c.key === category)!.label;
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    /* Wider than a column of prose, because the numbers and the evidence for
+       them belong beside each other. Read top to bottom this page was seven
+       full-width panels of scrolling, and the two bars that decide everything
+       had scrolled away by the time a candidate reached the mistakes that
+       caused them. */
+    <main className="mx-auto max-w-6xl px-4 py-6">
       <button
         onClick={() => router.back()}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-vast/50 transition-colors hover:text-vast"
@@ -174,9 +208,9 @@ export default function AnalysisPage() {
         <ArrowLeft className="h-4 w-4" strokeWidth={2.5} /> Back
       </button>
 
-      {/* ─────────────────────────────────────────────────────── the verdict */}
+      {/* ──────────────────────────────────────────────── the verdict, once */}
       <section className="card mb-5 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
           <span
             /* Ink for a pass, the accent for a fail: with one accent colour
                the difference has to be fill against fill, not green against
@@ -200,173 +234,209 @@ export default function AnalysisPage() {
               {seconds ? ` · ${Math.round(seconds)}s typing` : ''}
             </p>
           </div>
-        </div>
 
-        {/* The category changes the error limit, and nothing else. */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] text-vast/55">Your category:</span>
-          <div className="segment" role="tablist" aria-label="Category">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.key}
-                onClick={() => chooseCategory(c.key)}
-                aria-selected={category === c.key}
-                role="tab"
-                className="segment-item"
-              >
-                {c.label}
-              </button>
-            ))}
+          {/* The category changes the error limit, and nothing else. Beside
+              the verdict rather than under it, so the panel it governs is the
+              next thing on the screen. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] text-vast/55">Your category:</span>
+            <div className="segment" role="tablist" aria-label="Category">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => chooseCategory(c.key)}
+                  aria-selected={category === c.key}
+                  role="tab"
+                  className="segment-item"
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────── the two requirements */}
-      <section className="card mb-5 p-5 sm:p-6">
-        <h2 className="text-base font-bold">What this post asks for</h2>
-        <p className="mt-1 text-[13px] text-vast/55">
-          Both have to be met. Being fast does not buy you a pass on mistakes.
-        </p>
-
-        <div className="mt-2 divide-y-2 divide-vast/10">
-          {bar?.nature === 'kdph' ? (
-            <BarRow
-              label="Speed"
-              youLabel={`${kdph.toLocaleString('en-IN')} KDPH`}
-              needLabel={`${bar.kdph.toLocaleString('en-IN')}`}
-              fraction={kdph / bar.kdph}
-              met={speedMet}
-              note={`Key depressions per hour, after mistakes are taken off. You typed ${kd.toLocaleString('en-IN')} in ${Math.round(seconds)} seconds.`}
-            />
-          ) : (
-            <BarRow
-              label="Speed"
-              youLabel={`${netWpm.toFixed(1)} WPM`}
-              needLabel={`${bar?.speedWpm ?? 35} WPM`}
-              fraction={netWpm / (bar?.speedWpm ?? 35)}
-              met={speedMet}
-              note={`Five key depressions count as one word${
-                bar?.language === 'hindi' ? '. The Hindi paper qualifies at 30, not 35' : ''
-              }. You typed ${kd.toLocaleString('en-IN')} depressions in ${Math.round(seconds)} seconds.`}
-            />
-          )}
-
-          <BarRow
-            label="Mistakes"
-            youLabel={`${errorPct.toFixed(2)}%`}
-            needLabel={`${errorCap}% or less`}
-            fraction={errorCap / Math.max(errorPct, errorCap)}
-            met={errorsMet}
-            note={`${formatCost(mistakes)} across ${Math.round(grossWords)} words. The limit is ${errorCap}% for ${
-              CATEGORIES.find((c) => c.key === category)!.label
-            } candidates for this post.`}
-          />
-        </div>
-
-        {/* How the number was reached, in one line, because a candidate who
-            cannot see where it came from cannot trust it. */}
-        <p className="mt-4 border-t-2 border-vast/10 pt-3 text-[13px] leading-relaxed text-vast/60">
-          <strong className="text-vast/80">How this was worked out:</strong>{' '}
-          {kd.toLocaleString('en-IN')} key depressions ÷ 5 ={' '}
-          {grossWords.toFixed(1)} words, minus {formatCost(mistakes)} ={' '}
-          {(grossWords - mistakes).toFixed(1)} net words, over{' '}
-          {(seconds / 60).toFixed(1)} minutes = <strong>{netWpm.toFixed(1)} WPM</strong>.
-          {' '}A full mistake counts 1, a half mistake counts 0.5.{' '}
-          <Link href="/marking-scheme" className="underline">
-            See every rule with examples
-          </Link>
-          .
-        </p>
-      </section>
-
-      {/* ─────────────────────────────────────────────── what cost you marks */}
-      <section className="card mb-5 p-5 sm:p-6">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h2 className="text-base font-bold">What cost you marks</h2>
-          <span className="tnum ml-auto text-sm text-vast/55">
-            {formatCost(mistakes)}
-          </span>
-        </div>
-
-        {diagnosis.findings.length === 0 ? (
-          <p className="mt-2 text-sm text-vast/60">
-            Nothing was marked wrong in what you typed. {typedWords < passageWords
-              ? 'You ran out of time before the end of the passage — speed is the only thing left to work on.'
-              : 'A clean attempt.'}
-          </p>
-        ) : (
-          <>
-            <p className="mt-1 mb-3 text-[13px] text-vast/55">
-              Biggest first. Each one links to the drill that fixes it.
+      <div className="grid gap-5 lg:grid-cols-12">
+        {/* ─────────────────────────── left: where you stand, always in view */}
+        <aside className="lg:col-span-5 lg:sticky lg:top-6 lg:self-start">
+          <section className="card p-5 sm:p-6">
+            <h2 className="text-base font-bold">Where you stand</h2>
+            <p className="mt-1 text-[13px] text-vast/55">
+              Both have to be met. Being fast does not buy you a pass on mistakes.
             </p>
-            <MistakeBreakdown findings={diagnosis.findings} />
-          </>
-        )}
-      </section>
 
-      {/* ───────────────────────────────────────────────── how far you got */}
-      <section className="card mb-5 p-5 sm:p-6">
-        <h2 className="text-base font-bold">How far you got</h2>
-        <p className="mt-1 text-[13px] text-vast/55">
-          {typedWords} of {passageWords} words. The passage after that is not
-          marked against you — there is no rule that says you must finish, only
-          that you must be fast enough.
-        </p>
-        <div className="mt-3 h-2.5 w-full border-2 border-vast/20 bg-lumen">
-          <div
-            className="h-full bg-vast"
-            style={{ width: `${passageWords ? Math.min(100, (typedWords / passageWords) * 100) : 0}%` }}
-          />
-        </div>
-      </section>
+            <div className="mt-2 divide-y-2 divide-vast/10">
+              {bar?.nature === 'kdph' ? (
+                <BarRow
+                  label="Speed"
+                  youLabel={`${kdph.toLocaleString('en-IN')} KDPH`}
+                  needLabel={`${bar.kdph.toLocaleString('en-IN')}`}
+                  fraction={kdph / bar.kdph}
+                  met={speedMet}
+                  blocking={!speedMet}
+                  note={`Key depressions per hour, after mistakes are taken off. You typed ${kd.toLocaleString('en-IN')} in ${Math.round(seconds)} seconds.`}
+                />
+              ) : (
+                <BarRow
+                  label="Speed"
+                  youLabel={`${netWpm.toFixed(1)} WPM`}
+                  needLabel={`${bar?.speedWpm ?? 35} WPM`}
+                  fraction={netWpm / (bar?.speedWpm ?? 35)}
+                  met={speedMet}
+                  blocking={!speedMet}
+                  note={`Five key depressions count as one word${
+                    bar?.language === 'hindi' ? '. The Hindi paper qualifies at 30, not 35' : ''
+                  }. You typed ${kd.toLocaleString('en-IN')} depressions in ${Math.round(seconds)} seconds.`}
+                />
+              )}
 
-      {/* ─────────────────────────────────────────── the passage, side by side */}
-      <section className="card mb-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-vast/15 px-5 py-4">
-          <h2 className="text-base font-bold">Your passage, word by word</h2>
-          <span className="ml-auto text-[12px] text-vast/50">
-            <span className="text-ok">green</span> correct ·{' '}
-            <span className="text-warn">orange</span> half mistake ·{' '}
-            <span className="text-err">red</span> full mistake ·{' '}
-            <span className="text-vast/35">grey struck</span> skipped ·{' '}
-            <span className="text-vast/25">grey</span> not reached
-          </span>
-        </div>
-        <div className="px-5 py-4">
-          {typedContent && originalContent ? (
-            <PassageDiffView original={originalContent} typed={typedContent} />
-          ) : (
-            <p className="py-4 text-center text-sm text-vast/40">
-              The passage for this attempt was not saved.
-            </p>
+              <BarRow
+                label="Mistakes"
+                youLabel={`${errorPct.toFixed(2)}%`}
+                needLabel={`${errorCap}% or less`}
+                fraction={errorCap / Math.max(errorPct, errorCap)}
+                met={errorsMet}
+                blocking={!errorsMet}
+                note={`${formatCost(mistakes)} across ${Math.round(grossWords)} words. The limit is ${errorCap}% for ${categoryLabel} candidates for this post.`}
+              />
+
+              {/* How much of the passage was reached. Not a requirement, and
+                  labelled as such — a candidate who ran out of time used to
+                  read this as a third failure. */}
+              <div className="py-3">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-sm font-bold">How far you got</span>
+                  <span className="chip text-[11px]">not a requirement</span>
+                  <span className="tnum ml-auto text-sm">
+                    <strong>{typedWords}</strong>
+                    <span className="text-vast/50"> / {passageWords} words</span>
+                  </span>
+                </div>
+                <div className="mt-2 h-2.5 w-full border-2 border-vast/20 bg-lumen">
+                  <div
+                    className="h-full bg-vast"
+                    style={{ width: `${passageWords ? Math.min(100, (typedWords / passageWords) * 100) : 0}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-[13px] text-vast/60">
+                  The passage after that is not marked against you — there is no
+                  rule that says you must finish, only that you must be fast
+                  enough.
+                </p>
+              </div>
+            </div>
+
+            {/* How the number was reached, in one line, because a candidate who
+                cannot see where it came from cannot trust it. Folded away: it
+                answers a question, and a candidate who is not asking it should
+                not have to scroll past the answer. */}
+            <details className="mt-4 border-t-2 border-vast/10 pt-3">
+              <summary className="cursor-pointer text-[13px] font-bold">
+                How this was worked out
+              </summary>
+              <p className="mt-2 text-[13px] leading-relaxed text-vast/60">
+                {kd.toLocaleString('en-IN')} key depressions ÷ 5 ={' '}
+                {grossWords.toFixed(1)} words, minus {formatCost(mistakes)} ={' '}
+                {(grossWords - mistakes).toFixed(1)} net words, over{' '}
+                {(seconds / 60).toFixed(1)} minutes ={' '}
+                <strong>{netWpm.toFixed(1)} WPM</strong>. A full mistake counts
+                1, a half mistake counts 0.5.{' '}
+                <Link href="/marking-scheme" className="underline">
+                  See every rule with examples
+                </Link>
+                .
+              </p>
+            </details>
+          </section>
+        </aside>
+
+        {/* ────────────────────────── right: the evidence, in order of damage */}
+        <div className="lg:col-span-7">
+          <section className="card p-5 sm:p-6">
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <h2 className="text-base font-bold">What cost you marks</h2>
+              <span className="tnum ml-auto text-sm text-vast/55">
+                {formatCost(mistakes)}
+              </span>
+            </div>
+
+            {diagnosis.findings.length === 0 ? (
+              <p className="mt-2 text-sm text-vast/60">
+                Nothing was marked wrong in what you typed. {typedWords < passageWords
+                  ? 'You ran out of time before the end of the passage — speed is the only thing left to work on.'
+                  : 'A clean attempt.'}
+              </p>
+            ) : (
+              <>
+                <p className="mt-1 mb-3 text-[13px] text-vast/55">
+                  Biggest first. Each one links to the drill that fixes it.
+                </p>
+                <MistakeBreakdown findings={diagnosis.findings} />
+              </>
+            )}
+          </section>
+
+          <section className="card mt-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-vast/15 px-5 py-4">
+              <h2 className="text-base font-bold">Your passage, word by word</h2>
+              {/* Named by what the page actually paints. The legend used to
+                  say green, orange and red — three colours this palette does
+                  not have, all of which now resolve to the same near-black,
+                  so it described a picture nobody could see. */}
+              <span className="ml-auto text-[12px] text-vast/50">
+                <span className="bg-accent-soft px-1 underline decoration-2">shaded</span> half
+                mistake · <span className="bg-accent px-1">filled</span> full mistake ·{' '}
+                <span className="text-vast/35 line-through">struck</span> skipped ·{' '}
+                <span className="text-vast/25">faded</span> not reached
+              </span>
+            </div>
+            <div className="px-5 py-4">
+              {typedContent && originalContent ? (
+                <PassageDiffView
+                  original={originalContent}
+                  typed={typedContent}
+                  lang={isHindiMode(mode) ? 'hindi' : 'english'}
+                />
+              ) : (
+                <p className="py-4 text-center text-sm text-vast/40">
+                  The passage for this attempt was not saved.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {hesitations.length > 0 && (
+            <section className="card mt-5 p-5 sm:p-6">
+              <h2 className="text-base font-bold">Where you hesitated</h2>
+              <p className="mt-1 mb-3 text-[13px] text-vast/55">
+                You stopped for more than a moment before these words. A pause is
+                not a mistake, but it is where your speed goes.
+              </p>
+              <ul className="divide-y-2 divide-vast/10">
+                {hesitations.slice(0, 8).map((w: Hesitation, i: number) => (
+                  <li key={i} className="flex items-center justify-between py-2">
+                    <span className="text-sm">{w.word}</span>
+                    <span className="tnum text-sm text-vast/55">
+                      {formatMs(w.pauseMs)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </div>
-      </section>
+      </div>
 
-      {/* ──────────────────────────────────────────────── where you hesitated */}
-      {hesitations.length > 0 && (
-        <section className="card mb-5 p-5 sm:p-6">
-          <h2 className="text-base font-bold">Where you hesitated</h2>
-          <p className="mt-1 mb-3 text-[13px] text-vast/55">
-            You stopped for more than a moment before these words. A pause is
-            not a mistake, but it is where your speed goes.
-          </p>
-          <ul className="divide-y-2 divide-vast/10">
-            {hesitations.slice(0, 8).map((w: Hesitation, i: number) => (
-              <li key={i} className="flex items-center justify-between py-2">
-                <span className="text-sm">{w.word}</span>
-                <span className="tnum text-sm text-vast/55">
-                  {formatMs(w.pauseMs)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* ─────────────────── and the only part that changes the next attempt */}
+      <NextSteps
+        plan={plan}
+        testId={testId}
+        retakeHref={`/exam/${isHindiMode(mode) ? 'hindi' : ''}`}
+      />
 
-      {/* ──────────────────────────────────────────────────────────── sources */}
       {bar && (
-        <p className="mb-5 text-[12px] leading-relaxed text-vast/45">
+        <p className="mt-5 mb-10 text-[12px] leading-relaxed text-vast/45">
           Speed and error limits from {bar.spec.source}.{' '}
           {bar.spec.citations.map((url, i) => (
             <span key={i}>
@@ -378,16 +448,6 @@ export default function AnalysisPage() {
           ))}
         </p>
       )}
-
-      <div className="mb-10 flex flex-wrap gap-3">
-        <Link href={`/exam/${isHindiMode(mode) ? 'hindi' : ''}`} className="btn btn-ink btn-md flex-1 justify-center">
-          Take another test
-          <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-        </Link>
-        <Link href="/dashboard" className="btn btn-outline btn-md flex-1 justify-center">
-          Back to dashboard
-        </Link>
-      </div>
     </main>
   );
 }

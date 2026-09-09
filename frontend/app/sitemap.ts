@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/exam', priority: 0.9 },
     { path: '/learn', priority: 0.9 },
     { path: '/faq', priority: 0.8 },
+    { path: '/marking-scheme', priority: 0.8 },
     { path: '/leaderboard', priority: 0.6 },
     { path: '/coach', priority: 0.6 },
     { path: '/about', priority: 0.5 },

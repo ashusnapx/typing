@@ -246,7 +246,7 @@ export const EXAM_VARIANTS: readonly ExamVariant[] = [
     href: '/exam/cgl-dest',
     durationSeconds: 900,
     requirement: '8,000 KDPH',
-    errorCapUr: 20,
+    errorCapUr: 5,
     hindiAvailable: false,
   },
   {

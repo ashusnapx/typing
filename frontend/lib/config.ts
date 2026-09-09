@@ -60,7 +60,7 @@ export const EXAM_MODES = [
   {
     id: 'ssc_cgl_dest',
     title: 'CGL — DEST',
-    description: '8,000 KDPH. 20% errors.',
+    description: '8,000 KDPH. 5% errors.',
     href: '/exam/cgl-dest',
     duration: 900,
     wpmTarget: 0,
@@ -267,6 +267,7 @@ export const FOOTER = {
     { label: 'Eduquity replica', href: '/exam/tcs-ion' },
   ],
   quickLinks: [
+    { label: 'Marking scheme', href: '/marking-scheme' },
     { label: 'Learn Typing', href: '/learn' },
     { label: 'AI Coach', href: '/coach' },
     { label: 'Leaderboard', href: '/leaderboard' },
@@ -323,6 +324,7 @@ export const ROUTES = {
   coach: '/coach',
   leaderboard: '/leaderboard',
   faq: '/faq',
+  markingScheme: '/marking-scheme',
   about: '/about',
   contact: '/contact',
   privacy: '/privacy',

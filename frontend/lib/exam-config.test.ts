@@ -6,6 +6,7 @@ import {
   calculateKdph,
   checkQualification,
   getExamSpecs,
+  EXAM_VARIANTS,
 } from './exam-config';
 
 describe('calculateNetWpm', () => {
@@ -139,5 +140,30 @@ describe('checkQualification', () => {
     const result = checkQualification('unknown_mode', 40, 95, 0, 5, 'UR');
     expect(result.qualified).toBe(false);
     expect(result.required).toBe('Unknown');
+  });
+});
+
+describe('config consistency', () => {
+  it('shows the same error cap on the listing as it marks against', () => {
+    // The listing card, the instructions screen and the evaluation all quote
+    // an error limit. When they drift, a candidate is told one bar and marked
+    // against another — which is exactly what happened when CGL DEST was
+    // listed at 20% and scored at 5%.
+    for (const variant of EXAM_VARIANTS) {
+      const spec = getExamSpecs(variant.mode);
+      expect(spec, variant.mode).not.toBeNull();
+      expect(variant.errorCapUr, variant.mode).toBe(spec!.errorAllowanceGeneral);
+    }
+  });
+
+  it('quotes the same speed requirement as the spec', () => {
+    for (const variant of EXAM_VARIANTS) {
+      const spec = getExamSpecs(variant.mode)!;
+      const expected =
+        spec.qualifyingNature === 'speed_wpm'
+          ? `${spec.englishSpeedWpm} WPM`
+          : `${spec.englishKdph.toLocaleString('en-IN')} KDPH`;
+      expect(variant.requirement, variant.mode).toBe(expected);
+    }
   });
 });

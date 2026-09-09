@@ -24,6 +24,7 @@ const PRIMARY = [
 ] as const;
 
 const SECONDARY = [
+  { href: '/marking-scheme', label: 'Marking' },
   { href: '/coach', label: 'Coach' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/faq', label: 'FAQ' },

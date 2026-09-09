@@ -401,7 +401,10 @@ export class SSCErrorEngine {
   }
 
   private calculateSscAccuracy(grossWords: number, fullMistakes: number, halfMistakes: number): number {
-    if (grossWords <= 0) return 100;
+    // Nothing typed is not a perfect score. This returned 100, so submitting
+    // an empty attempt reported "100% accuracy" on the result screen while the
+    // same report's plain accuracy said 0.
+    if (grossWords <= 0) return 0;
     const totalErrors = fullMistakes + halfMistakes / 2;
     return Math.max(0, ((grossWords - totalErrors) / grossWords) * 100);
   }

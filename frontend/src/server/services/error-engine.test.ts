@@ -115,3 +115,14 @@ describe('every post is judged against its own bar', () => {
     expect(r.sscErrorPercentage).toBeLessThan(2);
   });
 });
+
+describe('an attempt with nothing in it', () => {
+  it('is not reported as a perfect score', () => {
+    const r = errorEngine.evaluate(PASSAGE, '   ', 600, 'ssc_chsl', 600);
+    expect(r.keyDepressionCount).toBe(0);
+    expect(r.sscAccuracy).toBe(0);
+    expect(r.accuracy).toBe(0);
+    expect(r.sscNetWpm).toBe(0);
+    expect(errorEngine.isQualifiedFromReport(r, 'ssc_chsl')).toBe(false);
+  });
+});

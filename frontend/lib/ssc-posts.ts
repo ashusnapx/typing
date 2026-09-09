@@ -210,10 +210,14 @@ export const SSC_POSTS: SscPost[] = [
     passageKd: [2000, 2200],
     hindiAvailable: false,
     backspaceAllowed: true,
-    errorCaps: DEST_CAPS,
+    // Marked at the strict cap, which is what the note has always advised.
+    // Carrying DEST_CAPS here while exam-config marked at 5% meant the result
+    // screen's post table and the verdict above it quoted different limits for
+    // the same attempt.
+    errorCaps: CPT_CAPS,
     disputed: true,
     notes:
-      'Sources disagree on whether Tax Assistant is marked against the 20% DEST cap or the strict 5% CPT cap. Practise to 5% and you clear either way.',
+      'Sources disagree on whether Tax Assistant is marked against the 20% DEST cap or the strict 5% CPT cap. We mark at 5%, so a pass here is a pass either way.',
     citation: EVAL_CITATION,
   },
   {

@@ -167,3 +167,35 @@ describe('config consistency', () => {
     }
   });
 });
+
+describe('XP bounds', () => {
+  /** Mirrors tests.submit. XP drives the leaderboard, so an attempt reporting
+   *  an implausible speed must not be able to buy a rank. */
+  const MAX_HUMAN_WPM = 200;
+  const MAX_XP_PER_TEST = 500;
+  const xpFor = (wpm: number, accuracy: number) =>
+    Math.min(
+      MAX_XP_PER_TEST,
+      Math.round(
+        Math.min(MAX_HUMAN_WPM, Math.max(0, wpm)) *
+          10 *
+          (Math.min(100, Math.max(0, accuracy)) / 100)
+      )
+    );
+
+  it('pays a normal attempt normally', () => {
+    expect(xpFor(38, 96)).toBe(365);
+  });
+
+  it('caps an implausible speed', () => {
+    // A pasted or scripted submission reported 865 WPM and earned 7,482 XP —
+    // more than the highest rank costs.
+    expect(xpFor(865, 86.5)).toBe(MAX_XP_PER_TEST);
+    expect(xpFor(100000, 100)).toBe(MAX_XP_PER_TEST);
+  });
+
+  it('never pays negative XP', () => {
+    expect(xpFor(-50, 90)).toBe(0);
+    expect(xpFor(40, -10)).toBe(0);
+  });
+});

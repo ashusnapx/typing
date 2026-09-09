@@ -80,10 +80,16 @@ function addRow(layout: string[][], row: number, fingerMap: Record<string, Finge
 }
 
 export const fingerMap: Record<string, FingerZone> = {
-  '`': 'rp', '~': 'rp', '1': 'rp', '!': 'rp', '2': 'rr', '@': 'rr',
-  '3': 'rm', '#': 'rm', '4': 'ri', '$': 'ri', '5': 'ri', '%': 'ri',
-  '6': 'li', '^': 'li', '7': 'li', '&': 'li', '8': 'lm', '*': 'lm',
-  '9': 'lr', '(': 'lr', '0': 'rp', ')': 'rp', '-': 'rp', '_': 'rp',
+  /* The number row was mirrored: 1 to 5 were taught as right-hand keys and 6
+     to 9 as left-hand ones, which is the wrong hand for every figure on the
+     board. Figures cost a full mistake under the Commission's marking, so the
+     one row where accuracy is most expensive was the one teaching the wrong
+     hand. Left pinky to left index across 1-5, right index to right pinky
+     across 6-0, as every touch-typing chart has it. */
+  '`': 'lp', '~': 'lp', '1': 'lp', '!': 'lp', '2': 'lr', '@': 'lr',
+  '3': 'lm', '#': 'lm', '4': 'li', '$': 'li', '5': 'li', '%': 'li',
+  '6': 'ri', '^': 'ri', '7': 'ri', '&': 'ri', '8': 'rm', '*': 'rm',
+  '9': 'rr', '(': 'rr', '0': 'rp', ')': 'rp', '-': 'rp', '_': 'rp',
   '=': 'rp', '+': 'rp',
   q: 'lp', w: 'lr', e: 'lm', r: 'li', t: 'li',
   y: 'ri', u: 'ri', i: 'rm', o: 'rr', p: 'rp',

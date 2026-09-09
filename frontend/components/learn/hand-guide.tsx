@@ -1,183 +1,460 @@
-import { FINGER_COLORS } from './keyboard-layout';
+import { fingerMap, FINGER_NAMES, HAND, type FingerZone } from './keyboard-layout';
 
 /**
- * Where the hands go, drawn rather than described.
+ * Where the hands go for *this* lesson.
  *
- * The posture lesson said "sit straight, elbows at 90 degrees, wrists off the
- * table" and showed nothing. Someone who has never used a keyboard properly
- * cannot act on that sentence — it is the one lesson in the course where the
- * words are least use and a picture is nearly the whole thing.
+ * The first version drew the home row and nothing else, so every lesson in the
+ * course showed an identical picture — a drill on the top row, the number row
+ * or the punctuation keys was illustrated by a diagram of A S D F. The keys a
+ * learner has not met are exactly the ones worth drawing.
  *
- * Both drawings avoid colour as a code: fingers read light on the left hand
- * and dark on the right, and the label on each key names the finger, so
- * nothing has to be looked up in a legend.
+ * The board now shows the rows the lesson touches, and each finger is drawn
+ * reaching the key it has to reach, from the home key it rests on. A lesson on
+ * E and T lifts two fingers to the top row and leaves the other six at rest,
+ * which is what the hand actually does.
  */
 
-const KEYS = [
-  { label: 'A', x: 68, finger: 'lp' as const, name: 'little' },
-  { label: 'S', x: 132, finger: 'lr' as const, name: 'ring' },
-  { label: 'D', x: 196, finger: 'lm' as const, name: 'middle' },
-  { label: 'F', x: 260, finger: 'li' as const, name: 'index', anchor: true },
-  { label: 'G', x: 324, finger: 'li' as const, name: 'index' },
-  { label: 'H', x: 388, finger: 'ri' as const, name: 'index' },
-  { label: 'J', x: 452, finger: 'ri' as const, name: 'index', anchor: true },
-  { label: 'K', x: 516, finger: 'rm' as const, name: 'middle' },
-  { label: 'L', x: 580, finger: 'rr' as const, name: 'ring' },
-  { label: ';', x: 644, finger: 'rp' as const, name: 'little' },
+/* -------------------------------------------------------------------------- */
+/* Board geometry                                                              */
+/* -------------------------------------------------------------------------- */
+
+const PITCH = 64;
+const KEY = 56;
+
+/** Row tops, and the stagger a real keyboard has. */
+const ROW_Y = { number: 36, top: 100, home: 164, bottom: 228 } as const;
+type RowName = keyof typeof ROW_Y;
+
+const ROWS: { name: RowName; keys: string[]; x0: number }[] = [
+  { name: 'number', keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], x0: 36 },
+  { name: 'top', keys: ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], x0: 52 },
+  { name: 'home', keys: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'], x0: 68 },
+  { name: 'bottom', keys: ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'], x0: 100 },
 ];
 
-/** Palm centre, and the key each finger rests on. */
-const HANDS = [
-  {
-    side: 'Left hand',
-    palmX: 164,
-    fingers: [
-      { zone: 'lp' as const, keyX: 68 },
-      { zone: 'lr' as const, keyX: 132 },
-      { zone: 'lm' as const, keyX: 196 },
-      { zone: 'li' as const, keyX: 260 },
-    ],
-    thumbX: 300,
-  },
-  {
-    side: 'Right hand',
-    palmX: 548,
-    fingers: [
-      { zone: 'ri' as const, keyX: 452 },
-      { zone: 'rm' as const, keyX: 516 },
-      { zone: 'rr' as const, keyX: 580 },
-      { zone: 'rp' as const, keyX: 644 },
-    ],
-    thumbX: 412,
-  },
-];
+interface Cap {
+  label: string;
+  x: number;
+  y: number;
+  row: RowName;
+  zone: FingerZone;
+}
 
-export function HomeRowHands() {
+const BOARD: Cap[] = ROWS.flatMap((row) =>
+  row.keys.map((label, i) => ({
+    label,
+    x: row.x0 + i * PITCH,
+    y: ROW_Y[row.name],
+    row: row.name,
+    zone: fingerMap[label] ?? 'rp',
+  })),
+);
+
+const capFor = (label: string) => BOARD.find((c) => c.label === label.toLowerCase());
+
+/** The key each finger rests on between reaches. */
+const HOME_KEY: Record<Exclude<FingerZone, 'thumb'>, string> = {
+  lp: 'a',
+  lr: 's',
+  lm: 'd',
+  li: 'f',
+  ri: 'j',
+  rm: 'k',
+  rr: 'l',
+  rp: ';',
+};
+
+const SPACE = { x: 220, y: 300, w: 300, h: 40 };
+
+/* -------------------------------------------------------------------------- */
+/* Key lookup                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Keys a lesson can name that are not letters on the board. */
+const SPECIAL_FINGERS: Record<string, FingerZone> = {
+  space: 'thumb',
+  spacebar: 'thumb',
+  shift: 'lp',
+  'left shift': 'lp',
+  'right shift': 'rp',
+  enter: 'rp',
+  return: 'rp',
+  tab: 'lp',
+  backspace: 'rp',
+  capslock: 'lp',
+  'caps lock': 'lp',
+};
+
+/** The finger that presses a key, or null if it is not a key we teach. */
+export function fingerFor(key: string): FingerZone | null {
+  const k = key.trim().toLowerCase();
+  if (!k) return null;
+  return SPECIAL_FINGERS[k] ?? fingerMap[k] ?? null;
+}
+
+/**
+ * The keys a lesson should show fingering for.
+ *
+ * Most lessons name their keys. The later drills do not: they are passages
+ * with a focus — figures, punctuation, capitals — and the keys that matter are
+ * whichever ones appear in the passage. The figures drill is the clearest
+ * case: a full mistake for every wrong digit, and no key list of its own.
+ */
+export function lessonKeysFor(lesson: {
+  keys?: string[];
+  newKeys?: string[];
+  focus?: string;
+  sampleText?: string;
+}): string[] {
+  const declared = Array.from(
+    new Set([...(lesson.newKeys ?? []), ...(lesson.keys ?? [])]),
+  ).filter((k) => fingerFor(k));
+  if (declared.length > 0) return declared;
+
+  const text = lesson.sampleText ?? '';
+  if (lesson.focus === 'figures') {
+    return Array.from(new Set(text.match(/\d/g) ?? [])).sort();
+  }
+  if (lesson.focus === 'punctuation') {
+    return Array.from(new Set(text.match(/[.,;:'"?!/-]/g) ?? [])).filter((k) => fingerFor(k));
+  }
+  if (lesson.focus === 'capitalisation') {
+    // Capitals are made with the opposite hand's Shift, which is the whole
+    // technique the drill is training.
+    return ['Left Shift', 'Right Shift'];
+  }
+  return [];
+}
+
+/* -------------------------------------------------------------------------- */
+/* The hand                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const FINGERS_LEFT: Exclude<FingerZone, 'thumb'>[] = ['lp', 'lr', 'lm', 'li'];
+const FINGERS_RIGHT: Exclude<FingerZone, 'thumb'>[] = ['ri', 'rm', 'rr', 'rp'];
+
+/** Knuckle x for each finger, and how far back it sits — the middle knuckle is
+ *  furthest from the board because the middle finger is the longest. */
+const KNUCKLE: Record<Exclude<FingerZone, 'thumb'>, { x: number; y: number; w: number }> = {
+  lp: { x: 76, y: 344, w: 17 },
+  lr: { x: 136, y: 334, w: 19 },
+  lm: { x: 196, y: 328, w: 20 },
+  li: { x: 256, y: 336, w: 19 },
+  ri: { x: 456, y: 336, w: 19 },
+  rm: { x: 516, y: 328, w: 20 },
+  rr: { x: 576, y: 334, w: 19 },
+  rp: { x: 636, y: 344, w: 17 },
+};
+
+/** One finger, reaching from its knuckle up to the key it must press. */
+function Finger({
+  zone,
+  tx,
+  ty,
+}: {
+  zone: Exclude<FingerZone, 'thumb'>;
+  tx: number;
+  ty: number;
+}) {
+  const { x: kx, y: ky, w: wk } = KNUCKLE[zone];
+  const wt = wk - 4;
+  // Control points pull the finger into a slight curve rather than a stick.
+  const bend = (ky - ty) * 0.45;
+  return (
+    <g>
+      <path
+        d={`M ${kx - wk} ${ky}
+            C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 14}
+            Q ${tx - wt} ${ty - 8} ${tx} ${ty - 8}
+            Q ${tx + wt} ${ty - 8} ${tx + wt} ${ty + 14}
+            C ${tx + wt} ${ty + bend} ${kx + wk + 2} ${ky - bend} ${kx + wk} ${ky} Z`}
+        fill="url(#skin)"
+        stroke="#8f8378"
+        strokeWidth={1.6}
+      />
+      {/* Two joint creases, so the finger reads as three segments. */}
+      <path
+        d={`M ${tx - wt + 2} ${ty + 34} Q ${tx} ${ty + 28} ${tx + wt - 2} ${ty + 34}`}
+        fill="none"
+        stroke="#8f8378"
+        strokeWidth={1.3}
+        opacity={0.5}
+      />
+      <path
+        d={`M ${kx - wk + 3} ${ky - 46} Q ${(kx + tx) / 2} ${ky - 54} ${kx + wk - 3} ${ky - 46}`}
+        fill="none"
+        stroke="#8f8378"
+        strokeWidth={1.3}
+        opacity={0.4}
+      />
+      {/* Nail. */}
+      <ellipse
+        cx={tx}
+        cy={ty + 13}
+        rx={wt * 0.6}
+        ry={wt * 0.8}
+        fill="#f7f2ec"
+        stroke="#8f8378"
+        strokeWidth={1.2}
+        opacity={0.9}
+      />
+    </g>
+  );
+}
+
+/** Back of the hand and thumb. `dir` is +1 for the left hand, -1 for the right. */
+function Palm({ cx, dir }: { cx: number; dir: 1 | -1 }) {
+  const p = (x: number, y: number) => `${cx + dir * x} ${y}`;
+  return (
+    <g>
+      <path
+        d={`M ${p(-92, 500)}
+            C ${p(-104, 440)} ${p(-108, 386)} ${p(-104, 348)}
+            C ${p(-78, 328)} ${p(-48, 324)} ${p(-22, 328)}
+            C ${p(16, 324)} ${p(62, 328)} ${p(102, 342)}
+            C ${p(112, 388)} ${p(106, 446)} ${p(88, 500)}
+            C ${p(40, 516)} ${p(-40, 516)} ${p(-92, 500)} Z`}
+        fill="url(#skin)"
+        stroke="#8f8378"
+        strokeWidth={1.9}
+      />
+      {/* Tendons running back from the knuckles. */}
+      {[-76, -22, 32, 84].map((dx, i) => (
+        <path
+          key={i}
+          d={`M ${p(dx, 350)} C ${p(dx - dir * 4, 400)} ${p(dx - dir * 8, 440)} ${p(dx - dir * 10, 476)}`}
+          fill="none"
+          stroke="#8f8378"
+          strokeWidth={1.4}
+          opacity={0.3}
+        />
+      ))}
+      {/* Thumb, on its own axis, resting over the space bar. */}
+      <path
+        d={`M ${p(96, 356)}
+            C ${p(140, 372)} ${p(168, 400)} ${p(160, 428)}
+            Q ${p(150, 452)} ${p(126, 444)}
+            C ${p(102, 434)} ${p(78, 414)} ${p(64, 392)} Z`}
+        fill="url(#skin)"
+        stroke="#8f8378"
+        strokeWidth={1.7}
+      />
+      <ellipse
+        cx={cx + dir * 146}
+        cy={430}
+        rx={11}
+        ry={13}
+        transform={`rotate(${dir * 34} ${cx + dir * 146} 430)`}
+        fill="#f7f2ec"
+        stroke="#8f8378"
+        strokeWidth={1.2}
+        opacity={0.9}
+      />
+      {/* Wrist, running off the bottom of the frame. */}
+      <path
+        d={`M ${p(-90, 502)} C ${p(-60, 540)} ${p(56, 540)} ${p(86, 502)}`}
+        fill="none"
+        stroke="#8f8378"
+        strokeWidth={1.6}
+        opacity={0.45}
+      />
+    </g>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The board and the hands, for one lesson.
+ *
+ * `keys` are the keys the lesson teaches. Every finger with one of them
+ * reaches for it; the rest stay on their home key.
+ */
+export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
+  const lit = new Map<string, Cap>();
+  for (const raw of keys) {
+    const cap = capFor(raw);
+    if (cap) lit.set(cap.label, cap);
+  }
+
+  /** The key each finger is drawn reaching. */
+  const target = (zone: Exclude<FingerZone, 'thumb'>): Cap => {
+    for (const cap of lit.values()) if (cap.zone === zone) return cap;
+    return capFor(HOME_KEY[zone])!;
+  };
+
+  /* Only the rows in play: the home row is always drawn because that is where
+     the hands rest, and any row the lesson reaches into is drawn with it. */
+  const rowsShown = new Set<RowName>(['home']);
+  for (const cap of lit.values()) rowsShown.add(cap.row);
+  const visible = BOARD.filter((c) => rowsShown.has(c.row));
+
+  const reaching = [...FINGERS_LEFT, ...FINGERS_RIGHT].filter(
+    (z) => target(z).row !== 'home',
+  );
+
+  const top = Math.min(...visible.map((c) => c.y)) - 26;
+
   return (
     <figure className="card overflow-hidden">
       <figcaption className="border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
-        <span className="eyebrow">Where your fingers rest</span>
+        <span className="eyebrow">
+          {reaching.length > 0 ? 'Which finger reaches which key' : 'Where your fingers rest'}
+        </span>
       </figcaption>
 
       <div className="px-4 py-5">
         <svg
-          viewBox="0 0 712 350"
+          viewBox={`0 ${top} 740 ${560 - top}`}
           className="w-full"
           role="img"
-          aria-label="Both hands resting on the home row. Left little finger on A, ring on S, middle on D, index on F. Right index on J, middle on K, ring on L, little on semicolon. Both thumbs rest on the space bar."
+          aria-label={
+            reaching.length > 0
+              ? `Both hands on the home row. ${reaching
+                  .map((z) => `${FINGER_NAMES[z]} reaches ${target(z).label.toUpperCase()}`)
+                  .join('; ')}.`
+              : 'Both hands resting on the home row, seen from above. Left little finger on A, ring on S, middle on D, index on F; right index on J, middle on K, ring on L, little on the semicolon.'
+          }
         >
-          {HANDS.map((hand) => (
-            <g key={hand.side}>
-              {/* Fingers, drawn as capsules from the palm down to the key. */}
-              {hand.fingers.map((f) => (
-                <line
-                  key={f.zone}
-                  x1={hand.palmX + (f.keyX - hand.palmX) * 0.28}
-                  y1={104}
-                  x2={f.keyX}
-                  y2={212}
-                  stroke={FINGER_COLORS[f.zone]}
-                  strokeWidth={30}
-                  strokeLinecap="round"
+          <defs>
+            <linearGradient id="skin" x1="0" y1="1" x2="0.6" y2="0">
+              <stop offset="0%" stopColor="#f3ece4" />
+              <stop offset="55%" stopColor="#e6dbcf" />
+              <stop offset="100%" stopColor="#cfc1b2" />
+            </linearGradient>
+            <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#eeeae4" />
+            </linearGradient>
+          </defs>
+
+          {/* Keys. */}
+          {visible.map((cap) => {
+            const isLit = lit.has(cap.label);
+            const isAnchor = cap.label === 'f' || cap.label === 'j';
+            return (
+              <g key={`${cap.row}-${cap.label}`}>
+                <rect
+                  x={cap.x - KEY / 2}
+                  y={cap.y}
+                  width={KEY}
+                  height={KEY}
+                  rx={9}
+                  fill={isLit ? '#ffd11a' : 'url(#keycap)'}
+                  stroke="#1a1a1a"
+                  strokeWidth={isLit ? 3 : 2.2}
                 />
-              ))}
+                <text
+                  x={cap.x}
+                  y={cap.y + 35}
+                  textAnchor="middle"
+                  fontSize={20}
+                  fontWeight={700}
+                  fill="#1a1a1a"
+                >
+                  {cap.label.toUpperCase()}
+                </text>
+                {isAnchor && (
+                  <rect x={cap.x - 11} y={cap.y + 44} width={22} height={4} rx={2} fill="#1a1a1a" />
+                )}
+              </g>
+            );
+          })}
 
-              {/* Thumb, angled in towards the space bar. */}
-              <line
-                x1={hand.palmX + (hand.thumbX - hand.palmX) * 0.4}
-                y1={96}
-                x2={hand.thumbX}
-                y2={286}
-                stroke={FINGER_COLORS.rm}
-                strokeWidth={30}
-                strokeLinecap="round"
-                opacity={0.45}
-              />
-
-              {/* Palm. */}
-              <rect
-                x={hand.palmX - 78}
-                y={30}
-                width={156}
-                height={78}
-                rx={30}
-                fill="#f0f0ec"
-                stroke="#1a1a1a"
-                strokeWidth={2.5}
-              />
-              <text
-                x={hand.palmX}
-                y={75}
-                textAnchor="middle"
-                fontSize={19}
-                fontWeight={600}
-                fill="#1a1a1a"
-              >
-                {hand.side}
-              </text>
-            </g>
-          ))}
-
-          {/* The home row. */}
-          {KEYS.map((k) => (
-            <g key={k.label}>
-              <rect
-                x={k.x - 28}
-                y={212}
-                width={56}
-                height={56}
-                rx={8}
-                fill={k.anchor ? '#ffd11a' : '#ffffff'}
-                stroke="#1a1a1a"
-                strokeWidth={2.5}
-              />
-              <text
-                x={k.x}
-                y={248}
-                textAnchor="middle"
-                fontSize={22}
-                fontWeight={700}
-                fill="#1a1a1a"
-              >
-                {k.label}
-              </text>
-              {/* The raised bump you find without looking. */}
-              {k.anchor && (
-                <rect x={k.x - 11} y={256} width={22} height={4} rx={2} fill="#1a1a1a" />
-              )}
-              <text
-                x={k.x}
-                y={288}
-                textAnchor="middle"
-                fontSize={13}
-                fill="#1a1a1a"
-                opacity={0.6}
-              >
-                {k.name}
-              </text>
-            </g>
-          ))}
-
-          {/* Space bar, for both thumbs. */}
           <rect
-            x={220}
-            y={300}
-            width={272}
-            height={38}
-            rx={8}
-            fill="#ffffff"
+            x={SPACE.x}
+            y={SPACE.y}
+            width={SPACE.w}
+            height={SPACE.h}
+            rx={9}
+            fill="url(#keycap)"
             stroke="#1a1a1a"
-            strokeWidth={2.5}
+            strokeWidth={2.2}
           />
-          <text x={356} y={325} textAnchor="middle" fontSize={14} fill="#1a1a1a" opacity={0.6}>
+          <text x={SPACE.x + SPACE.w / 2} y={SPACE.y + 26} textAnchor="middle" fontSize={13} fill="#1a1a1a" opacity={0.55}>
             space — both thumbs
           </text>
+
+          {/* Contact shadow, so the hands sit on the board. */}
+          <ellipse cx={166} cy={400} rx={132} ry={96} fill="#1a1a1a" opacity={0.06} />
+          <ellipse cx={546} cy={400} rx={132} ry={96} fill="#1a1a1a" opacity={0.06} />
+
+          {/* Fingers first, then the palms over their bases. */}
+          {FINGERS_LEFT.map((z) => {
+            const t = target(z);
+            return <Finger key={z} zone={z} tx={t.x} ty={t.y + 26} />;
+          })}
+          {FINGERS_RIGHT.map((z) => {
+            const t = target(z);
+            return <Finger key={z} zone={z} tx={t.x} ty={t.y + 26} />;
+          })}
+          <Palm cx={166} dir={1} />
+          <Palm cx={546} dir={-1} />
         </svg>
 
         <p className="mt-3 text-[15px] leading-relaxed text-vast/70">
-          <strong>F</strong> and <strong>J</strong> have a raised bump. Find them
-          without looking, and your other fingers land in the right place.
+          {reaching.length > 0 ? (
+            <>
+              Reach from the home row and come straight back. <strong>F</strong> and{' '}
+              <strong>J</strong> have a raised bump, so you can find your place
+              again without looking.
+            </>
+          ) : (
+            <>
+              <strong>F</strong> and <strong>J</strong> have a raised bump. Find
+              them without looking and the rest land in place.
+            </>
+          )}
         </p>
+      </div>
+    </figure>
+  );
+}
+
+/**
+ * The keys this lesson teaches, and the finger for each.
+ *
+ * Named rather than colour-coded, so nothing has to be looked up in a legend.
+ */
+export function LessonKeys({ keys }: { keys: string[] }) {
+  const seen = new Set<string>();
+  const mapped = keys
+    .map((k) => ({ key: k.trim(), zone: fingerFor(k) }))
+    .filter((k): k is { key: string; zone: FingerZone } => {
+      if (!k.zone || !k.key) return false;
+      const id = k.key.toLowerCase();
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+  if (mapped.length === 0) return null;
+
+  const hands = [
+    { side: 'Left hand', items: mapped.filter((m) => HAND[m.zone] === 'left') },
+    { side: 'Right hand', items: mapped.filter((m) => HAND[m.zone] === 'right') },
+  ].filter((h) => h.items.length > 0);
+
+  return (
+    <figure className="card overflow-hidden">
+      <figcaption className="border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
+        <span className="eyebrow">This lesson&rsquo;s keys</span>
+      </figcaption>
+
+      <div className="space-y-4 px-4 py-4">
+        {hands.map((hand) => (
+          <div key={hand.side}>
+            <p className="eyebrow">{hand.side}</p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {hand.items.map((m) => (
+                <li key={m.key} className="flex items-center gap-2 border-2 border-vast bg-accent px-2.5 py-1.5">
+                  <span className="tnum text-base font-bold uppercase">{m.key}</span>
+                  <span className="text-[13px] text-vast/70">{FINGER_NAMES[m.zone]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </figure>
   );
@@ -198,52 +475,69 @@ export function PostureSideView() {
         <span className="eyebrow">How to sit</span>
       </figcaption>
 
-      <div className="grid gap-4 px-4 py-5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-center">
+      <div className="px-4 py-5">
         <svg
-          viewBox="0 0 420 300"
+          viewBox="0 0 470 350"
           className="w-full"
           role="img"
           aria-label="Side view of correct seating: screen at eye level, back straight against the chair, elbows at a right angle, wrists floating above the desk."
         >
-          {/* Desk. */}
-          <rect x={150} y={186} width={250} height={9} rx={3} fill="#1a1a1a" />
-          <rect x={370} y={195} width={8} height={90} fill="#1a1a1a" opacity={0.35} />
+          <defs>
+            <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#e9e3da" />
+              <stop offset="100%" stopColor="#c8bcae" />
+            </linearGradient>
+            <linearGradient id="skinSide" x1="0" y1="0" x2="0.6" y2="1">
+              <stop offset="0%" stopColor="#f3ece4" />
+              <stop offset="100%" stopColor="#d8cabc" />
+            </linearGradient>
+          </defs>
 
-          {/* Screen, at eye level. */}
-          <rect x={286} y={86} width={104} height={78} rx={6} fill="#ffffff" stroke="#1a1a1a" strokeWidth={3} />
-          <rect x={330} y={164} width={16} height={22} fill="#1a1a1a" opacity={0.35} />
+          <line x1={20} y1={318} x2={450} y2={318} stroke="#1a1a1a" strokeWidth={2} opacity={0.25} />
 
           {/* Chair. */}
-          <rect x={54} y={188} width={92} height={9} rx={3} fill="#1a1a1a" />
-          <rect x={54} y={96} width={9} height={94} rx={3} fill="#1a1a1a" />
-          <rect x={92} y={197} width={8} height={88} fill="#1a1a1a" opacity={0.35} />
+          <path d="M 58 214 h 108 a 6 6 0 0 1 0 12 H 58 a 6 6 0 0 1 0 -12 Z" fill="#1a1a1a" />
+          <path d="M 56 108 h 14 a 7 7 0 0 1 7 7 v 96 h -28 v -96 a 7 7 0 0 1 7 -7 Z" fill="#1a1a1a" />
+          <rect x={104} y={226} width={9} height={72} fill="#1a1a1a" opacity={0.75} />
+          <path d="M 76 300 h 66 a 5 5 0 0 1 0 10 H 76 a 5 5 0 0 1 0 -10 Z" fill="#1a1a1a" opacity={0.75} />
 
-          {/* Head. */}
-          <circle cx={104} cy={74} r={25} fill="#f0f0ec" stroke="#1a1a1a" strokeWidth={3} />
-          {/* Torso, straight and against the chair back. */}
-          <line x1={104} y1={99} x2={104} y2={186} stroke="#1a1a1a" strokeWidth={16} strokeLinecap="round" />
-          {/* Upper arm down, forearm level: a right angle at the elbow. */}
-          <line x1={112} y1={120} x2={112} y2={166} stroke="#8a8a84" strokeWidth={13} strokeLinecap="round" />
-          <line x1={112} y1={166} x2={222} y2={166} stroke="#8a8a84" strokeWidth={13} strokeLinecap="round" />
-          {/* Thigh and shin. */}
-          <line x1={104} y1={186} x2={168} y2={186} stroke="#1a1a1a" strokeWidth={14} strokeLinecap="round" />
-          <line x1={168} y1={186} x2={168} y2={272} stroke="#1a1a1a" strokeWidth={14} strokeLinecap="round" />
-          <line x1={168} y1={272} x2={196} y2={272} stroke="#1a1a1a" strokeWidth={12} strokeLinecap="round" />
+          {/* Desk. */}
+          <path d="M 176 200 h 250 a 5 5 0 0 1 0 10 H 176 a 5 5 0 0 1 0 -10 Z" fill="#1a1a1a" />
+          <rect x={410} y={210} width={9} height={108} fill="#1a1a1a" opacity={0.7} />
 
-          {/* Keyboard, with the wrist above it rather than on the desk. */}
-          <rect x={214} y={176} width={78} height={12} rx={3} fill="#ffffff" stroke="#1a1a1a" strokeWidth={2.5} />
+          {/* Monitor, its top edge on the eye line. */}
+          <rect x={306} y={82} width={116} height={86} rx={7} fill="#ffffff" stroke="#1a1a1a" strokeWidth={3} />
+          <rect x={318} y={94} width={92} height={62} rx={3} fill="#1a1a1a" opacity={0.08} />
+          <path d="M 356 168 h 16 v 22 h 22 v 10 h -60 v -10 h 22 Z" fill="#1a1a1a" opacity={0.7} />
 
-          {/* Eye line to the top of the screen. */}
-          <line x1={129} y1={74} x2={286} y2={100} stroke="#1a1a1a" strokeWidth={2} strokeDasharray="6 6" opacity={0.45} />
+          {/* Thigh, lower leg, foot. */}
+          <path d="M 116 200 C 140 194 168 194 186 200 L 186 216 C 164 222 136 222 116 216 Z" fill="url(#body)" stroke="#1a1a1a" strokeWidth={2} />
+          <path d="M 168 214 C 182 214 190 222 190 236 L 192 292 C 192 302 182 306 174 304 C 166 302 162 296 163 288 L 160 234 C 159 222 160 214 168 214 Z" fill="url(#body)" stroke="#1a1a1a" strokeWidth={2} />
+          <path d="M 162 302 C 176 300 200 304 210 310 Q 214 318 204 318 L 166 318 C 158 318 156 306 162 302 Z" fill="#1a1a1a" />
 
-          {/* The right angle at the elbow, marked. */}
-          <path d="M112 148 L130 148 L130 166" fill="none" stroke="#ffd11a" strokeWidth={4} />
+          {/* Torso, flat against the chair back. */}
+          <path d="M 92 108 C 88 148 88 180 92 202 C 112 210 142 210 154 202 C 152 176 146 140 138 116 C 132 100 104 96 92 108 Z" fill="url(#body)" stroke="#1a1a1a" strokeWidth={2.2} />
+
+          {/* Upper arm down, forearm level — the right angle the lesson is about. */}
+          <path d="M 122 122 C 136 124 142 136 141 150 L 140 178 C 139 190 128 194 120 191 C 112 188 110 180 111 172 L 112 136 C 112 126 114 121 122 122 Z" fill="url(#body)" stroke="#1a1a1a" strokeWidth={2} />
+          <path d="M 116 176 C 140 170 210 170 244 176 C 252 178 254 186 250 190 C 244 195 148 196 118 192 C 110 190 109 178 116 176 Z" fill="url(#body)" stroke="#1a1a1a" strokeWidth={2} />
+          <path d="M 246 176 C 262 174 278 178 284 184 C 288 190 284 195 276 195 L 250 194 C 242 192 240 180 246 176 Z" fill="url(#skinSide)" stroke="#1a1a1a" strokeWidth={2} />
+
+          {/* Neck, head, hair. */}
+          <path d="M 104 92 h 22 v 20 h -22 Z" fill="url(#skinSide)" stroke="#1a1a1a" strokeWidth={2} />
+          <path d="M 116 42 C 138 42 148 58 147 74 C 146 88 138 98 124 100 C 108 102 96 92 94 76 C 92 56 100 42 116 42 Z" fill="url(#skinSide)" stroke="#1a1a1a" strokeWidth={2.2} />
+          <path d="M 116 42 C 140 42 149 58 147 74 C 143 66 136 60 124 58 C 110 56 100 62 95 72 C 92 54 100 42 116 42 Z" fill="#1a1a1a" />
+
+          <path d="M 232 188 h 82 a 4 4 0 0 1 0 12 h -82 a 4 4 0 0 1 0 -12 Z" fill="#ffffff" stroke="#1a1a1a" strokeWidth={2} />
+
+          <line x1={146} y1={72} x2={306} y2={88} stroke="#1a1a1a" strokeWidth={2} strokeDasharray="7 7" opacity={0.4} />
+          <path d="M 118 156 L 136 156 L 136 174" fill="none" stroke="#ffd11a" strokeWidth={4} />
 
           {[
-            { n: '1', x: 396, y: 82 },
-            { n: '2', x: 78, y: 132 },
-            { n: '3', x: 96, y: 176 },
-            { n: '4', x: 246, y: 152 },
+            { n: '1', x: 436, y: 78 },
+            { n: '2', x: 68, y: 152 },
+            { n: '3', x: 100, y: 168 },
+            { n: '4', x: 268, y: 154 },
           ].map((m) => (
             <g key={m.n}>
               <circle cx={m.x} cy={m.y} r={13} fill="#ffd11a" stroke="#1a1a1a" strokeWidth={2.5} />
@@ -254,7 +548,7 @@ export function PostureSideView() {
           ))}
         </svg>
 
-        <ol className="space-y-2.5">
+        <ol className="mt-3 grid gap-2 sm:grid-cols-2">
           {POSTURE_NOTES.map((note) => (
             <li key={note.n} className="flex items-start gap-2.5 text-[15px] leading-snug">
               <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-vast bg-accent text-[13px] font-bold">

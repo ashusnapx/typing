@@ -17,7 +17,7 @@ import KeyboardSVG from '@/components/learn/keyboard-svg';
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
-import { HomeRowHands, PostureSideView } from '@/components/learn/hand-guide';
+import { KeyboardHands, PostureSideView, LessonKeys, lessonKeysFor } from '@/components/learn/hand-guide';
 
 import {
   Check, CheckCircle2, XCircle, RotateCcw,
@@ -248,11 +248,15 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   /* ══════════════════════════════════════════════════════ ready — expressive */
   if (phase === 'ready') {
     const isHindi = lessonKeys.some(k => k.includes('hindi') || k === 'hi' || lesson.id.includes('hindi'));
-    /* Hand position is worth showing on any lesson that types letters, and is
-       the entire point of the posture and anchor lessons. */
+    /* Every lesson shows where the hands go, and which fingers this lesson
+       needs. Hand position is not a topic that belongs to one lesson: it is
+       the thing being trained in all of them, and a learner meeting a new key
+       should never have to work out which finger reaches it. */
     const showsPosture = lesson.id === 's0-posture';
-    const showsHands =
-      !isMouseLesson && !isHindi && (showsPosture || lesson.id.startsWith('s0-') || lesson.drillType === 'letters');
+    const showsHands = !isMouseLesson && !isHindi;
+    const lessonKeyList = lessonKeysFor(lesson);
+    const showsLessonKeys = showsHands && lessonKeyList.length > 0;
+    const hasFigures = showsPosture || showsHands || showsLessonKeys;
     const facts = [
       ...(isMouseLesson ? [] : [
         { label: 'Target speed', value: lesson.targetWpm ? `${lesson.targetWpm} WPM` : 'No target' },
@@ -263,12 +267,20 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     ];
 
     return (
-      <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
+      /* Two columns rather than one long scroll.
+      
+         Reading the instruction, then scrolling past it to see the hands, then
+         scrolling back to start, is the wrong shape for a lesson whose whole
+         point is "hold your hands like this". What to do sits on the left and
+         what it looks like sits beside it, so they are read together. */
+      <div className={`mx-auto w-full px-5 py-8 sm:px-8 sm:py-12 ${hasFigures ? 'max-w-6xl' : 'max-w-3xl'}`}>
         <button onClick={() => router.push(ROUTES.learn)} className="btn btn-ghost btn-sm -ml-3 mb-8">
           <ArrowLeft className="h-4 w-4" strokeWidth={2} />
           All lessons
         </button>
 
+        <div className={hasFigures ? 'grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start' : ''}>
+        <div className="min-w-0">
         <p className="eyebrow">{levelName}</p>
         <h1 className="mt-3 text-4xl sm:text-5xl">{lesson.title}</h1>
 
@@ -328,25 +340,6 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
         )}
 
-        {/* Where the hands go, drawn.
-        
-            The posture lesson described the sitting position in a sentence and
-            showed nothing, which is no use to the reader it is written for —
-            someone who has not used a keyboard properly before. Every
-            letter lesson gets the home-row hands; the posture lesson gets the
-            side view as well, because that is the whole lesson. */}
-        {showsPosture && (
-          <div className="mt-4">
-            <PostureSideView />
-          </div>
-        )}
-
-        {showsHands && (
-          <div className="mt-4">
-            <HomeRowHands />
-          </div>
-        )}
-
         {isHindi && <div className="mt-4"><HindiKeyboardGuide /></div>}
 
         <button onClick={startLesson} className="btn btn-primary btn-lg mt-8 w-full">
@@ -355,6 +348,18 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         <p className="mt-4 text-center text-base text-vast/50">
           {lesson.psychTip}
         </p>
+        </div>
+
+        {/* Where the hands go, drawn — the column a learner looks at while
+            they read the column beside it. */}
+        {hasFigures && (
+          <div className="min-w-0 space-y-4 lg:sticky lg:top-6">
+            {showsPosture && <PostureSideView />}
+            {showsHands && <KeyboardHands keys={lessonKeyList} />}
+            {showsLessonKeys && <LessonKeys keys={lessonKeyList} />}
+          </div>
+        )}
+        </div>
       </div>
     );
   }

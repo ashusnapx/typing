@@ -46,16 +46,37 @@ export function getQualificationColor(probability: number): string {
   return 'text-red-600';
 }
 
-// Keep in sync with any other copy of LEVEL_NAMES
+/**
+ * The road, and what each stop on it is called.
+ *
+ * These were Rookie, Novice, Amateur, Expert, Candidate Master, Master,
+ * Grandmaster and Goated — chess and gaming words, borrowed from products
+ * whose users are not preparing for a government examination. "Rookie" tells a
+ * candidate they are nobody, and "Goated" is not a thing anyone says about
+ * clearing a skill test.
+ *
+ * Every rung is now something a typist can recognise in themselves and be
+ * pleased about: finding the home row, holding a rhythm, reaching exam pace,
+ * a clean sheet inside the error cap, ready for a mock, ready for the real
+ * thing. The last two are the words this exam is actually won in.
+ *
+ * The summit moved from 16,000 to 40,000, and the award per attempt from as
+ * much as 500 down to at most 100 — see lib/exam-xp.ts. The old pair could be
+ * walked end to end in a single day's practice, which is the surest way to
+ * make a rank worthless to the person holding it. This one is about six
+ * months of steady work, which is roughly the length of a preparation.
+ */
 export const LEVEL_NAMES = [
-  { name: 'Rookie', minXp: 0 },
-  { name: 'Novice', minXp: 250 },
-  { name: 'Amateur', minXp: 750 },
-  { name: 'Expert', minXp: 2000 },
-  { name: 'Candidate Master', minXp: 4500 },
-  { name: 'Master', minXp: 7500 },
-  { name: 'Grandmaster', minXp: 11000 },
-  { name: 'Goated', minXp: 16000 },
+  { name: 'First Keys', minXp: 0, blurb: 'You have started. That is the hard part.' },
+  { name: 'Home Row', minXp: 300, blurb: 'Your fingers know where to come back to.' },
+  { name: 'Steady Hands', minXp: 900, blurb: 'The shaking has stopped.' },
+  { name: 'Finding Rhythm', minXp: 2000, blurb: 'You are typing, not hunting.' },
+  { name: 'Exam Pace', minXp: 4000, blurb: 'You are moving at the speed the paper asks for.' },
+  { name: 'Clean Sheet', minXp: 7000, blurb: 'Inside the error cap, again and again.' },
+  { name: 'Mock Ready', minXp: 11000, blurb: 'You can sit a full paper without falling apart.' },
+  { name: 'Skill Test Ready', minXp: 17000, blurb: 'Speed and accuracy, both, on demand.' },
+  { name: 'Merit List', minXp: 26000, blurb: 'Typing is no longer what stands between you and the post.' },
+  { name: 'Topper', minXp: 40000, blurb: 'Few get here. You did.' },
 ] as const;
 
 export function getLevelFromXP(xp: number): string {

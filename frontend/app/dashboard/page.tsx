@@ -683,29 +683,84 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <ul className="mt-6 space-y-1 border-t-2 border-vast/10 pt-5">
-                {LEVEL_NAMES.map((l, i) => {
-                  const unlocked = xp >= l.minXp;
-                  return (
-                    <li
-                      key={l.name}
-                      aria-current={i === rankIdx ? 'true' : undefined}
-                      className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm ${
-                        i === rankIdx
-                          ? 'border-2 border-vast bg-dawn font-semibold'
-                          : unlocked
-                            ? 'text-vast/70'
-                            : 'text-vast/35'
-                      }`}
-                    >
-                      <span>{l.name}</span>
-                      <span className="tnum text-xs">
-                        {l.minXp === 0 ? 'Start' : `${l.minXp.toLocaleString()} XP`}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              {/* The road.
+              
+                  This was a flat list of eight rows, which reads as a settings
+                  screen rather than as somewhere you are going. It climbs now:
+                  the summit at the top, where you are standing marked on it,
+                  and the ground you have already covered filled in behind you.
+                  A candidate should be able to see the height. */}
+              <div className="mt-7 border-t-2 border-vast/10 pt-6">
+                <p className="eyebrow">The road</p>
+                <ol className="relative mt-4">
+                  {/* The road itself, running the height of the list. */}
+                  <span
+                    aria-hidden
+                    className="absolute bottom-3 left-[11px] top-3 w-1 rounded-full bg-vast/12"
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute left-[11px] w-1 rounded-full bg-accent transition-[height] duration-700"
+                    style={{
+                      bottom: '0.75rem',
+                      height: `calc(${(rankIdx / (LEVEL_NAMES.length - 1)) * 100}% - 1.5rem)`,
+                    }}
+                  />
+
+                  {[...LEVEL_NAMES].reverse().map((l, i) => {
+                    const idx = LEVEL_NAMES.length - 1 - i;
+                    const here = idx === rankIdx;
+                    const behind = idx < rankIdx;
+                    const summit = idx === LEVEL_NAMES.length - 1;
+                    return (
+                      <li
+                        key={l.name}
+                        aria-current={here ? 'step' : undefined}
+                        className="relative flex gap-4 pb-5 last:pb-0"
+                      >
+                        <span
+                          aria-hidden
+                          className={`relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-vast ${
+                            here
+                              ? 'bg-accent'
+                              : behind
+                                ? 'bg-vast'
+                                : 'bg-lumen'
+                          }`}
+                        >
+                          {behind && <Check className="h-3 w-3 text-white" strokeWidth={4} />}
+                          {here && <span className="h-2 w-2 rounded-full bg-vast" />}
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-baseline gap-x-2">
+                            <span
+                              className={`text-base ${
+                                here ? 'font-bold' : behind ? 'font-medium' : 'text-vast/40'
+                              }`}
+                            >
+                              {l.name}
+                            </span>
+                            {summit && (
+                              <span className="chip chip-lilac text-[11px]">the summit</span>
+                            )}
+                            <span
+                              className={`tnum ml-auto text-xs ${here || behind ? 'text-vast/55' : 'text-vast/35'}`}
+                            >
+                              {l.minXp === 0 ? 'Start' : `${l.minXp.toLocaleString('en-IN')} XP`}
+                            </span>
+                          </span>
+                          {here && (
+                            <span className="mt-0.5 block text-[13px] leading-snug text-vast/65">
+                              {l.blurb}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             </div>
           </div>
         );

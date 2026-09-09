@@ -12,6 +12,7 @@ import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
 import { TEST_MODES } from '@/types';
 import { summariseKeystrokes, type KeystrokeSummary } from '@/lib/keystroke-summary';
+import { xpForAttempt } from '@/lib/exam-xp';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
 import { dashboardCacheKey } from './user';
@@ -195,35 +196,17 @@ export const testsRouter = router({
             })
             .returning();
 
-          /* XP is bounded, and bounded on purpose.
-          
-             It used to be netWpm * 10 * accuracy, with nothing capping either
-             input. A submission reporting an implausibly short elapsed time —
-             a paste, a scripted client, a clock that misbehaved — produced a
-             speed no human sustains and an award to match: one attempt was
-             worth 7,482 XP, which is more than the top rank costs. Since XP
-             drives the leaderboard, that is an integrity problem and not just
-             a cosmetic one.
-          
-             The speed used for the award is clamped to something a person can
-             actually type, and the award itself to what a perfect run of the
-             fastest post is worth. The stored speed is left alone: the report
-             should still show what was measured, and the completion rule
-             already stops a short burst from counting as a pass. */
-          const MAX_HUMAN_WPM = 200;
-          const MAX_XP_PER_TEST = 500;
-          const scoredWpm = Math.min(
-            MAX_HUMAN_WPM,
-            Math.max(0, sscNetWpm ?? input.netWpm),
-          );
-          const scoredAccuracy = Math.min(
-            100,
-            Math.max(0, sscAccuracy ?? input.accuracy),
-          );
-          const xpEarned = Math.min(
-            MAX_XP_PER_TEST,
-            Math.round(scoredWpm * 10 * (scoredAccuracy / 100)),
-          );
+          /* What the attempt was worth, by the exam's own measures rather
+             than by raw speed. See lib/exam-xp.ts — the old rule paid up to
+             500 for one good attempt against a ladder that ended at 16,000,
+             so the whole thing could be walked in a day, and it paid more for
+             typing fast than for clearing the bar. */
+          const xpEarned = xpForAttempt({
+            mode: input.mode,
+            netWpm: sscNetWpm ?? input.netWpm,
+            errorPercentage: report?.sscErrorPercentage ?? Math.max(0, 100 - input.accuracy),
+            isQualified,
+          });
 
           // Increment in SQL rather than select-then-set: two attempts landing
           // together would each read the same starting XP and the second write

@@ -6,7 +6,7 @@ import { keystrokeSummaries } from '../../db/schema/keystroke-summaries';
 import { users } from '../../db/schema/users';
 import { passages } from '../../db/schema/passages';
 import { LeaderboardService } from '../../redis/leaderboard-service';
-import { errorEngine } from '../../services/error-engine';
+import { errorEngine, type ErrorReport } from '../../services/error-engine';
 import { analyticsService } from '../../services/analytics';
 import { qualificationPredictor } from '../../services/qualification-predictor';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -389,11 +389,24 @@ export const testsRouter = router({
         });
       }
 
-      const isQualified = errorEngine.isQualified(
-        test.grossWpm || 0,
-        test.accuracy || 0,
-        test.mode,
-      );
+      /* The verdict stored with the attempt, judged against the bar for the
+         post it was sat for and in the language it was sat in.
+      
+         This used to be recomputed here through the legacy `isQualified`,
+         which knows three modes, hardcodes 35 WPM and 95% accuracy for
+         everything else, and derives its error percentage with a guard that
+         turns a 0%-accurate attempt into a report of no errors at all. So the
+         analysis page could show "Qualified" on an attempt the dashboard and
+         the result screen both called a fail. Older rows, saved before the
+         verdict was written, fall back to judging the stored figures against
+         the right bar rather than the wrong one. */
+      const report = {
+        sscNetWpm: test.netWpm || 0,
+        sscErrorPercentage:
+          test.errorPercentage ?? Math.max(0, 100 - (test.accuracy || 0)),
+      } as ErrorReport;
+      const isQualified =
+        test.isQualified ?? errorEngine.isQualifiedFromReport(report, test.mode);
 
       return {
         testId: test.id,
@@ -409,6 +422,10 @@ export const testsRouter = router({
         trustScore: test.trustScore,
         createdAt: test.createdAt,
         isQualified,
+        // The stored figure, not one re-derived from a rounded accuracy.
+        sscErrorPercentage:
+          test.errorPercentage ?? Math.max(0, 100 - (test.accuracy || 0)),
+        durationSeconds: test.durationSeconds,
         keyDepressionCount: test.keyDepressionCount || 0,
         timeTakenSeconds: test.timeTakenSeconds || 0,
         omissionErrors: test.omissionErrors || 0,

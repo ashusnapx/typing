@@ -1,38 +1,74 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTestResult, useTestReplay } from '@/lib/queries';
-import { getExamSpecs } from '@/lib/exam-config';
+import { getExamBar, isHindiMode } from '@/lib/exam-config';
+import { summariseAttempt } from '@/lib/attempt-summary';
+import { diagnose } from '@/lib/exam-diagnosis';
 import { getModeDisplayName } from '@/lib/utils';
 import { FullPageLoader } from '@/components/ui/loading-logo';
 import PassageDiffView, { getWordTiming, formatMs } from '@/components/exam/passage-diff';
-import { CSS } from '@/lib/config';
-import {
-  CheckCircle2, XCircle, ArrowLeft, Clock, Gauge, Target,
-  AlertTriangle, Brain, BarChart3, Zap, Info,
-} from 'lucide-react';
+import { MistakeBreakdown, formatCost } from '@/components/exam/mistake-breakdown';
+import { ArrowLeft, ArrowRight, Check, X, AlertTriangle } from 'lucide-react';
 
-function Tooltip({ text }: { text: string }) {
+/** The same four the result screen offers, and the same storage key, so a
+ *  candidate picks their category once. */
+const CATEGORIES = [
+  { key: 'ur' as const, label: 'UR' },
+  { key: 'obcEws' as const, label: 'OBC / EWS' },
+  { key: 'scSt' as const, label: 'SC / ST' },
+  { key: 'pwbd' as const, label: 'PwBD' },
+];
+type CategoryKey = (typeof CATEGORIES)[number]['key'];
+// The same key the result screen writes, so the category a candidate picks
+// after a test is still theirs when they open the report on it.
+const CATEGORY_STORAGE_KEY = 'tm-category-v2';
+
+/** A bar with the mark on it, because "35 needed, you did 31" is the whole
+ *  exam and a candidate should not have to work it out from two numbers. */
+function BarRow({
+  label,
+  youLabel,
+  needLabel,
+  fraction,
+  met,
+  note,
+}: {
+  label: string;
+  youLabel: string;
+  needLabel: string;
+  fraction: number;
+  met: boolean;
+  note: string;
+}) {
+  const pct = Math.max(0, Math.min(100, fraction * 100));
   return (
-    <span className="group relative inline-flex items-center ml-1.5">
-      <Info className="w-3.5 h-3.5 text-pencil/30 hover:text-pencil/70 transition-colors cursor-help" strokeWidth={2.5} />
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-pencil text-paper text-xs font-hand rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed">
-        {text}
-      </span>
-    </span>
+    <div className="py-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-sm font-bold">{label}</span>
+        <span className={`chip ${met ? 'chip-ok' : 'chip-err'} text-[11px]`}>
+          {met ? 'met' : 'not met'}
+        </span>
+        <span className="tnum ml-auto text-sm">
+          <strong>{youLabel}</strong>
+          <span className="text-vast/50"> / {needLabel} needed</span>
+        </span>
+      </div>
+      <div
+        className="mt-2 h-2.5 w-full border-2 border-vast/20 bg-lumen"
+        role="img"
+        aria-label={`${youLabel} of ${needLabel} needed`}
+      >
+        <div
+          className={`h-full ${met ? 'bg-ok' : 'bg-err'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-[13px] text-vast/60">{note}</p>
+    </div>
   );
-}
-
-interface WordAnalysis {
-  index: number;
-  original: string;
-  typed: string;
-  isCorrect: boolean;
-  errorType: string | null;
-  similarity: number;
-  wordDurationMs: number;
-  pauseBeforeMs: number;
 }
 
 export default function AnalysisPage() {
@@ -40,369 +76,319 @@ export default function AnalysisPage() {
   const router = useRouter();
   const testId = params.testId as string;
 
-  const { data: testData, isLoading: testLoading, error: testError } = useTestResult(testId);
+  const { data: testData, isLoading, error } = useTestResult(testId);
   const { data: replay } = useTestReplay(testId);
+
+  const [category, setCategory] = useState<CategoryKey>('ur');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CATEGORY_STORAGE_KEY) as CategoryKey | null;
+      if (saved && CATEGORIES.some((c) => c.key === saved)) setCategory(saved);
+    } catch {
+      /* private mode */
+    }
+  }, []);
+  const chooseCategory = (key: CategoryKey) => {
+    setCategory(key);
+    try {
+      localStorage.setItem(CATEGORY_STORAGE_KEY, key);
+    } catch {
+      /* private mode */
+    }
+  };
 
   const originalContent = testData?.original_content || replay?.original_content || '';
   const typedContent = testData?.typed_content || replay?.typed_content || '';
 
-  const wordAnalyses: WordAnalysis[] = useMemo(() => {
-    if (!originalContent || !typedContent) return [];
-    const replayEvents = replay?.events;
-    return getWordTiming(originalContent, typedContent, replayEvents);
+  // The same call the scoring uses, so nothing on this page can contradict the
+  // marks beside it.
+  const diagnosis = useMemo(
+    () => diagnose(originalContent, typedContent),
+    [originalContent, typedContent],
+  );
+
+  const wordAnalyses = useMemo(() => {
+    if (!originalContent || !typedContent || !replay?.events?.length) return [];
+    return getWordTiming(originalContent, typedContent, replay.events);
   }, [originalContent, typedContent, replay]);
 
-  if (testLoading) return <FullPageLoader />;
+  if (isLoading) return <FullPageLoader />;
 
-  if (testError) {
+  if (error || !testData) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-8 max-w-md text-center`}>
-          <AlertTriangle className="w-12 h-12 text-accent mx-auto mb-4" strokeWidth={2.5} />
-          <h2 className="text-xl font-bold font-marker text-pencil mb-2">Test Not Found</h2>
-          <p className="text-pencil/60 font-hand mb-6">
-            {testError instanceof Error ? testError.message : 'Test not found. It may have been deleted or the link is invalid.'}
+      <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
+        <div className="card w-full p-8 text-center">
+          <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-err" strokeWidth={2.5} />
+          <h1 className="text-xl font-bold">We could not find that test</h1>
+          <p className="mt-2 text-sm text-vast/60">
+            {error instanceof Error ? error.message : 'The link may be wrong, or the attempt may have been removed.'}
           </p>
-          <button onClick={() => router.push('/dashboard')}
-            className={`px-6 py-2 bg-pencil text-white font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-pencil/90 transition-colors`}
-            style={{ borderRadius: CSS.radii.sm }}>
-            Back to Dashboard
-          </button>
+          <Link href="/dashboard" className="btn btn-ink btn-md mt-6 inline-flex">
+            Back to dashboard
+          </Link>
         </div>
-      </div>
+      </main>
     );
   }
 
-  if (!testData) return null;
-
   const mode = testData.mode || '';
-  const specs = getExamSpecs(mode);
-  const sscNetWpm = testData.ssc_net_wpm || testData.net_wpm || testData.wpm || 0;
-  const sscAccuracy = testData.ssc_accuracy || testData.accuracy || 0;
-  const fullMistakes = testData.full_mistakes ?? 0;
-  const halfMistakes = testData.half_mistakes ?? 0;
-  const totalErrors = testData.total_errors ?? 0;
+  const bar = getExamBar(mode, category);
+  const netWpm = testData.ssc_net_wpm ?? testData.net_wpm ?? 0;
+  const errorPct = testData.ssc_error_percentage ?? 0;
   const kd = testData.key_depression_count ?? 0;
-  const errorPct = testData.ssc_error_percentage ?? (sscAccuracy > 0 ? 100 - sscAccuracy : 0);
+  const seconds = testData.time_taken_seconds || testData.duration_seconds || 0;
+  const summary = summariseAttempt(
+    {
+      mode,
+      isQualified: testData.is_qualified === true,
+      netWpm,
+      errorPercentage: errorPct,
+      keyDepressions: kd,
+      secondsTyped: seconds,
+    },
+    category,
+  );
+  const { qualified, speedMet, errorsMet, kdph, errorCap } = summary;
 
-  const kdph = specs && testData.time_taken_seconds
-    ? Math.round((kd / (testData.time_taken_seconds / 60)) * 60)
-    : 0;
+  const typedWords = typedContent.trim() ? typedContent.trim().split(/\s+/).length : 0;
+  const passageWords = originalContent.trim() ? originalContent.trim().split(/\s+/).length : 0;
 
-  const typedWordCount = typedContent?.trim() ? typedContent.trim().split(/\s+/).length : 0;
-  const originalWordCount = originalContent?.trim() ? originalContent.trim().split(/\s+/).length : 1;
-  const passageCompletionPct = Math.min(100, Math.round((typedWordCount / originalWordCount) * 100));
+  const grossWords = kd / 5;
+  /* The marks that were actually taken off, as stored with the attempt — the
+     same figure the error percentage, the verdict and the dashboard all rest
+     on. The breakdown below explains where they went; it must not quietly
+     total to something else. */
+  const mistakes =
+    (testData.full_mistakes ?? 0) + (testData.half_mistakes ?? 0) / 2 ||
+    diagnosis.totalMistakes;
 
-  const qualified = specs?.qualifyingNature === 'speed_wpm'
-    ? sscNetWpm >= (specs?.englishSpeedWpm || 35) && errorPct <= (specs?.errorAllowanceGeneral ?? 20) && passageCompletionPct >= 50
-    : kdph >= (specs?.englishKdph || 8000) && errorPct <= (specs?.errorAllowanceGeneral ?? 20) && passageCompletionPct >= 50;
-
-  const categories = [
-    { cat: 'UR', label: 'Unreserved', maxErrorPct: specs?.errorAllowanceGeneral ?? 20 },
-    { cat: 'OBC', label: 'OBC / EWS', maxErrorPct: specs?.errorAllowanceObcEws ?? 25 },
-    { cat: 'SC', label: 'SC / ST', maxErrorPct: specs?.errorAllowanceScSt ?? 30 },
-  ];
+  const hesitations = wordAnalyses
+    .filter((w) => w.pauseBeforeMs > 700 && w.original)
+    .sort((a, b) => b.pauseBeforeMs - a.pauseBeforeMs)
+    .slice(0, 8);
 
   const dateStr = testData.date || testData.completed_at || '';
-  const slowWords = wordAnalyses
-    .filter(w => w.pauseBeforeMs > 500 && w.original)
-    .sort((a, b) => b.pauseBeforeMs - a.pauseBeforeMs)
-    .slice(0, 15);
-
-  const errorWords = wordAnalyses.filter(w => !w.isCorrect && w.original);
 
   return (
-    <div className="min-h-screen bg-paper">
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* Back button */}
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm font-hand text-pencil/50 hover:text-pencil mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4" strokeWidth={2.5} /> Back
-        </button>
+    <main className="mx-auto max-w-3xl px-4 py-6">
+      <button
+        onClick={() => router.back()}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-vast/50 transition-colors hover:text-vast"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={2.5} /> Back
+      </button>
 
-        {/* Header Card */}
-        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} mb-6`}>
-          <div className="px-6 py-5 border-b-2 border-pencil/20">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h1 className="text-xl font-bold font-marker text-pencil">
-                  {getModeDisplayName(mode) || 'Typing Test'} — Analysis Report
-                </h1>
-                <p className="text-sm font-hand text-pencil/50 mt-1">
-                  {dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
-                  {testData.time_taken_seconds ? `  •  ${Math.round(testData.time_taken_seconds)}s` : ''}
-                </p>
-              </div>
-              <div className={`flex items-center gap-2 px-4 py-2 border-2 ${qualified ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-accent text-accent'}`}
-                style={{ borderRadius: CSS.radii.sm }}>
-                {qualified
-                  ? <><CheckCircle2 className="w-5 h-5" strokeWidth={3} /><span className="font-bold font-hand">Qualified</span></>
-                  : <><XCircle className="w-5 h-5" strokeWidth={3} /><span className="font-bold font-hand">Not Qualified</span></>}
-              </div>
-            </div>
+      {/* ─────────────────────────────────────────────────────── the verdict */}
+      <section className="card mb-5 p-5 sm:p-6">
+        <div className="flex flex-wrap items-start gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+              qualified ? 'bg-ok' : 'bg-err'
+            } text-cream`}
+          >
+            {qualified ? <Check className="h-6 w-6" strokeWidth={3} /> : <X className="h-6 w-6" strokeWidth={3} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold sm:text-2xl">
+              {qualified ? 'Qualified' : 'Not qualified'}
+            </h1>
+            <p className="mt-1 text-sm text-vast/70">{summary.verdict}</p>
+            <p className="mt-1 text-[13px] text-vast/45">
+              {getModeDisplayName(mode)}
+              {dateStr
+                ? ` · ${new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                : ''}
+              {seconds ? ` · ${Math.round(seconds)}s typing` : ''}
+            </p>
           </div>
+        </div>
 
-          {/* Summary Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x-2 divide-pencil/10">
-            {[
-              { label: 'SSC Net WPM', value: sscNetWpm.toFixed(1), icon: <Gauge className="w-4 h-4" strokeWidth={3} />, color: sscNetWpm >= (specs?.englishSpeedWpm || 35) ? '#16a34a' : '#dc2626' },
-              { label: 'SSC Accuracy', value: `${sscAccuracy.toFixed(1)}%`, icon: <Target className="w-4 h-4" strokeWidth={3} />, color: sscAccuracy >= 95 ? '#16a34a' : '#dc2626' },
-              { label: 'Key Depressions', value: kd.toLocaleString(), icon: <BarChart3 className="w-4 h-4" strokeWidth={3} />, color: '#333' },
-              { label: 'Time Taken', value: testData.time_taken_seconds ? `${Math.round(testData.time_taken_seconds)}s` : '-', icon: <Clock className="w-4 h-4" strokeWidth={3} />, color: '#333' },
-            ].map((m, i) => (
-              <div key={i} className="px-4 py-4 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-pencil/40 mb-1">{m.icon}<span className="text-[10px] uppercase tracking-wider font-hand">{m.label}</span></div>
-                <div className="text-2xl font-bold font-mono" style={{ color: m.color }}>{m.value}</div>
-              </div>
+        {/* The category changes the error limit, and nothing else. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-[13px] text-vast/55">Your category:</span>
+          <div className="segment" role="tablist" aria-label="Category">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => chooseCategory(c.key)}
+                aria-selected={category === c.key}
+                role="tab"
+                className="segment-item"
+              >
+                {c.label}
+              </button>
             ))}
           </div>
         </div>
+      </section>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {/* Full/Half Mistakes */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <Brain className="w-4 h-4" strokeWidth={3} /> SSC Error Analysis
-              <Tooltip text="Full mistakes = wrong character at correct position. Half mistakes = extra/missing character. SSC Error % = (full mistakes + half mistakes × 0.5) / key depressions × 100. Lower is better — keep it under 5-10% to qualify." />
-            </h2>
-            <div className="space-y-2.5">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-hand text-pencil/70">Full Mistakes</span>
-                <span className="text-lg font-bold font-mono" style={{ color: fullMistakes > 0 ? '#dc2626' : '#16a34a' }}>{fullMistakes}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-hand text-pencil/70">Half Mistakes</span>
-                <span className="text-lg font-bold font-mono" style={{ color: halfMistakes > 0 ? '#ea580c' : '#16a34a' }}>{halfMistakes}</span>
-              </div>
-              <div className="border-t-2 border-pencil/10 pt-2 flex justify-between items-center">
-                <span className="text-sm font-hand text-pencil/70">SSC Error %</span>
-                <span className="text-lg font-bold font-mono" style={{ color: errorPct > 10 ? '#dc2626' : '#16a34a' }}>{errorPct.toFixed(1)}%</span>
-              </div>
-            </div>
-          </div>
+      {/* ─────────────────────────────────────────────── the two requirements */}
+      <section className="card mb-5 p-5 sm:p-6">
+        <h2 className="text-base font-bold">What this post asks for</h2>
+        <p className="mt-1 text-[13px] text-vast/55">
+          Both have to be met. Being fast does not buy you a pass on mistakes.
+        </p>
 
-          {/* Passage Completion */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" strokeWidth={3} /> Passage Completion
-              <Tooltip text="Percentage of the passage you typed. You must complete at least 50% of the passage for your result to be considered valid. Focus on typing the full passage rather than rushing for speed." />
-            </h2>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-hand text-pencil/70">Passage Completed</span>
-                <span className={`text-lg font-bold font-mono ${passageCompletionPct >= 80 ? 'text-green-600' : passageCompletionPct >= 50 ? 'text-orange-500' : 'text-accent'}`}>
-                  {passageCompletionPct}%
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-hand text-pencil/70">Typed Words / Total Words</span>
-                <span className="text-sm font-mono text-pencil/60">{typedWordCount} / {originalWordCount}</span>
-              </div>
-              {passageCompletionPct < 50 && (
-                <div className="text-xs font-hand text-accent mt-1">
-                  Need ≥50% passage completion to qualify
-                </div>
-              )}
-              <div className="border-t-2 border-pencil/10 pt-2 text-[10px] font-hand text-pencil/40 leading-relaxed">
-                <strong>Source:</strong> {specs?.source || 'SSC Official Notification'}.{' '}
-                {specs?.citations?.map((url, i) => (
-                  <span key={i}><a href={url} target="_blank" rel="noopener noreferrer" className="underline text-blue-600">{url.replace(/^https?:\/\//, '')}</a>{i < (specs.citations?.length ?? 0) - 1 ? ' · ' : ''} </span>
-                ))}
-                <a href="https://ssc.gov.in" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">ssc.gov.in</a>
-              </div>
-            </div>
-          </div>
+        <div className="mt-2 divide-y-2 divide-vast/10">
+          {bar?.nature === 'kdph' ? (
+            <BarRow
+              label="Speed"
+              youLabel={`${kdph.toLocaleString('en-IN')} KDPH`}
+              needLabel={`${bar.kdph.toLocaleString('en-IN')}`}
+              fraction={kdph / bar.kdph}
+              met={speedMet}
+              note={`Key depressions per hour, after mistakes are taken off. You typed ${kd.toLocaleString('en-IN')} in ${Math.round(seconds)} seconds.`}
+            />
+          ) : (
+            <BarRow
+              label="Speed"
+              youLabel={`${netWpm.toFixed(1)} WPM`}
+              needLabel={`${bar?.speedWpm ?? 35} WPM`}
+              fraction={netWpm / (bar?.speedWpm ?? 35)}
+              met={speedMet}
+              note={`Five key depressions count as one word${
+                bar?.language === 'hindi' ? '. The Hindi paper qualifies at 30, not 35' : ''
+              }. You typed ${kd.toLocaleString('en-IN')} depressions in ${Math.round(seconds)} seconds.`}
+            />
+          )}
 
-          {/* Qualification by Category */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4" strokeWidth={3} /> Qualification by Category
-              <Tooltip text="SSC has different error allowances for different categories. UR needs ≤20% errors, OBC/EWS ≤25%, SC/ST ≤30%. Your WPM and error rate are checked against these thresholds to determine qualification." />
-            </h2>
-            <div className="space-y-2">
-              {categories.map(c => {
-                const qualifies = specs?.qualifyingNature === 'speed_wpm'
-                  ? sscNetWpm >= (specs?.englishSpeedWpm || 35) && errorPct <= c.maxErrorPct
-                  : kdph >= (specs?.englishKdph || 8000) && errorPct <= c.maxErrorPct;
-                return (
-                  <div key={c.cat} className="flex items-center justify-between py-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${qualifies ? 'bg-green-500' : 'bg-red-400'}`} />
-                      <span className="text-sm font-hand text-pencil/80">{c.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-hand text-pencil/40">≤{c.maxErrorPct}% err</span>
-                      {qualifies
-                        ? <CheckCircle2 className="w-4 h-4 text-green-600" strokeWidth={3} />
-                        : <XCircle className="w-4 h-4 text-accent" strokeWidth={3} />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="border-t-2 border-pencil/10 pt-2 mt-2 text-[10px] font-hand text-pencil/40 leading-relaxed">
-              <strong>Source:</strong> {specs?.source || 'SSC Official Notification'}.{' '}
-              {specs?.citations?.map((url, i) => (
-                <span key={i}><a href={url} target="_blank" rel="noopener noreferrer" className="underline text-blue-600">{url.replace(/^https?:\/\//, '')}</a>{i < (specs.citations?.length ?? 0) - 1 ? ' · ' : ''} </span>
-              ))}
-              <a href="https://ssc.gov.in" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">ssc.gov.in</a>
-            </div>
-          </div>
-
-          {/* Error Breakdown */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" strokeWidth={3} /> Error Breakdown
-              <Tooltip text="Omission = missed character. Addition = extra character typed. Substitution = wrong character at that position. Wrong Word = entire word mistyped. Space = wrong spacing. Backspaces = correction count. Reducing omissions & substitutions has the biggest impact on your score." />
-            </h2>
-            <div className="space-y-2">
-              {[
-                { label: 'Omission', value: testData.omission_errors ?? 0, color: '#dc2626' },
-                { label: 'Addition', value: testData.addition_errors ?? 0, color: '#dc2626' },
-                { label: 'Substitution', value: testData.substitution_errors ?? 0, color: '#ea580c' },
-                { label: 'Wrong Word', value: testData.wrong_word_errors ?? 0, color: '#dc2626' },
-                { label: 'Space', value: testData.space_errors ?? 0, color: '#ea580c' },
-                { label: 'Backspaces', value: testData.backspace_count ?? 0, color: '#2563eb' },
-              ].map((e, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <span className="text-sm font-hand text-pencil/70">{e.label}</span>
-                  <span className="font-bold font-mono" style={{ color: e.value > 0 ? e.color : '#999' }}>{e.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BarRow
+            label="Mistakes"
+            youLabel={`${errorPct.toFixed(2)}%`}
+            needLabel={`${errorCap}% or less`}
+            fraction={errorCap / Math.max(errorPct, errorCap)}
+            met={errorsMet}
+            note={`${formatCost(mistakes)} across ${Math.round(grossWords)} words. The limit is ${errorCap}% for ${
+              CATEGORIES.find((c) => c.key === category)!.label
+            } candidates for this post.`}
+          />
         </div>
 
-        {/* Side-by-Side Passage Comparison */}
-        <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} mb-6`}>
-          <div className="px-6 py-4 border-b-2 border-pencil/20 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-pencil" strokeWidth={3} />
-            <h2 className="text-base font-bold font-marker text-pencil">Passage Comparison</h2>
-            <Tooltip text="Side-by-side view of the original passage vs what you typed. Green = correct, orange = typo/caps, red = wrong, gray = missed characters, underlined = extra characters you typed that weren't in the original. Focus on accuracy before speed." />
-            <span className="text-xs font-hand text-pencil/40 ml-auto">
-              <span style={{ color: '#16a34a' }}>green</span> = correct &nbsp;{'|'}&nbsp;
-              <span style={{ color: '#ea580c' }}>orange</span> = typo/caps &nbsp;{'|'}&nbsp;
-              <span style={{ color: '#dc2626' }}>red</span> = wrong &nbsp;{'|'}&nbsp;
-              <span style={{ color: '#bbb' }}>gray</span> = missed &nbsp;{'|'}&nbsp;
-              <span style={{ color: '#dc2626', textDecoration: 'underline' }}>underline</span> = extra
-            </span>
-          </div>
-          <div className="px-6 py-4">
-            {typedContent && originalContent ? (
-              <PassageDiffView original={originalContent} typed={typedContent} />
-            ) : (
-              <p className="text-sm font-hand text-pencil/40 text-center py-4">
-                No passage data available for comparison.
-              </p>
-            )}
-          </div>
+        {/* How the number was reached, in one line, because a candidate who
+            cannot see where it came from cannot trust it. */}
+        <p className="mt-4 border-t-2 border-vast/10 pt-3 text-[13px] leading-relaxed text-vast/60">
+          <strong className="text-vast/80">How this was worked out:</strong>{' '}
+          {kd.toLocaleString('en-IN')} key depressions ÷ 5 ={' '}
+          {grossWords.toFixed(1)} words, minus {formatCost(mistakes)} ={' '}
+          {(grossWords - mistakes).toFixed(1)} net words, over{' '}
+          {(seconds / 60).toFixed(1)} minutes = <strong>{netWpm.toFixed(1)} WPM</strong>.
+          {' '}A full mistake counts 1, a half mistake counts 0.5.{' '}
+          <Link href="/marking-scheme" className="underline">
+            See every rule with examples
+          </Link>
+          .
+        </p>
+      </section>
+
+      {/* ─────────────────────────────────────────────── what cost you marks */}
+      <section className="card mb-5 p-5 sm:p-6">
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="text-base font-bold">What cost you marks</h2>
+          <span className="tnum ml-auto text-sm text-vast/55">
+            {formatCost(mistakes)}
+          </span>
         </div>
 
-        {/* Slow Words & Error Words */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Slow Words */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4" strokeWidth={3} /> Slow Words (hesitated before typing)
-              <Tooltip text="Words where you paused for more than 500ms before typing. Long pauses suggest unfamiliarity or hesitation. Practice those specific words to build muscle memory and improve your rhythm." />
-            </h2>
-            {slowWords.length === 0 ? (
-              <p className="text-sm font-hand text-pencil/40">No significant pauses detected.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                {slowWords.map((w, i) => (
-                  <div key={i} className="flex items-center justify-between py-1 border-b border-pencil/10 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-pencil/30 w-5">{i + 1}.</span>
-                      <span className="text-sm font-hand text-pencil/80">{w.original}</span>
-                      {!w.isCorrect && <span className="text-[10px] px-1.5 py-0.5 bg-red-50 text-accent border border-accent/30 rounded">error</span>}
-                    </div>
-                    <span className="text-xs font-mono text-orange-600 font-bold">{formatMs(w.pauseBeforeMs)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Error Words */}
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" strokeWidth={3} /> Words with Errors
-              <Tooltip text="Words where your typed version differed from the original. Shows what you typed vs what was expected. Focus on these patterns — if it's always the same type of error (e.g., missing 's' or wrong vowel), target that specific weakness." />
-            </h2>
-            {errorWords.length === 0 ? (
-              <p className="text-sm font-hand text-pencil/40">No errors! Perfect typing.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                {errorWords.map((w, i) => (
-                  <div key={i} className="flex items-center justify-between py-1 border-b border-pencil/10 last:border-0">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-xs font-mono text-pencil/30 w-5 shrink-0">{i + 1}.</span>
-                      <div className="min-w-0">
-                        <span className="text-sm font-hand line-through text-pencil/50">{w.original}</span>
-                        <span className="text-sm font-hand ml-2" style={{ color: w.errorType === 'capitalization' || w.errorType === 'typo' ? '#ea580c' : '#dc2626' }}>{w.typed}</span>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ml-2 ${w.errorType === 'capitalization' ? 'bg-orange-50 text-orange-600 border border-orange-200' : 'bg-red-50 text-accent border border-red-200'}`}>
-                      {w.errorType || 'error'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Consistency & Rhythm */}
-        {(testData.consistency_score || testData.typing_rhythm_score) && (
-          <div className={`bg-white border-2 border-pencil ${CSS.shadows.sm} p-5 mb-6`}>
-            <h2 className="text-sm font-bold font-marker text-pencil mb-3 flex items-center gap-2">
-              <Zap className="w-4 h-4" strokeWidth={3} /> Pace & Consistency
-              <Tooltip text="Consistency measures how steady your WPM is throughout the test (higher = more even pacing). Rhythm score reflects your typing flow. Pauses indicate hesitation. Backspaces slow you down. Aim for consistent speed rather than bursts of fast typing followed by pauses." />
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {testData.consistency_score && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
-                  <div className="text-lg font-bold font-mono">{testData.consistency_score.toFixed(0)}%</div>
-                  <div className="text-xs font-hand text-pencil/50">Consistency</div>
-                </div>
-              )}
-              {testData.typing_rhythm_score && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
-                  <div className="text-lg font-bold font-mono">{testData.typing_rhythm_score.toFixed(1)}</div>
-                  <div className="text-xs font-hand text-pencil/50">Rhythm Score</div>
-                </div>
-              )}
-              {testData.pause_count > 0 && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
-                  <div className="text-lg font-bold font-mono">{testData.pause_count}</div>
-                  <div className="text-xs font-hand text-pencil/50">Pauses</div>
-                </div>
-              )}
-              {testData.backspace_count > 0 && (
-                <div className="text-center p-3 bg-paper border border-pencil/20" style={{ borderRadius: CSS.radii.sm }}>
-                  <div className="text-lg font-bold font-mono">{testData.backspace_count}</div>
-                  <div className="text-xs font-hand text-pencil/50">Backspaces</div>
-                </div>
-              )}
-            </div>
-          </div>
+        {diagnosis.findings.length === 0 ? (
+          <p className="mt-2 text-sm text-vast/60">
+            Nothing was marked wrong in what you typed. {typedWords < passageWords
+              ? 'You ran out of time before the end of the passage — speed is the only thing left to work on.'
+              : 'A clean attempt.'}
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 mb-3 text-[13px] text-vast/55">
+              Biggest first. Each one links to the drill that fixes it.
+            </p>
+            <MistakeBreakdown findings={diagnosis.findings} />
+          </>
         )}
+      </section>
 
-        {/* Action buttons */}
-        <div className="flex gap-3 mb-8">
-          <button onClick={() => router.push('/dashboard')}
-            className={`flex-1 py-2.5 bg-pencil text-white font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-pencil/90 transition-colors text-sm`}
-            style={{ borderRadius: CSS.radii.sm }}>
-            Back to Dashboard
-          </button>
-          <button onClick={() => router.push('/exam')}
-            className={`flex-1 py-2.5 bg-white text-pencil font-bold font-hand border-2 border-pencil ${CSS.shadows.sm} hover:bg-muted transition-colors text-sm`}
-            style={{ borderRadius: CSS.radii.sm }}>
-            Take Another Test
-          </button>
+      {/* ───────────────────────────────────────────────── how far you got */}
+      <section className="card mb-5 p-5 sm:p-6">
+        <h2 className="text-base font-bold">How far you got</h2>
+        <p className="mt-1 text-[13px] text-vast/55">
+          {typedWords} of {passageWords} words. The passage after that is not
+          marked against you — there is no rule that says you must finish, only
+          that you must be fast enough.
+        </p>
+        <div className="mt-3 h-2.5 w-full border-2 border-vast/20 bg-lumen">
+          <div
+            className="h-full bg-fathom"
+            style={{ width: `${passageWords ? Math.min(100, (typedWords / passageWords) * 100) : 0}%` }}
+          />
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* ─────────────────────────────────────────── the passage, side by side */}
+      <section className="card mb-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-vast/15 px-5 py-4">
+          <h2 className="text-base font-bold">Your passage, word by word</h2>
+          <span className="ml-auto text-[12px] text-vast/50">
+            <span className="text-ok">green</span> correct ·{' '}
+            <span className="text-warn">orange</span> half mistake ·{' '}
+            <span className="text-err">red</span> full mistake ·{' '}
+            <span className="text-vast/35">grey struck</span> skipped ·{' '}
+            <span className="text-vast/25">grey</span> not reached
+          </span>
+        </div>
+        <div className="px-5 py-4">
+          {typedContent && originalContent ? (
+            <PassageDiffView original={originalContent} typed={typedContent} />
+          ) : (
+            <p className="py-4 text-center text-sm text-vast/40">
+              The passage for this attempt was not saved.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ──────────────────────────────────────────────── where you hesitated */}
+      {hesitations.length > 0 && (
+        <section className="card mb-5 p-5 sm:p-6">
+          <h2 className="text-base font-bold">Where you hesitated</h2>
+          <p className="mt-1 mb-3 text-[13px] text-vast/55">
+            You stopped for more than a moment before these words. A pause is
+            not a mistake, but it is where your speed goes.
+          </p>
+          <ul className="divide-y-2 divide-vast/10">
+            {hesitations.map((w, i) => (
+              <li key={i} className="flex items-center justify-between py-2">
+                <span className="text-sm">{w.original}</span>
+                <span className="tnum text-sm text-vast/55">
+                  {formatMs(w.pauseBeforeMs)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────── sources */}
+      {bar && (
+        <p className="mb-5 text-[12px] leading-relaxed text-vast/45">
+          Speed and error limits from {bar.spec.source}.{' '}
+          {bar.spec.citations.map((url, i) => (
+            <span key={i}>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
+                {url.replace(/^https?:\/\//, '').slice(0, 48)}…
+              </a>
+              {i < bar.spec.citations.length - 1 ? ' · ' : ''}
+            </span>
+          ))}
+        </p>
+      )}
+
+      <div className="mb-10 flex flex-wrap gap-3">
+        <Link href={`/exam/${isHindiMode(mode) ? 'hindi' : ''}`} className="btn btn-ink btn-md flex-1 justify-center">
+          Take another test
+          <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+        </Link>
+        <Link href="/dashboard" className="btn btn-outline btn-md flex-1 justify-center">
+          Back to dashboard
+        </Link>
+      </div>
+    </main>
   );
 }

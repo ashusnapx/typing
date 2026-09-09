@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { Check, X, RotateCcw, ChevronDown } from 'lucide-react';
 import { getModeDisplayName } from '@/lib/utils';
 import { getExamSpecs } from '@/lib/exam-config';
+import { summariseAttempt } from '@/lib/attempt-summary';
 import {
   postsFor,
   kdphFromWpm,
-  MIN_COMPLETION_PCT,
   type CategoryKey,
 } from '@/lib/ssc-posts';
 import { ROUTES } from '@/lib/config';
@@ -174,63 +174,66 @@ export function ResultScreen({
   const fullMistakes = result.full_mistakes ?? 0;
   const halfMistakes = result.half_mistakes ?? 0;
   const errorPct = result.ssc_error_percentage ?? 100 - accuracy;
-  const targetWpm = wpmTarget || specs?.englishSpeedWpm || 35;
 
-  const completion = useMemo(() => {
-    const typedWords = typedContent?.trim() ? typedContent.trim().split(/\s+/).length : 0;
-    const originalWords = originalContent?.trim()
-      ? originalContent.trim().split(/\s+/).length
-      : 1;
-    return Math.min(100, Math.round((typedWords / originalWords) * 100));
-  }, [typedContent, originalContent]);
-
-  const errorLimit =
-    (specs?.[
-      CATEGORIES.find((c) => c.key === category)!.specKey as keyof typeof specs
-    ] as number) ?? 20;
-
-  const kdph =
-    result.key_depression_count && result.time_taken_seconds
-      ? Math.round((result.key_depression_count / result.time_taken_seconds) * 3600)
-      : kdphFromWpm(netWpm);
-
-  const speedMet =
-    specs?.qualifyingNature === 'speed_wpm'
-      ? netWpm >= targetWpm
-      : kdph >= (specs?.englishKdph || 8000);
-  const errorsMet = errorPct <= errorLimit;
-  const completionMet = completion >= MIN_COMPLETION_PCT;
-  const qualified = speedMet && errorsMet && completionMet;
+  /* Worked out the same way the server does, and shown against the same bar.
+  
+     This screen used to decide for itself: it read `englishSpeedWpm` whatever
+     language the paper was sat in, defaulted the error allowance to 20% for
+     every post, reported the gross depression rate against a bar measured on
+     the net one, and required half the passage — a rule the Commission does
+     not have. A candidate could finish a test, read one verdict here, and find
+     the opposite on the dashboard for the same attempt. */
+  const summary = summariseAttempt(
+    {
+      mode,
+      isQualified: result.is_qualified === true,
+      netWpm,
+      errorPercentage: errorPct,
+      keyDepressions: result.key_depression_count ?? 0,
+      secondsTyped: result.time_taken_seconds ?? 0,
+    },
+    category,
+  );
+  // The bar for this post, in the language it was sat in.
+  const targetWpm = wpmTarget || summary.speedTarget;
+  const errorLimit = summary.errorCap;
+  const kdph = summary.kdph;
+  const speedMet = summary.speedMet;
+  const errorsMet = summary.errorsMet;
+  /* An attempt that has not been saved yet — a guest, or an offline run —
+     carries no stored verdict, so the two requirements decide it here. */
+  const qualified =
+    result.is_qualified === undefined || result.is_qualified === null
+      ? speedMet && errorsMet
+      : summary.qualified;
 
   /* Every SSC post judged against this one attempt. This is the answer to the
      question aspirants actually carry — not "did I pass the test I picked",
      but "at this score, which posts am I in the running for?" */
   const { cleared, missed } = useMemo(
-    () => postsFor({ netWpm, kdph, errorPct, completionPct: completion }, category),
-    [netWpm, kdph, errorPct, completion, category]
+    () => postsFor({ netWpm, kdph, errorPct }, category),
+    [netWpm, kdph, errorPct, category]
   );
   const nextTarget = missed[0] ?? null;
 
+  /* Two requirements, because the Commission sets two. The third row here used
+     to be "Passage completed, at least 50%", which is not a rule SSC has — an
+     unfinished attempt is already punished, and correctly, by the speed it
+     produces over the full window. */
   const criteria = [
     {
-      label: specs?.qualifyingNature === 'speed_wpm' ? 'Speed' : 'Key depressions',
+      label: summary.nature === 'speed_wpm' ? 'Speed' : 'Key depressions',
       met: speedMet,
       you:
-        specs?.qualifyingNature === 'speed_wpm'
+        summary.nature === 'speed_wpm'
           ? `${netWpm.toFixed(1)} WPM`
           : `${kdph.toLocaleString('en-IN')} KDPH`,
       need:
-        specs?.qualifyingNature === 'speed_wpm'
-          ? `${targetWpm} WPM`
-          : `${(specs?.englishKdph || 8000).toLocaleString('en-IN')} KDPH`,
+        summary.nature === 'speed_wpm'
+          ? `${summary.speedTarget} WPM`
+          : `${summary.kdphTarget.toLocaleString('en-IN')} KDPH`,
     },
     { label: 'Errors', met: errorsMet, you: `${errorPct.toFixed(1)}%`, need: `≤ ${errorLimit}%` },
-    {
-      label: 'Passage completed',
-      met: completionMet,
-      you: `${completion}%`,
-      need: `≥ ${MIN_COMPLETION_PCT}%`,
-    },
   ];
 
   /* What actually went wrong, aligned rather than compared word-by-index, and

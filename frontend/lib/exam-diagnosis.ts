@@ -58,6 +58,8 @@ export interface Diagnosis {
   /** Words of the passage the candidate actually reached. */
   wordsAttempted: number;
   wordsCorrect: number;
+  /** Passage words after the last one typed. Zero means they got to the end. */
+  wordsUnreached: number;
 }
 
 /* Letters, digits AND marks.
@@ -423,6 +425,7 @@ export function diagnose(original: string, typed: string): Diagnosis {
       totalMistakes: 0,
       wordsAttempted: 0,
       wordsCorrect: 0,
+      wordsUnreached: allExpected.length,
     };
   }
 
@@ -482,5 +485,83 @@ export function diagnose(original: string, typed: string): Diagnosis {
     totalMistakes: fullMistakes + halfMistakes / 2,
     wordsAttempted: typedWords.length,
     wordsCorrect,
+    wordsUnreached: Math.max(
+      0,
+      allExpected.length - pairs.filter((p) => p.expected !== null).length,
+    ),
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Passage comparison                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type CellStatus =
+  | 'correct'
+  /** Wrong, but only in a way that costs half a mistake. */
+  | 'half'
+  /** Wrong in a way that costs a full mistake. */
+  | 'full'
+  /** In the passage, not typed, and the candidate typed past it. */
+  | 'missed'
+  /** Typed, but not in the passage. */
+  | 'extra';
+
+export interface DiffCell {
+  expected: string | null;
+  typed: string | null;
+  status: CellStatus;
+  /** Set on anything wrong, so the legend and the breakdown use one vocabulary. */
+  kind: MistakeKind | null;
+}
+
+export interface PassageDiff {
+  cells: DiffCell[];
+  /** The passage after the last word typed. Not mistakes — the clock ran out. */
+  unreached: string[];
+}
+
+/**
+ * The passage against the attempt, aligned.
+ *
+ * The side-by-side view used to compare word `i` of the passage against word
+ * `i` of the attempt. Skip a single word and every word after it lines up
+ * against its neighbour, so the whole remainder of the passage was painted red
+ * — the same fault the scoring had, and the reason the report and the score
+ * disagreed with each other in front of the candidate.
+ *
+ * Sharing the alignment means the colours on screen and the marks lost are the
+ * same calculation, and the words after the last one typed are shown as not
+ * reached rather than as several hundred mistakes.
+ */
+export function diffPassage(original: string, typed: string): PassageDiff {
+  const expectedWords = original.trim() ? original.trim().split(/\s+/) : [];
+  const typedWords = typed.trim() ? typed.trim().split(/\s+/) : [];
+
+  if (typedWords.length === 0) {
+    return { cells: [], unreached: expectedWords };
+  }
+
+  const pairs = alignWords(expectedWords, typedWords);
+  const consumed = pairs.filter((p) => p.expected !== null).length;
+
+  const cells: DiffCell[] = pairs.map((p) => {
+    if (p.expected !== null && p.expected === p.typed) {
+      return { ...p, status: 'correct' as const, kind: null };
+    }
+    if (p.typed === null) {
+      return { ...p, status: 'missed' as const, kind: 'skipped' as const };
+    }
+    if (p.expected === null) {
+      return { ...p, status: 'extra' as const, kind: 'extra' as const };
+    }
+    const kind = classifyPair(p.expected, p.typed);
+    return {
+      ...p,
+      status: WEIGHT[kind] === 'half' ? ('half' as const) : ('full' as const),
+      kind,
+    };
+  });
+
+  return { cells, unreached: expectedWords.slice(consumed) };
 }

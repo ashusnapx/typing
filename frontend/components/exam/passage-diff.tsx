@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { diffPassage } from '@/lib/exam-diagnosis';
+
 const levenshteinDistance = (() => {
   const cache = new Map<string, number>();
   return function ld(a: string, b: string): number {
@@ -20,7 +23,7 @@ const levenshteinDistance = (() => {
 
 interface WordInfo {
   text: string;
-  status: 'correct' | 'partial' | 'wrong' | 'missed' | 'extra';
+  status: 'correct' | 'partial' | 'wrong' | 'missed' | 'extra' | 'unreached';
 }
 
 /** Token classes, not hexes — the result screen renders a legend from the same
@@ -32,6 +35,10 @@ const STATUS_CLASS: Record<WordInfo['status'], string> = {
   wrong: 'text-err font-semibold line-through',
   missed: 'text-vast/35 font-semibold line-through',
   extra: 'text-err font-semibold underline',
+  // Not a mistake: the clock stopped here. Shown faintly and without a strike,
+  // because painting the rest of the passage as errors is what made a candidate
+  // who ran out of time think they had typed it all wrong.
+  unreached: 'text-vast/25',
 };
 
 function renderWords(words: WordInfo[], plain = false) {
@@ -53,40 +60,37 @@ function renderWords(words: WordInfo[], plain = false) {
   ));
 }
 
+/**
+ * Both columns of the side-by-side view, aligned.
+ *
+ * This compared word `i` against word `i`. Skipping one word shifted every
+ * word after it, so the whole rest of the passage came out red — in front of a
+ * candidate whose score said they had made one mistake.
+ */
 export function buildWordDisplay(original: string, typed: string) {
-  const origWords = original.split(' ');
-  const typedWords = typed.split(' ');
-  const maxLen = Math.max(origWords.length, typedWords.length);
+  const { cells, unreached } = diffPassage(original, typed);
 
   const origDisplay: WordInfo[] = [];
   const typedDisplay: WordInfo[] = [];
 
-  for (let i = 0; i < maxLen; i++) {
-    const o = origWords[i] || '';
-    const t = typedWords[i] || '';
-    if (!o) {
-      origDisplay.push({ text: '', status: 'extra' });
-      typedDisplay.push({ text: t, status: 'extra' });
-      continue;
-    }
-    if (!t) {
-      origDisplay.push({ text: o, status: 'missed' });
-      typedDisplay.push({ text: '', status: 'missed' });
-      continue;
-    }
-    if (o === t) {
-      origDisplay.push({ text: o, status: 'correct' });
-      typedDisplay.push({ text: t, status: 'correct' });
-      continue;
-    }
-    const dist = levenshteinDistance(o, t);
-    if (o.toLowerCase() === t.toLowerCase() || dist <= 2) {
-      origDisplay.push({ text: o, status: 'partial' });
-      typedDisplay.push({ text: t, status: 'partial' });
-      continue;
-    }
-    origDisplay.push({ text: o, status: 'wrong' });
-    typedDisplay.push({ text: t, status: 'wrong' });
+  for (const cell of cells) {
+    const status: WordInfo['status'] =
+      cell.status === 'correct'
+        ? 'correct'
+        : cell.status === 'missed'
+          ? 'missed'
+          : cell.status === 'extra'
+            ? 'extra'
+            : cell.status === 'half'
+              ? 'partial'
+              : 'wrong';
+    origDisplay.push({ text: cell.expected ?? '', status });
+    typedDisplay.push({ text: cell.typed ?? '', status });
+  }
+
+  for (const word of unreached) {
+    origDisplay.push({ text: word, status: 'unreached' });
+    typedDisplay.push({ text: '', status: 'unreached' });
   }
 
   return { origDisplay, typedDisplay };
@@ -97,9 +101,10 @@ export function getWordTiming(
   typed: string,
   keystrokeEvents?: { key: string; timestamp_ms: number; cursor_position?: number }[]
 ) {
-  const origWords = original.split(' ');
-  const typedWords = typed.split(' ');
-  const maxLen = Math.max(origWords.length, typedWords.length);
+  // Classified by the same aligned comparison that produces the score, so the
+  // list of wrong words cannot contradict the number of mistakes beside it.
+  const { cells } = diffPassage(original, typed);
+  const maxLen = cells.length;
 
   const result: {
     index: number;
@@ -113,22 +118,14 @@ export function getWordTiming(
   }[] = [];
 
   let prevWordEndMs = 0;
+  let typedCharOffset = 0;
   for (let i = 0; i < maxLen; i++) {
-    const orig = origWords[i] || '';
-    const t = typedWords[i] || '';
+    const cell = cells[i];
+    const orig = cell.expected ?? '';
+    const t = cell.typed ?? '';
 
-    const isCorrect = orig === t;
-    let errorType: string | null = null;
-    if (!isCorrect) {
-      if (!orig) errorType = 'addition';
-      else if (!t) errorType = 'omission';
-      else if (orig.toLowerCase() === t.toLowerCase()) errorType = 'capitalization';
-      else {
-        const dist = levenshteinDistance(orig, t);
-        if (dist <= 2) errorType = 'typo';
-        else errorType = 'wrong_word';
-      }
-    }
+    const isCorrect = cell.status === 'correct';
+    const errorType = isCorrect ? null : cell.kind;
 
     const similarity = orig && t ? 1 - levenshteinDistance(orig, t) / Math.max(orig.length, t.length) : 0;
 
@@ -137,11 +134,9 @@ export function getWordTiming(
     if (keystrokeEvents && keystrokeEvents.length > 0) {
       const events = keystrokeEvents.filter(e => !e.key.startsWith('Backspace') && !e.key.startsWith('Delete'));
 
-      let charStart = 0;
-      for (let j = 0; j < i; j++) {
-        const prevTyped = typedWords[j] || '';
-        charStart += prevTyped.length + 1;
-      }
+      // Walked forward as the cells are consumed, because a cell the candidate
+      // skipped occupies no characters in what they typed.
+      const charStart = typedCharOffset;
       const charEnd = charStart + t.length;
 
       const wordEvents = events.filter(e => {
@@ -156,6 +151,8 @@ export function getWordTiming(
         prevWordEndMs = Math.max(...times);
       }
     }
+
+    if (cell.typed !== null) typedCharOffset += t.length + 1;
 
     result.push({
       index: i,
@@ -177,32 +174,60 @@ export function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export default function PassageDiffView({ original, typed, lang = 'english' }: { original: string; typed: string; lang?: 'english' | 'hindi' }) {
+export default function PassageDiffView({
+  original,
+  typed,
+  lang = 'english',
+}: {
+  original: string;
+  typed: string;
+  lang?: 'english' | 'hindi';
+}) {
+  /* One column, not two.
+  
+     Both were rendered side by side in full, so a 400-word passage put eight
+     hundred words on the screen and the handful that were actually wrong were
+     lost in it. What a candidate needs is their own typing with the mistakes
+     marked in it; the passage is there to check against, so it is one click
+     away rather than always open. */
+  const [showOriginal, setShowOriginal] = useState(false);
   const { origDisplay, typedDisplay } = buildWordDisplay(original, typed);
-  const diffFont = lang === 'hindi'
-    ? 'var(--font-devanagari), "Noto Sans Devanagari", "Mangal", sans-serif'
-    : "'Courier New', monospace";
+  const diffFont =
+    lang === 'hindi'
+      ? 'var(--font-devanagari), "Noto Sans Devanagari", "Mangal", sans-serif'
+      : "'Courier New', monospace";
+
+  const box =
+    'max-h-80 overflow-y-auto rounded-lg border-2 border-vast/10 bg-lumen p-3 text-sm leading-loose';
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
-      <div className="min-w-0">
-        <div className="eyebrow mb-2">Original passage</div>
-        <div
-          className="rounded-lg border-2 border-vast/10 bg-lumen p-3 text-sm leading-loose"
-          style={{ fontFamily: diffFont }}
-        >
-          {renderWords(origDisplay, true)}
+    <div>
+      <div className={showOriginal ? 'grid gap-5 sm:grid-cols-2' : ''}>
+        <div className="min-w-0">
+          <div className="eyebrow mb-2">What you typed</div>
+          <div className={box} style={{ fontFamily: diffFont }}>
+            {renderWords(typedDisplay)}
+          </div>
         </div>
+
+        {showOriginal && (
+          <div className="min-w-0">
+            <div className="eyebrow mb-2">Original passage</div>
+            <div className={box} style={{ fontFamily: diffFont }}>
+              {renderWords(origDisplay, true)}
+            </div>
+          </div>
+        )}
       </div>
-      <div className="min-w-0">
-        <div className="eyebrow mb-2">You typed</div>
-        <div
-          className="rounded-lg border-2 border-vast/10 bg-lumen p-3 text-sm leading-loose"
-          style={{ fontFamily: diffFont }}
-        >
-          {renderWords(typedDisplay)}
-        </div>
-      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowOriginal((v) => !v)}
+        aria-expanded={showOriginal}
+        className="mt-3 text-[13px] font-bold underline"
+      >
+        {showOriginal ? 'Hide the original passage' : 'Show the original passage'}
+      </button>
     </div>
   );
 }

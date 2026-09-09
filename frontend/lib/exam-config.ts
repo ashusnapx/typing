@@ -190,6 +190,8 @@ export function isHindiMode(mode: string): boolean {
   return mode === 'ssc_hindi' || mode.endsWith('_hindi');
 }
 
+export type BarCategory = 'ur' | 'obcEws' | 'scSt' | 'pwbd';
+
 export interface ExamBar {
   spec: SscExamSpec;
   language: 'english' | 'hindi';
@@ -212,7 +214,7 @@ export interface ExamBar {
  */
 export function getExamBar(
   mode: string,
-  category: 'ur' | 'obcEws' | 'scSt' = 'ur',
+  category: BarCategory = 'ur',
 ): ExamBar | null {
   const spec = getExamSpecs(mode);
   if (!spec) return null;
@@ -223,8 +225,10 @@ export function getExamBar(
     nature: spec.qualifyingNature,
     speedWpm: hindi ? spec.hindiSpeedWpm ?? spec.englishSpeedWpm : spec.englishSpeedWpm,
     kdph: hindi ? spec.hindiKdph ?? spec.englishKdph : spec.englishKdph,
+    // No notification publishes a separate PwBD allowance for these papers, so
+    // it takes the SC/ST one — the same fallback the posts table uses.
     errorCap:
-      category === 'scSt'
+      category === 'scSt' || category === 'pwbd'
         ? spec.errorAllowanceScSt
         : category === 'obcEws'
           ? spec.errorAllowanceObcEws

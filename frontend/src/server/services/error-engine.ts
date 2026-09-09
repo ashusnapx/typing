@@ -1,5 +1,5 @@
-import { getExamBar } from '@/lib/exam-config';
-import { diagnose } from '@/lib/exam-diagnosis';
+import { getExamBar, type BarCategory } from '@/lib/exam-config';
+import { diagnose, diffPassage } from '@/lib/exam-diagnosis';
 
 function levenshteinDistance(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -148,29 +148,46 @@ export class SSCErrorEngine {
     const MAX_HUMAN_CPS = 17; // ~200 WPM, beyond any sustained human record.
     const reported = Math.max(1, timeTakenSeconds ?? durationSeconds);
     const physicalFloor = typed.trim().length / MAX_HUMAN_CPS;
-    const elapsedSeconds = Math.min(
-      durationSeconds > 0 ? durationSeconds : Number.MAX_SAFE_INTEGER,
-      Math.max(reported, physicalFloor, 1),
-    );
+
     const originalClean = original.trim();
     const typedClean = typed.trim();
+    const diagnosis = diagnose(originalClean, typedClean);
 
-    let originalForCompare: string;
-    if (typedClean) {
-      const typedWordCount = typedClean.split(/\s+/).length;
-      const originalWords = originalClean.split(/\s+/);
-      originalForCompare = originalWords.slice(0, typedWordCount).join(' ');
-    } else {
-      originalForCompare = '';
-    }
+    /* Stopping early does not shorten the exam.
+    
+       In the hall the clock runs for the whole window whatever the candidate
+       does, so time is only saved by finishing the passage. Dividing by
+       whatever they chose to type for meant three lines typed quickly and then
+       abandoned scored as a very high speed and a pass — which is what the
+       invented "at least 50% of the passage" rule existed to paper over, and
+       that rule was then shown to candidates as though the Commission had
+       written it.
+    
+       Finish the passage and the time you saved counts for you; give up and
+       the rest of the window counts against you. Nothing has to be made up. */
+    const reachedTheEnd = diagnosis.wordsUnreached === 0;
+    const window = durationSeconds > 0 ? durationSeconds : Number.MAX_SAFE_INTEGER;
+    const elapsedSeconds = reachedTheEnd
+      ? Math.min(window, Math.max(reported, physicalFloor, 1))
+      : window === Number.MAX_SAFE_INTEGER
+        ? Math.max(reported, physicalFloor, 1)
+        : window;
 
-    const charDiffs = this.characterLevelDiff(originalForCompare, typedClean);
-    const wordErrors = this.wordLevelMapping(originalForCompare, typedClean);
+    /* Against the whole passage, not a prefix of it cut to the number of words
+       typed. That prefix was built by index, so one skipped word shifted every
+       word after it and the counts below disagreed with the marks awarded. The
+       alignment inside these two decides what was reached. */
+    const charDiffs = this.characterLevelDiff(originalClean, typedClean);
+    const wordErrors = this.wordLevelMapping(originalClean, typedClean);
 
     const omissionErrors = charDiffs.filter(d => d.type === 'omission').length;
     const additionErrors = charDiffs.filter(d => d.type === 'addition').length;
     const substitutionErrors = charDiffs.filter(d => d.type === 'substitution').length;
-    const spaceErrors = charDiffs.filter(d => d.type === 'space').length;
+    /* Spacing is a word-level judgement — two words run together, or one split
+       in half — so it comes from the diagnosis rather than from a character
+       that happened to be a space. */
+    const spaceErrors =
+      diagnosis.findings.find((f) => f.kind === 'spacing')?.count ?? 0;
 
     const wrongWordErrors = wordErrors.filter(w => !w.isCorrect).length;
 
@@ -207,7 +224,6 @@ export class SSCErrorEngine {
        Sharing `diagnose` also means the figure the candidate is scored on and
        the breakdown they are shown are the same calculation, so the report can
        never explain a number the score disagrees with. */
-    const diagnosis = diagnose(originalClean, typedClean);
     const fullMistakes = diagnosis.fullMistakes;
     const halfMistakes = diagnosis.halfMistakes;
 
@@ -248,121 +264,99 @@ export class SSCErrorEngine {
     };
   }
 
-  private calculateFullHalfMistakes(
-    _original: string,
-    _typed: string,
-    charDiffs: CharLevelDiff[],
-    wordErrors: WordLevelError[],
-  ): [number, number] {
-    let fullMistakes = 0;
-    let halfMistakes = 0;
-
-    for (const we of wordErrors) {
-      if (we.isCorrect) continue;
-
-      const orig = we.original;
-      const typedW = we.typed;
-      const errType = we.errorType;
-
-      if (errType === 'omission' || errType === 'addition' || errType === 'wrong_word') {
-        fullMistakes += 1;
-      } else if (errType === 'typo') {
-        if (orig.toLowerCase() === typedW.toLowerCase()) {
-          halfMistakes += 1;
-        } else {
-          const levDist = levenshteinDistance(orig, typedW);
-          if (levDist <= 2) {
-            const origClean = orig.replace(/[^a-zA-Z0-9\s]/g, '');
-            const typedCleanW = typedW.replace(/[^a-zA-Z0-9\s]/g, '');
-            if (origClean === typedCleanW) {
-              halfMistakes += 1;
-            } else {
-              fullMistakes += 1;
-            }
-          } else {
-            fullMistakes += 1;
-          }
-        }
-      }
-    }
-
-    for (const cd of charDiffs) {
-      if (cd.type === 'space') {
-        let isPartial = true;
-        for (const we of wordErrors) {
-          if (!we.isCorrect && (we.errorType === 'omission' || we.errorType === 'addition')) {
-            isPartial = false;
-            break;
-          }
-        }
-        if (isPartial) {
-          halfMistakes += 1;
-        }
-      }
-    }
-
-    return [fullMistakes, halfMistakes];
-  }
-
+  /**
+   * Character-level counts, taken word by word from the aligned pairs.
+   *
+   * This used to run one Levenshtein over the whole passage against the whole
+   * attempt, filling an m x n table of objects. A 4,000-depression DEO Grade
+   * 'A' passage allocated 772 MB and half a second before it had scored
+   * anything, and a longer one exhausted the heap — which on a serverless
+   * function means the candidate loses the attempt they just sat.
+   *
+   * It also inherited the shift, because the two strings were built by index:
+   * a single skipped word made every character after it look wrong, which is
+   * why the character counts never agreed with the mistakes beside them.
+   *
+   * Diffing only the words that actually differ costs the sum of a few short
+   * words squared, and counts what genuinely differs.
+   */
   private characterLevelDiff(original: string, typed: string): CharLevelDiff[] {
+    const { cells } = diffPassage(original, typed);
     const diffs: CharLevelDiff[] = [];
-    const ops = levenshteinEditops(original, typed);
 
-    for (const op of ops) {
-      if (op.type === 'delete') {
-        diffs.push({
-          type: 'omission',
-          originalChar: original[op.origStart] ?? '',
-          typedChar: '',
-          originalPosition: op.origStart,
-          typedPosition: op.typedStart,
-        });
-      } else if (op.type === 'insert') {
-        diffs.push({
-          type: 'addition',
-          originalChar: '',
-          typedChar: typed[op.typedStart] ?? '',
-          originalPosition: op.origStart,
-          typedPosition: op.typedStart,
-        });
-      } else if (op.type === 'replace') {
-        const origC = original[op.origStart] ?? '';
-        const typedC = typed[op.typedStart] ?? '';
-        diffs.push({
-          type: (origC === ' ' || typedC === ' ') ? 'space' : 'substitution',
-          originalChar: origC,
-          typedChar: typedC,
-          originalPosition: op.origStart,
-          typedPosition: op.typedStart,
-        });
+    let origPos = 0;
+    let typedPos = 0;
+
+    for (const cell of cells) {
+      const o = cell.expected ?? '';
+      const t = cell.typed ?? '';
+
+      if (o !== t) {
+        for (const op of levenshteinEditops(o, t)) {
+          if (op.type === 'delete') {
+            diffs.push({
+              type: 'omission',
+              originalChar: o[op.origStart] ?? '',
+              typedChar: '',
+              originalPosition: origPos + op.origStart,
+              typedPosition: typedPos + op.typedStart,
+            });
+          } else if (op.type === 'insert') {
+            diffs.push({
+              type: 'addition',
+              originalChar: '',
+              typedChar: t[op.typedStart] ?? '',
+              originalPosition: origPos + op.origStart,
+              typedPosition: typedPos + op.typedStart,
+            });
+          } else {
+            diffs.push({
+              type: 'substitution',
+              originalChar: o[op.origStart] ?? '',
+              typedChar: t[op.typedStart] ?? '',
+              originalPosition: origPos + op.origStart,
+              typedPosition: typedPos + op.typedStart,
+            });
+          }
+        }
       }
+
+      // A word the candidate never typed takes up no room in what they typed,
+      // and vice versa — so the two cursors move independently.
+      if (cell.expected !== null) origPos += o.length + 1;
+      if (cell.typed !== null) typedPos += t.length + 1;
     }
 
     return diffs;
   }
 
+  /**
+   * Every word of the passage against the word the candidate actually typed
+   * for it, rather than against whatever happened to sit at the same index.
+   */
   private wordLevelMapping(original: string, typed: string): WordLevelError[] {
-    const originalWords = original.split(/\s+/);
-    const typedWords = typed.split(/\s+/);
-    const result: WordLevelError[] = [];
-    const maxLen = Math.max(originalWords.length, typedWords.length);
+    const { cells } = diffPassage(original, typed);
 
-    for (let i = 0; i < maxLen; i++) {
-      const origWord = originalWords[i] ?? '';
-      const typedWord = typedWords[i] ?? '';
+    return cells.map((cell, index) => {
+      const orig = cell.expected ?? '';
+      const typedWord = cell.typed ?? '';
 
-      if (origWord === '' && typedWord === '') continue;
-
-      if (origWord === typedWord) {
-        result.push({ index: i, original: origWord, typed: typedWord, isCorrect: true, errorType: null, similarity: 1.0 });
-      } else {
-        const errorType = this.classifyWordError(origWord, typedWord);
-        const similarity = origWord && typedWord ? levenshteinRatio(origWord, typedWord) : 0;
-        result.push({ index: i, original: origWord, typed: typedWord, isCorrect: false, errorType, similarity: Math.round(similarity * 10000) / 10000 });
+      if (cell.status === 'correct') {
+        return { index, original: orig, typed: typedWord, isCorrect: true, errorType: null, similarity: 1.0 };
       }
-    }
 
-    return result;
+      return {
+        index,
+        original: orig,
+        typed: typedWord,
+        isCorrect: false,
+        errorType: this.classifyWordError(orig, typedWord),
+        similarity:
+          orig && typedWord
+            ? Math.round(levenshteinRatio(orig, typedWord) * 10000) / 10000
+            : 0,
+      };
+    });
   }
 
   private classifyWordError(original: string, typed: string): string {
@@ -444,7 +438,7 @@ export class SSCErrorEngine {
   isQualifiedFromReport(
     report: ErrorReport,
     testMode: string,
-    category: 'ur' | 'obcEws' | 'scSt' = 'ur',
+    category: BarCategory = 'ur',
   ): boolean {
     const bar = getExamBar(testMode, category);
 

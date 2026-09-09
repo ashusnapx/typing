@@ -12,12 +12,35 @@ const sit = (mode: string, chars: number, seconds: number, window: number, passa
   errorEngine.evaluate(passage, passage.slice(0, chars), window, mode, seconds);
 
 describe('speed is measured against the time actually spent typing', () => {
-  it('divides by the time taken, not the window that was allotted', () => {
+  it('rewards finishing the passage early', () => {
     // Scoring a passage finished in five minutes as though it took ten
     // under-reported every fast candidate by half.
-    const full = sit('ssc_chsl', 1500, 600, 600);
-    const half = sit('ssc_chsl', 1500, 300, 600);
+    const whole = PASSAGE.length;
+    const full = sit('ssc_chsl', whole, 600, 600);
+    const half = sit('ssc_chsl', whole, 300, 600);
     expect(half.sscNetWpm).toBeCloseTo(full.sscNetWpm * 2, 1);
+  });
+
+  it('does not let giving up early count as typing quickly', () => {
+    // The clock in the hall runs for the whole window whatever the candidate
+    // does. Dividing by the time they chose to type for meant three lines
+    // typed fast and then abandoned scored as a very high speed and a pass —
+    // which is what an invented "at least 50% of the passage" rule existed to
+    // paper over, and that rule was shown to candidates as the Commission's.
+    const abandoned = sit('ssc_chsl', 400, 30, 600);
+    expect(abandoned.sscNetWpm).toBeLessThan(10);
+    expect(errorEngine.isQualifiedFromReport(abandoned, 'ssc_chsl')).toBe(false);
+
+    // And the whole passage typed in the same 30 seconds is still impossible,
+    // so the physical floor still holds it down.
+    expect(sit('ssc_chsl', PASSAGE.length, 30, 600).sscNetWpm).toBeLessThan(210);
+  });
+
+  it('scores an attempt that ran the clock out on the window either way', () => {
+    expect(sit('ssc_chsl', 900, 600, 600).sscNetWpm).toBeCloseTo(
+      sit('ssc_chsl', 900, 599, 600).sscNetWpm,
+      1,
+    );
   });
 
   it('refuses to report a speed no one could have typed', () => {
@@ -109,7 +132,8 @@ describe('every post is judged against its own bar', () => {
   });
 
   it('does not charge an unfinished attempt for the part never reached', () => {
-    // Stopping a third of the way in, everything typed correctly.
+    // Stopping a third of the way in, everything typed correctly. It fails on
+    // speed, which is honest — but not on a list of mistakes it never made.
     const r = sit('ssc_chsl', 700, 300, 600);
     expect(r.fullMistakes + r.halfMistakes / 2).toBeLessThanOrEqual(1);
     expect(r.sscErrorPercentage).toBeLessThan(2);
@@ -124,5 +148,44 @@ describe('an attempt with nothing in it', () => {
     expect(r.accuracy).toBe(0);
     expect(r.sscNetWpm).toBe(0);
     expect(errorEngine.isQualifiedFromReport(r, 'ssc_chsl')).toBe(false);
+  });
+});
+
+describe('a full-length passage is scored without exhausting the heap', () => {
+  it('scores a 4,000-depression passage quickly', () => {
+    // The character diff ran one Levenshtein over the whole passage against
+    // the whole attempt, filling an m x n table of objects: 772 MB and half a
+    // second for a DEO Grade 'A' passage, and a heap exhaustion for a longer
+    // one — which on a serverless function loses the attempt the candidate
+    // just sat. The bound that matters is that it is no longer quadratic in
+    // the length of the passage.
+    const long = SENT.repeat(30).trim(); // ~5,900 characters
+    expect(long.length).toBeGreaterThan(4000);
+
+    const before = process.memoryUsage().heapUsed;
+    const started = Date.now();
+    const r = errorEngine.evaluate(long, long.slice(0, 4000), 900, 'ssc_chsl_deo_grade_a', 900);
+    const elapsed = Date.now() - started;
+    const grew = (process.memoryUsage().heapUsed - before) / 1e6;
+
+    expect(r.keyDepressionCount).toBe(4000);
+    expect(elapsed).toBeLessThan(1000);
+    expect(grew).toBeLessThan(200);
+  });
+
+  it('counts characters against the word the candidate actually typed', () => {
+    // The strings compared were built by index, so one skipped word made every
+    // character after it look wrong and the character counts never agreed with
+    // the mistakes printed beside them.
+    const original = 'the quick brown fox jumps over the lazy dog today';
+    const typed = 'the quick fox jumps over the lazy dog today';
+    const r = errorEngine.evaluate(original, typed, 600, 'ssc_chsl', 600);
+
+    expect(r.fullMistakes).toBe(1);
+    expect(r.wrongWordErrors).toBe(1);
+    expect(r.totalCorrectWords).toBe(9); // every word they typed
+    // Only the five characters of "brown" are missing.
+    expect(r.omissionErrors).toBe(5);
+    expect(r.substitutionErrors).toBe(0);
   });
 });

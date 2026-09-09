@@ -289,7 +289,17 @@ export const userRouter = router({
         // auth store, which is only refreshed at sign-in — so XP earned during
         // the session showed a stale figure until the next login.
         totalXp,
-        lessonXp: Math.max(0, totalXp - totalTestXp),
+        /* XP with no attempt behind it.
+        
+           This was called `lessonXp` and shown as "Lessons", from the days
+           when finishing a lesson awarded XP and recorded nothing. Lessons
+           record a row now, so their XP is in the breakdown above under
+           `lesson` — and the dashboard was showing two rows both labelled
+           "Lessons", one for the residual and one for the real thing. What is
+           left here is only the older awards, which are worth keeping in the
+           total but are not lesson XP by any definition the product still
+           uses. */
+        unrecordedXp: Math.max(0, totalXp - totalTestXp),
         recent_scores,
         // Kept apart from the exam figures on purpose — see `isExam` above.
         lessons: {

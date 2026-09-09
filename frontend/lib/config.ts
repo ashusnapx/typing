@@ -340,11 +340,8 @@ export const FOOTER = {
       href: 'https://t.me/mathsmania',
       icon: 'Send',
     },
-    {
-      label: 'GitHub',
-      href: 'https://github.com/mathsmania',
-      icon: 'Github',
-    },
+    // github.com/mathsmania returns 404 — the account does not exist, so the
+    // icon pointed nowhere. Add it back when there is something behind it.
   ],
   legal: {
     copyright: '© 2026 Typing Mania',

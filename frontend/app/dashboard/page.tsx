@@ -600,8 +600,8 @@ export default function DashboardPage() {
         const progress = getLevelProgress(xp);
         const xpBreakdown: { source: string; xp: number; tests: number }[] =
           (data as any)?.xpBreakdown || [];
-        const lessonXp: number =
-          (data as any)?.lessonXp ??
+        const unrecordedXp: number =
+          (data as any)?.unrecordedXp ??
           Math.max(0, xp - xpBreakdown.reduce((s, r) => s + r.xp, 0));
 
         return (
@@ -656,10 +656,13 @@ export default function DashboardPage() {
               )}
 
               <div className="mt-6 space-y-1.5">
-                {lessonXp > 0 && (
+                {/* Awarded before attempts were recorded, so there is no row
+                    to attribute it to — but it is real XP and it is in the
+                    total, so it is named rather than hidden. */}
+                {unrecordedXp > 0 && (
                   <div className="card-flat flex items-center justify-between gap-3 px-3 py-2">
-                    <span className="text-sm text-vast/70">Lessons</span>
-                    <span className="tnum text-sm font-semibold">{lessonXp} XP</span>
+                    <span className="text-sm text-vast/70">Earlier practice</span>
+                    <span className="tnum text-sm font-semibold">{unrecordedXp} XP</span>
                   </div>
                 )}
                 {xpBreakdown
@@ -675,7 +678,7 @@ export default function DashboardPage() {
                       <span className="tnum text-sm font-semibold">{r.xp} XP</span>
                     </div>
                   ))}
-                {lessonXp === 0 && xpBreakdown.every((r) => r.xp === 0) && (
+                {unrecordedXp === 0 && xpBreakdown.every((r) => r.xp === 0) && (
                   <p className="py-2 text-sm text-vast/50">No XP yet</p>
                 )}
               </div>

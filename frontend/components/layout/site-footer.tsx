@@ -42,7 +42,14 @@ export function SiteFooter() {
     /* A slab like every other section, so it carries the same rounded seam.
        Butted against the section above as a plain rectangle it read as cut
        off. */
-    <footer className="slab bg-accent text-vast !pb-5 !pt-9 sm:!pt-12">
+    /* `[&::after]:hidden` kills the skirt.
+
+       Every slab paints five rems of its own colour below itself, so the next
+       section's rounded corners reveal it rather than the page background.
+       Nothing follows the footer, so on this one the skirt was simply eighty
+       pixels of yellow hanging off the bottom of every page — the empty band
+       under the disclaimer. */
+    <footer className="slab bg-accent text-vast !pb-4 !pt-8 sm:!pt-9 [&::after]:hidden">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         {/* Three link groups, and the mark in the space to their right.
 
@@ -51,11 +58,11 @@ export function SiteFooter() {
             ran to three quarters of the viewport. Two columns fit the labels
             at 390px and leave a fourth cell, which is exactly where the mark
             goes, so nothing is dropped to buy the height back. */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-3 sm:gap-8 lg:grid-cols-[repeat(3,auto)_1fr]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-6 lg:grid-cols-[repeat(3,auto)_1fr]">
           {groups.map((group) => (
             <div key={group.title}>
               <h2 className="eyebrow">{group.title}</h2>
-              <ul className="mt-3 space-y-1.5 sm:space-y-2">
+              <ul className="mt-2.5 space-y-1.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <Link
@@ -79,7 +86,7 @@ export function SiteFooter() {
           </Link>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-2 border-vast/20 pt-4 sm:mt-7">
+        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t-2 border-vast/20 pt-3.5">
           <p className="text-sm">{FOOTER.legal.copyright}</p>
           <div className="ml-auto flex items-center gap-3">
             {FOOTER.socialLinks.map((link) => {

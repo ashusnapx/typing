@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import { getFlatLessons } from '@/lib/typing-curriculum';
-import { ExamPreview } from '@/components/home/exam-preview';
+import { FeatureCarousel } from '@/components/home/feature-carousel';
 
 /** Counted from the curriculum, never typed by hand — a number on the landing
  *  page that can drift from the product is a number that will. */
@@ -46,14 +46,13 @@ export default function HomePage() {
       <section className="px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16">
         <div className="mx-auto grid w-full max-w-content items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl">
+            {/* Smaller, and carrying the whole claim on its own. The line
+                under it — full and half mistakes, the error cap, the lesson —
+                listed what the panels to the right now show. */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl">
               The SSC typing test, <em>exactly as it is marked</em>
             </h1>
-            <p className="mt-6 max-w-md text-lg text-vast/70">
-              Full and half mistakes, your post&rsquo;s real error cap, and the
-              lesson to fix what cost you marks.
-            </p>
-            <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <div className="mt-7 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
               <Link href="/exam" className="btn btn-primary btn-lg">
                 Take a test
                 <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
@@ -73,7 +72,7 @@ export default function HomePage() {
           </div>
 
           <div className="relative">
-            <ExamPreview />
+            <FeatureCarousel />
           </div>
         </div>
       </section>
@@ -115,20 +114,24 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════ 3. the course */}
-      <section className="slab slab-ink on-dark">
-        <div className="mx-auto w-full max-w-content px-5 text-center sm:px-8">
-          <h2 className="mx-auto max-w-2xl text-4xl sm:text-6xl" data-reveal>
+      {/* A centred stack of heading, line and button ran to most of a screen
+          for three short pieces of text. Side by side they read in one pass and
+          cost a quarter of the height. */}
+      <section className="slab slab-slate on-dark !py-10 sm:!py-12">
+        <div
+          className="mx-auto flex w-full max-w-content flex-col items-center gap-6 px-5 text-center sm:px-8 lg:flex-row lg:justify-between lg:gap-10 lg:text-left"
+          data-reveal
+        >
+          <h2 className="text-3xl sm:text-4xl lg:max-w-sm">
             Never used a keyboard <em>properly?</em>
           </h2>
-          <p className="mx-auto mt-5 max-w-sm text-lg text-white/70" data-reveal>
+          <p className="text-lg text-white/70">
             {LESSON_COUNT} lessons that assume nothing.
           </p>
-          <div className="mt-8" data-reveal>
-            <Link href="/learn" className="btn btn-primary btn-lg">
-              Start the free course
-              <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-            </Link>
-          </div>
+          <Link href="/learn" className="btn btn-primary btn-md shrink-0">
+            Start the free course
+            <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+          </Link>
         </div>
       </section>
     </>

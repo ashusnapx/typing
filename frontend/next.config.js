@@ -59,6 +59,8 @@ const nextConfig = {
   images: {
     localPatterns: [
       { pathname: '/images/**' },
+      // The captures of the product's own screens behind the hero carousel.
+      { pathname: '/showcase/**' },
     ],
     remotePatterns: [
       { protocol: 'https', hostname: 'mathsmania.com' },

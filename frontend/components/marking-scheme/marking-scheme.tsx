@@ -33,16 +33,6 @@ const LANG_KEY = 'tm-lang';
 
 const T = {
   langLabel: { en: 'English', hi: 'Hinglish' },
-  eyebrow: { en: 'Marking scheme', hi: 'Marking scheme' },
-  title: {
-    en: ['How the typing test is ', 'actually marked'],
-    hi: ['Typing test ki ', 'marking kaise hoti hai'],
-  },
-  lede: {
-    en: 'Everything below is from the Commission’s own notices, written for someone who has just sat down at a computer. Every rule has an example — the sources are at the bottom.',
-    hi: 'Neeche sab kuch SSC ke apne notice se hai, un logon ke liye likha gaya jo abhi computer par baithe hain. Har niyam ke saath ek example hai — sources sabse neeche hain.',
-  },
-
   wordsHeading: { en: ['First, the ', 'words they use'], hi: ['Pehle, ', 'kuch shabd samajh lein'] },
 
   terms: [
@@ -249,7 +239,7 @@ function MistakeTable({
                       rowSpan={g.examples.length}
                       className="w-56 py-3 pr-4 align-top"
                     >
-                      <span className="block text-base font-semibold">{g.title[lang]}</span>
+                      <span className="cell-tag text-base font-semibold">{g.title[lang]}</span>
                       <span className="mt-1 block text-sm font-normal leading-snug text-vast/60">
                         {g.meaning[lang]}
                       </span>
@@ -325,11 +315,19 @@ export function MarkingScheme() {
   return (
     <>
       {/* ═══════════════════════════════════════════════════ lead — cream */}
-      <section className="px-5 pb-14 pt-12 sm:px-8 sm:pb-16 sm:pt-16">
-        <div className="mx-auto w-full max-w-content">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="eyebrow">{T.eyebrow[lang]}</p>
-            <div role="radiogroup" aria-label="Language" className="segment">
+      {/* ═══════════════════════════════════════════ the words — white slab */}
+      <section className="slab slab-white !pt-8 sm:!pt-10" aria-labelledby="words-heading">
+        <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+          {/* The switch rides the first heading instead of sitting in a strip
+              of its own above it. That was a whole row of page spent on one
+              control, directly under a navbar that is already a row of
+              controls; here it costs no height at all and lands where the
+              reader is looking when they decide which language they want. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+            <h2 id="words-heading" className="max-w-2xl text-4xl sm:text-5xl">
+              {h(T.wordsHeading[lang])}
+            </h2>
+            <div role="radiogroup" aria-label="Language" className="segment shrink-0">
               {(['en', 'hi'] as const).map((l) => (
                 <button
                   key={l}
@@ -346,18 +344,6 @@ export function MarkingScheme() {
             </div>
           </div>
 
-          <h1 className="mt-6 max-w-3xl text-5xl sm:text-6xl">{h(T.title[lang])}</h1>
-          <p className="mt-6 max-w-xl text-lg text-vast/70">{T.lede[lang]}</p>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════ the words — white slab */}
-      <section className="slab slab-white" aria-labelledby="words-heading">
-        <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          <h2 id="words-heading" className="max-w-2xl text-4xl sm:text-5xl">
-            {h(T.wordsHeading[lang])}
-          </h2>
-
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:gap-16">
             <div className="min-w-0 overflow-x-auto">
               <table className="w-full text-left">
@@ -365,7 +351,7 @@ export function MarkingScheme() {
                   {T.terms.map((t) => (
                     <tr key={t.word.en} className="border-b-2 border-vast/10 last:border-0">
                       <th scope="row" className="w-40 py-3 pr-4 align-top text-base font-semibold">
-                        {t.word[lang]}
+                        <span className="cell-tag">{t.word[lang]}</span>
                       </th>
                       <td className="py-3 align-top text-base leading-relaxed text-vast/65">
                         {t.body[lang]}
@@ -430,7 +416,7 @@ export function MarkingScheme() {
                 {COMBINATIONS.map((c, i) => (
                   <tr key={i} className="border-b-2 border-vast/10">
                     <td className="break-words py-3 pr-4 align-top font-mono text-[15px] text-ok">
-                      {c.passage}
+                      <span className="cell-tag">{c.passage}</span>
                     </td>
                     <td className="break-words py-3 pr-4 align-top font-mono text-[15px] text-err">
                       {c.typed}
@@ -481,7 +467,9 @@ export function MarkingScheme() {
                     [lang === 'hi' ? 'Error rate' : 'Error rate', `${errorPct.toFixed(1)}%`],
                   ].map(([k, v], i, arr) => (
                     <tr key={k} className={i < arr.length - 1 ? 'border-b border-vast/10' : ''}>
-                      <th scope="row" className="py-2 pr-4 font-normal text-vast/60">{k}</th>
+                      <th scope="row" className="py-2 pr-4 font-normal text-vast/60">
+                        <span className="cell-tag">{k}</span>
+                      </th>
                       <td className="py-2 text-right font-semibold">{v}</td>
                     </tr>
                   ))}
@@ -527,7 +515,7 @@ export function MarkingScheme() {
                 {specs.map((s) => (
                   <tr key={s.type} className="border-b border-lumen/10 align-top last:border-0">
                     <th scope="row" className="px-5 py-4 text-base font-medium">
-                      {s.label}
+                      <span className="cell-tag">{s.label}</span>
                       <span className="mt-1 block text-sm font-normal text-lumen/50">
                         {s.posts.join(', ')}
                       </span>

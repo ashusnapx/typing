@@ -319,22 +319,15 @@ export default function LearnPage() {
   return (
     <>
       {/* ═══════════════════════════════════════════════════ head — cream */}
-      <section className="px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16">
+      <section className="px-5 pb-12 pt-6 sm:px-8 sm:pb-14 sm:pt-8">
         <div className="mx-auto w-full max-w-content">
           <div className="max-w-3xl">
-            {/* Three lines said what one says. A learner arriving here wants
-                the course, not a paragraph about it. */}
-            <h1 className="text-5xl sm:text-7xl">
-              Start at zero.
-              <br />
-              <em>Finish exam-ready.</em>
-            </h1>
-            <p className="eyebrow mt-5">
+            <p className="eyebrow">
               <span className="tnum">{totalLessons}</span> lessons · six stages
             </p>
           </div>
 
-          <div className="mt-10">
+          <div className="mt-6">
             <PostSelector
               post={post}
               category={category}

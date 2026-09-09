@@ -44,6 +44,7 @@
     --lumen: 255 255 255; /* the ground */
     --lumen-dark: 245 245 243; /* a hair off-white, for a resting surface */
     --vast: 26 26 26; /* #1a1a1a — near-black ink */
+    --slate: 68 68 68; /* #444444 — grey, for a dark slab that is not ink */
     --accent: 255 209 26; /* #ffd11a — the one yellow */
     --accent-soft: 255 246 204; /* #fff6cc — the same yellow, laid under text */
 
@@ -254,6 +255,10 @@
      every slab is white, near-white or ink. */
   .slab-cream { background-color: rgb(var(--lumen-dark)); color: rgb(var(--vast)); }
   .slab-ink { background-color: rgb(var(--vast)); color: rgb(var(--white)); }
+  /* Reads as grey against the ink slabs rather than a second black one.
+     Still dark enough to carry white text and the yellow button: white on
+     #444 is about 9.7:1. */
+  .slab-slate { background-color: rgb(var(--slate)); color: rgb(var(--white)); }
   .slab-green { background-color: rgb(var(--vast)); color: rgb(var(--white)); }
   .slab-lilac { background-color: rgb(var(--lumen-dark)); color: rgb(var(--vast)); }
   .slab-white { background-color: rgb(var(--white)); color: rgb(var(--vast)); }
@@ -290,6 +295,23 @@
 
   .btn-primary { background-color: rgb(var(--accent)); color: rgb(var(--vast)); }
   .btn-primary:hover:not(:disabled) { background-color: rgb(var(--accent-soft)); }
+
+  /* The first cell of a table, marked the way the navbar's call to action is:
+     accent fill, the same two-pixel rule and eight-pixel radius. It names the
+     column a reader scans down, so it is the one cell worth pulling forward.
+     Sets its own colour rather than inheriting, because two of these sit in
+     header rows that dim their text. */
+  .cell-tag {
+    /* Wraps. The navbar's button never does, but these carry labels as long
+       as "KDPH (key depressions per hour)", and holding those on one line
+       widened the first column until the whole table overflowed the phone. */
+    @apply inline-flex items-center justify-start text-left;
+    background-color: rgb(var(--accent));
+    color: rgb(var(--vast));
+    border: 2px solid rgb(var(--vast));
+    border-radius: 8px;
+    padding: 0.2rem 0.6rem;
+  }
 
   .btn-ink { background-color: rgb(var(--vast)); color: rgb(var(--lumen)); }
   .btn-ink:hover:not(:disabled) { background-color: rgb(var(--ink-90)); }

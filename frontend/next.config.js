@@ -18,6 +18,18 @@ const cspHeader = `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /* This app is the workspace root, and it has to say so.
+  
+     Next walks up from here looking for a lockfile to infer the root, and
+     finds one in the home directory — `~/package.json` exists because `vercel`
+     was installed there with npm rather than globally. So it inferred `~` as
+     the root, warned that this project's own lockfile was an "additional" one,
+     and would have traced files from the wrong directory. Pinning it is the
+     fix; the stray lockfile upstairs is harmless once we stop looking at it. */
+  turbopack: {
+    root: __dirname,
+  },
+  outputFileTracingRoot: __dirname,
   /**
    * /dashboard/analytics was a second view of the same `useDashboard()` data
    * the dashboard already renders — the same four figures, the same history,

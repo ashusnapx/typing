@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getModeDisplayName } from '@/lib/utils';
-import { getExamSpecs, FULL_MISTAKES, HALF_MISTAKES } from '@/lib/exam-config';
+import { getExamSpecs, isHindiMode, FULL_MISTAKES, HALF_MISTAKES } from '@/lib/exam-config';
 import { TestMode } from '@/types';
 import { PracticeSet } from '@/lib/practice-sets';
 import { ExamChrome, ExamTimeBox, clock } from './exam-chrome';
@@ -130,7 +130,7 @@ export function ExamInstructions({
 
   const speedLabel =
     specs?.qualifyingNature === 'speed_wpm'
-      ? `${lang === 'hindi' ? (specs.hindiSpeedWpm ?? specs.englishSpeedWpm) : specs.englishSpeedWpm} WPM`
+      ? `${lang === 'hindi' || isHindiMode(mode) ? (specs.hindiSpeedWpm ?? specs.englishSpeedWpm) : specs.englishSpeedWpm} WPM`
       : specs
         ? `${specs.englishKdph.toLocaleString('en-IN')} KDPH`
         : wpmTarget

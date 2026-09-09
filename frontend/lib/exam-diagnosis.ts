@@ -60,6 +60,21 @@ export interface Diagnosis {
   wordsCorrect: number;
 }
 
+/* Letters, digits AND marks.
+ *
+ * Devanagari matras, anusvara, halant and nukta are Unicode Marks, not
+ * Letters, so a class of `\p{L}\p{N}` alone stripped every one of them. That
+ * made "सरकार" and "सरकर" compare equal, and the single most common mistake in
+ * Hindi typing — a dropped or wrong matra — was reported as a punctuation slip
+ * worth half a mistake, and sent the candidate to the punctuation lesson. It
+ * is a spelling mistake and the Commission charges a full mark for it. */
+const stripPunctuation = (w: string) => w.replace(/[^\p{L}\p{N}\p{M}]/gu, '');
+const hasDigit = (w: string) => /\p{N}/u.test(w);
+
+/** Compare on letters, digits and marks alone — the word without its
+ *  punctuation or its capitals. */
+const norm = (w: string) => stripPunctuation(w).toLowerCase();
+
 /* -------------------------------------------------------------------------- */
 /* Word alignment                                                             */
 /* -------------------------------------------------------------------------- */
@@ -101,11 +116,38 @@ export function alignWords(
     }
   }
 
+  /* Stop wherever the candidate stopped, and charge nothing for the rest.
+  
+     Plain Levenshtein has to consume the whole passage, so every word after
+     the last one typed counts as a deletion — and that cost then decides the
+     alignment for the words that were typed. It made matching a word far
+     ahead look cheaper than admitting a local slip: a candidate who typed
+     "other that first" against a passage containing "first" again twelve
+     words later had their third word matched to that distant copy, and the
+     ten words in between were charged as skipped. Ten full mistakes for one
+     transposed pair.
+  
+     Ending the alignment at whichever passage word gives the cheapest reading
+     of what was actually typed removes that pressure. The rest of the passage
+     is simply not part of the comparison: it is a completion figure, reported
+     on its own, and never a list of omissions. */
+  let end = 0;
+  for (let i = 0; i <= m; i++) {
+    /* `<=`, so a tie takes the longest reading rather than the shortest.
+       Stopping early is free, and substituting a word costs exactly what
+       inserting it costs, so "THE RESERVE BANK" for "The Reserve Bank" ties
+       with an alignment against no passage at all — and that scored three
+       full mistakes for inserted words instead of three half ones for
+       capitals. Where two readings cost the same, the candidate got further,
+       not less far. */
+    if (dp[i][n] <= dp[end][n]) end = i;
+  }
+
   // Walk back through the table. Substitution is preferred over a
   // delete/insert pair at equal cost, because a mistyped word is one mistake
   // rather than a skip plus an addition.
   const pairs: AlignedPair[] = [];
-  let i = m;
+  let i = end;
   let j = n;
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0) {
@@ -126,6 +168,24 @@ export function alignWords(
     j--;
   }
 
+  /* One word past the end, but only to complete a merge.
+  
+     Running the last two words together — "I hope" typed as "Ihope" — reads as
+     a substitution, and the word it swallowed sits outside the alignment
+     because including it would cost one more. Without its partner the merge is
+     invisible and the candidate is charged a full mistake for spelling instead
+     of half a one for spacing. */
+  const last = pairs[pairs.length - 1];
+  if (
+    end < m &&
+    last &&
+    last.expected !== null &&
+    last.typed !== null &&
+    norm(last.expected + expectedWords[end]) === norm(last.typed)
+  ) {
+    pairs.push({ expected: expectedWords[end], typed: null });
+  }
+
   return pairs;
 }
 
@@ -133,8 +193,6 @@ export function alignWords(
 /* Classification                                                             */
 /* -------------------------------------------------------------------------- */
 
-const stripPunctuation = (w: string) => w.replace(/[^\p{L}\p{N}]/gu, '');
-const hasDigit = (w: string) => /\p{N}/u.test(w);
 
 function editDistance(a: string, b: string): number {
   const m = a.length;
@@ -253,7 +311,6 @@ const COPY: Record<
  */
 function refine(pairs: AlignedPair[]): { kind: MistakeKind; expected: string; typed: string }[] {
   const out: { kind: MistakeKind; expected: string; typed: string }[] = [];
-  const norm = (w: string) => stripPunctuation(w).toLowerCase();
 
   for (let i = 0; i < pairs.length; i++) {
     const p = pairs[i];
@@ -369,50 +426,10 @@ export function diagnose(original: string, typed: string): Diagnosis {
     };
   }
 
-  /* Align against the whole passage, then drop the tail the candidate never
-     reached.
-
-     The reach used to be guessed as `typedWords * 1.15 + 2`, which charged
-     every unfinished attempt about fifteen percent of its length in phantom
-     "skipped word" mistakes — typing 66% of a passage perfectly was reported
-     as 32 skipped words. The words after the last one you typed were never
-     attempted, and that is a completion figure the result screen reports on
-     its own, not thirty-two separate mistakes. A word skipped in the middle
-     still has a typed word after it, so it survives this trim and is still
-     charged. */
-  const allPairs = alignWords(allExpected, typedWords);
-
-  /* Anchor the trim on the last word that genuinely matched, not on a run of
-     nulls at the end.
-
-     A candidate who stops mid-word leaves a fragment — "administr" — that
-     matches nothing well, and the aligner parks it against the last word of
-     the passage. Every untyped word in between then sits above it as a skip,
-     and a trim that only strips a trailing null run finds nothing to strip.
-     That single fragment was charging 80 phantom mistakes on a 74% attempt.
-
-     From the last exact match onwards, anything with no typed word against it
-     was never reached and is dropped. The fragment itself is kept, because an
-     incomplete word is a real mistake and the Commission charges it. */
-  let lastExact = -1;
-  for (let i = allPairs.length - 1; i >= 0; i--) {
-    if (allPairs[i].expected !== null && allPairs[i].expected === allPairs[i].typed) {
-      lastExact = i;
-      break;
-    }
-  }
-
-  let pairs: AlignedPair[];
-  if (lastExact === -1) {
-    /* Not a single word matched — a wrong-passage or gibberish attempt. There
-       is no anchor to trim from, and the candidate plainly never reached the
-       end, so the comparison is bounded by how much they typed. Without this,
-       three wrong words against a 300-word passage scored 300 mistakes. */
-    const bound = Math.min(allExpected.length, typedWords.length + 2);
-    pairs = alignWords(allExpected.slice(0, bound), typedWords);
-  } else {
-    pairs = allPairs.filter((p, i) => i <= lastExact || p.typed !== null);
-  }
+  /* The alignment ends where the candidate stopped, so the words after that
+     point are simply not in it. What is left is the stretch they actually
+     reached, and every mistake reported below is one they actually made. */
+  const pairs = alignWords(allExpected, typedWords);
 
   const mistakes = refine(pairs);
 

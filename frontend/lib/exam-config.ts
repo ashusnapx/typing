@@ -170,6 +170,10 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
  *  means adding one row here and one row in EXAM_VARIANTS — nothing else. */
 const MODE_TO_SPEC: Record<string, SscExamType> = {
   ssc_chsl: 'ssc_chsl_ldc_jsa',
+  // The Hindi paper of the same LDC/JSA test. It carries the same error
+  // allowance and the same duration; only the speed differs, and `getExamBar`
+  // is what resolves that.
+  ssc_hindi: 'ssc_chsl_ldc_jsa',
   ssc_chsl_deo: 'ssc_chsl_deo',
   ssc_chsl_deo_grade_a: 'ssc_chsl_deo_grade_a',
   ssc_cgl_dest: 'ssc_cgl_dest',
@@ -179,6 +183,53 @@ const MODE_TO_SPEC: Record<string, SscExamType> = {
 export function getExamSpecs(mode: string): SscExamSpec | null {
   const key = MODE_TO_SPEC[mode];
   return key ? SSC_EXAM_SPECS[key] : null;
+}
+
+/** The modes sat in Hindi, which are held to their own, lower speed. */
+export function isHindiMode(mode: string): boolean {
+  return mode === 'ssc_hindi' || mode.endsWith('_hindi');
+}
+
+export interface ExamBar {
+  spec: SscExamSpec;
+  language: 'english' | 'hindi';
+  nature: 'speed_wpm' | 'kdph';
+  /** The speed to beat, in the language the test is sat in. */
+  speedWpm: number;
+  kdph: number;
+  /** The error allowance for this candidate's category. */
+  errorCap: number;
+}
+
+/**
+ * The bar an attempt is actually judged against.
+ *
+ * Hindi LDC/JSA qualifies at 30 WPM, not 35 — the instructions screen has
+ * always said so, but nothing resolved it for the marking, so a Hindi
+ * candidate was shown one bar before the test and failed against a different,
+ * higher one afterwards. Reading the bar from here means the two cannot
+ * disagree.
+ */
+export function getExamBar(
+  mode: string,
+  category: 'ur' | 'obcEws' | 'scSt' = 'ur',
+): ExamBar | null {
+  const spec = getExamSpecs(mode);
+  if (!spec) return null;
+  const hindi = isHindiMode(mode);
+  return {
+    spec,
+    language: hindi ? 'hindi' : 'english',
+    nature: spec.qualifyingNature,
+    speedWpm: hindi ? spec.hindiSpeedWpm ?? spec.englishSpeedWpm : spec.englishSpeedWpm,
+    kdph: hindi ? spec.hindiKdph ?? spec.englishKdph : spec.englishKdph,
+    errorCap:
+      category === 'scSt'
+        ? spec.errorAllowanceScSt
+        : category === 'obcEws'
+          ? spec.errorAllowanceObcEws
+          : spec.errorAllowanceGeneral,
+  };
 }
 
 /* -------------------------------------------------------------------------- */

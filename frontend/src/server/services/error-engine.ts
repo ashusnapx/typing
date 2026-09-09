@@ -1,4 +1,4 @@
-import { getExamSpecs } from '@/lib/exam-config';
+import { getExamBar } from '@/lib/exam-config';
 import { diagnose } from '@/lib/exam-diagnosis';
 
 function levenshteinDistance(a: string, b: string): number {
@@ -432,40 +432,35 @@ export class SSCErrorEngine {
    * DEO candidate was told they had failed a 35 WPM bar that does not apply to
    * them.
    *
-   * `getExamSpecs` is the same table the instructions screen and the result
-   * screen read, so the verdict here cannot disagree with what the candidate
-   * was shown before they started.
+   * `getExamBar` is the same table the instructions screen and the result
+   * screen read, and it resolves the language too — Hindi LDC/JSA qualifies at
+   * 30 WPM, and marking it at 35 failed candidates the instructions had just
+   * told they needed 30. The verdict here cannot disagree with what the
+   * candidate was shown before they started.
    */
   isQualifiedFromReport(
     report: ErrorReport,
     testMode: string,
     category: 'ur' | 'obcEws' | 'scSt' = 'ur',
   ): boolean {
-    const specs = getExamSpecs(testMode);
+    const bar = getExamBar(testMode, category);
 
-    if (!specs) {
+    if (!bar) {
       // Training modes have no official bar; hold them to the LDC/JSA one so
       // practice still means something.
       return report.sscNetWpm >= 35 && report.sscErrorPercentage <= 7;
     }
 
-    const cap =
-      category === 'scSt'
-        ? specs.errorAllowanceScSt
-        : category === 'obcEws'
-          ? specs.errorAllowanceObcEws
-          : specs.errorAllowanceGeneral;
+    const errorsOk = report.sscErrorPercentage <= bar.errorCap;
 
-    const errorsOk = report.sscErrorPercentage <= cap;
-
-    if (specs.qualifyingNature === 'speed_wpm') {
-      return report.sscNetWpm >= specs.englishSpeedWpm && errorsOk;
+    if (bar.nature === 'speed_wpm') {
+      return report.sscNetWpm >= bar.speedWpm && errorsOk;
     }
 
     // KDPH posts are judged on key depressions per hour, which is what the
     // notification states — not on a words-per-minute figure derived from it.
     const kdph = report.sscNetWpm * 5 * 60;
-    return kdph >= specs.englishKdph && errorsOk;
+    return kdph >= bar.kdph && errorsOk;
   }
 }
 

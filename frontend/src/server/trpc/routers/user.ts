@@ -9,6 +9,8 @@ import { profileSchema, completeProfileSchema } from '@/lib/schemas';
 import { getLessonById } from '@/lib/typing-curriculum';
 import { levelFromXp } from '@/lib/utils';
 import { responseCache } from '../../services/response-cache';
+import { SSC_EXAM_SPECS } from '@/lib/exam-config';
+import { assessReadiness } from '@/lib/exam-readiness';
 import crypto from 'crypto';
 
 /** Shared with tests.submit, which must drop the entry the moment an attempt
@@ -76,6 +78,15 @@ export const userRouter = router({
             durationSeconds: typingTests.durationSeconds,
             totalErrors: typingTests.totalErrors,
             xpEarned: typingTests.xpEarned,
+            // Read the verdict and the depression count that were stored with
+            // the attempt, rather than guessing them back out of the speed.
+            isQualified: typingTests.isQualified,
+            errorPercentage: typingTests.errorPercentage,
+            fullMistakes: typingTests.fullMistakes,
+            halfMistakes: typingTests.halfMistakes,
+            keyDepressionCount: typingTests.keyDepressionCount,
+            timeTakenSeconds: typingTests.timeTakenSeconds,
+            backspaceCount: typingTests.backspaceCount,
           })
           .from(typingTests)
           .where(isExam)
@@ -158,13 +169,29 @@ export const userRouter = router({
         gross_wpm: t.grossWpm,
         accuracy: t.accuracy,
         mode: t.mode,
-        qualified: t.netWpm !== null && t.accuracy !== null ? (t.netWpm >= 35 && t.accuracy >= 95) : false,
+        /* The verdict stored with the attempt, judged against the bar for the
+           post it was taken for.
+        
+           This used to be re-derived here as `netWpm >= 35 && accuracy >= 95`,
+           which is the LDC/JSA bar applied to every mode. A DEO candidate is
+           held to 8,000 key depressions an hour and a 20% error allowance, so
+           an attempt that genuinely cleared their skill test was shown on the
+           dashboard with a red cross against it. */
+        qualified: t.isQualified ?? false,
         duration: t.durationSeconds,
+        time_taken_seconds: t.timeTakenSeconds,
         total_errors: t.totalErrors,
-        backspace_count: 0,
+        /** Full + half/2 — the figure the result screen and every SSC error
+         *  cap are stated in, so the two screens agree. */
+        mistakes: (t.fullMistakes ?? 0) + (t.halfMistakes ?? 0) / 2,
+        error_percentage: t.errorPercentage,
+        backspace_count: t.backspaceCount ?? 0,
         consistency_score: 100,
         xp_earned: t.xpEarned,
-        key_depression_count: t.grossWpm !== null ? t.grossWpm * 5 : 0,
+        // The count that was stored, not the speed multiplied by five: that is
+        // depressions per minute, and it reported 644.55 keystrokes for an
+        // attempt of 1,355.
+        key_depression_count: t.keyDepressionCount ?? 0,
       }));
 
       const wpms = recentTests.map(t => t.netWpm ?? 0);
@@ -172,8 +199,14 @@ export const userRouter = router({
       const recent_avg_wpm = wpms.length > 0 ? wpms.reduce((a, b) => a + b, 0) / wpms.length : 0;
       const recent_avg_accuracy = accs.length > 0 ? accs.reduce((a, b) => a + b, 0) / accs.length : 0;
 
-      const chsl_wpm_target = 35;
-      const chsl_acc_target = 95;
+      /* The bar comes from the same table the exam screen and the result
+         screen read, so the dashboard cannot quote a target the test does not
+         hold the candidate to. */
+      const ldc = SSC_EXAM_SPECS.ssc_chsl_ldc_jsa;
+      const chsl_wpm_target = ldc.englishSpeedWpm;
+      const chsl_error_cap = ldc.errorAllowanceGeneral;
+      const chsl_acc_target = 100 - chsl_error_cap;
+
       const wpm_gap = Math.max(0, chsl_wpm_target - recent_avg_wpm);
       const acc_gap = Math.max(0, chsl_acc_target - recent_avg_accuracy);
 
@@ -192,19 +225,31 @@ export const userRouter = router({
         else if (last < first * 0.98) accuracy_trend = "declining";
       }
 
-      const wpm_score = Math.min(100, (recent_avg_wpm / chsl_wpm_target) * 100);
-      const accuracy_score = Math.min(100, (recent_avg_accuracy / chsl_acc_target) * 100);
-      const probability = Math.min(99, Math.max(1, wpm_score * 0.4 + accuracy_score * 0.4 + 20));
-      const cgl_probability = Math.min(99, Math.max(1, accuracy_score * 0.7 + 30));
+      /* Readiness is conjunctive, because qualifying is. See exam-readiness.ts
+         for why the weighted average this replaces was dangerous. */
+      const readiness = assessReadiness(
+        recentTests.map((t) => ({
+          netWpm: t.netWpm,
+          errorPercentage: t.errorPercentage,
+          accuracy: t.accuracy,
+          isQualified: t.isQualified,
+        })),
+        ldc,
+      );
 
-      let recommendation = "Need more practice. Focus on building speed and accuracy fundamentals.";
-      if (probability >= 90) {
-        recommendation = "You are exam-ready for SSC CHSL! Maintain your current practice routine.";
-      } else if (probability >= 70) {
-        recommendation = "Close to qualifying! Focus on your weak areas identified in the AI coach feedback.";
-      } else if (probability >= 50) {
-        recommendation = "Moderate readiness. Increase practice frequency and focus on accuracy.";
-      }
+      const probability = readiness.score;
+      const cgl_spec = SSC_EXAM_SPECS.ssc_cgl_dest;
+      const cgl_probability = assessReadiness(
+        recentTests.map((t) => ({
+          netWpm: t.netWpm,
+          errorPercentage: t.errorPercentage,
+          accuracy: t.accuracy,
+          isQualified: t.isQualified,
+        })),
+        cgl_spec,
+      ).errorScore;
+      const cleared = readiness.cleared;
+      const recommendation = readiness.recommendation;
 
       return {
         overview: {
@@ -227,6 +272,10 @@ export const userRouter = router({
           acc_gap: Math.round(acc_gap * 10) / 10,
           chsl_wpm_target,
           chsl_acc_target,
+          chsl_error_cap,
+          recent_avg_error: readiness.avgError,
+          cleared_recent: cleared,
+          blocked_by: readiness.blockedBy,
           tests_analyzed: recentTests.length,
           wpm_series: wpms.slice(0, 10).reverse().map(w => Math.round(w * 10) / 10),
           accuracy_series: accs.slice(0, 10).reverse().map(a => Math.round(a * 10) / 10),

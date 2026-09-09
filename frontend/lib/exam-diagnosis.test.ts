@@ -36,10 +36,11 @@ describe('alignWords', () => {
     expect(wrong).toEqual([{ expected: null, typed: 'extra' }]);
   });
 
-  it('handles an empty attempt', () => {
-    const pairs = alignWords('one two'.split(' '), []);
-    expect(pairs).toHaveLength(2);
-    expect(pairs.every((p) => p.typed === null)).toBe(true);
+  it('pairs nothing at all against an empty attempt', () => {
+    // Not two skipped words: the alignment stops where the candidate stopped,
+    // and a candidate who typed nothing reached nothing. What is left of the
+    // passage is a completion figure, reported on its own.
+    expect(alignWords('one two'.split(' '), [])).toEqual([]);
   });
 });
 
@@ -238,5 +239,147 @@ describe('a trailing fragment does not drag the alignment to the end', () => {
     // No anchor to trim from. Three wrong words against a 300-word passage
     // must not be scored as 300 mistakes.
     expect(diagnose(passage, 'xxx yyy zzz').totalMistakes).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('the alignment stops where the candidate stopped', () => {
+  const P = 'the quick brown fox jumps over the lazy dog and runs away home';
+
+  it('does not chase a repeated word to its last occurrence', () => {
+    // Plain Levenshtein has to consume the whole passage, so the deletions
+    // after the last typed word priced the alignment for the words that WERE
+    // typed. Typing "in the" correctly had the "the" matched to the last of
+    // four, and the eleven words in between charged as skipped: eleven full
+    // mistakes for two words typed perfectly.
+    const passage = 'in the year the bank of the nation said the rate of the loan';
+    expect(diagnose(passage, 'in the').totalMistakes).toBe(0);
+    expect(diagnose(P, 'the').totalMistakes).toBe(0);
+  });
+
+  it('charges a short attempt for what it typed and nothing more', () => {
+    expect(kinds(P, 't')).toEqual({ spelling: 1 });
+    expect(kinds(P, 'xx yy zz')).toEqual({ spelling: 3 });
+    expect(kinds(P, 'aa bb cc dd ee')).toEqual({ spelling: 5 });
+  });
+
+  it('prefers the longer reading when two cost the same', () => {
+    // Substituting a word costs exactly what inserting it costs, and stopping
+    // early is free, so shouting the passage back tied with an alignment
+    // against no passage at all — three full mistakes for extra words instead
+    // of three half ones for capitals.
+    expect(kinds('The Reserve Bank', 'THE RESERVE BANK')).toEqual({
+      capitalisation: 3,
+    });
+    expect(diagnose('The Reserve Bank', 'THE RESERVE BANK').totalMistakes).toBe(1.5);
+  });
+
+  it('reads a local swap as a swap, not as a jump down the passage', () => {
+    // "first" appears again later. Matching that copy was cheaper than
+    // admitting the transposition, once the tail was being paid for.
+    const passage = 'other first that me most all first on the list today';
+    expect(kinds(passage, 'other that first me most')).toEqual({ wordOrder: 1 });
+  });
+
+  it('keeps a merge visible even as the last thing typed', () => {
+    // The swallowed word sits one past where the alignment ends, and without
+    // it the merge reads as a plain misspelling — a full mistake charged for
+    // half a one.
+    expect(kinds('I hope so', 'Ihope')).toEqual({ spacing: 1 });
+    expect(diagnose('I hope so', 'Ihope').totalMistakes).toBe(0.5);
+  });
+});
+
+describe('Hindi is marked on the same rules, and correctly', () => {
+  // Matras, anusvara, halant and nukta are Unicode Marks rather than Letters,
+  // so stripping "punctuation" with \p{L}\p{N} deleted every one of them and
+  // made two different Hindi words compare equal. The commonest mistake in
+  // Hindi typing was reported as a punctuation slip worth half a mistake, and
+  // sent the candidate to the punctuation lesson.
+
+  it('calls a dropped matra a spelling mistake, and charges a full mark', () => {
+    const d = diagnose('भारत सरकार ने कहा', 'भारत सरकर ने कहा');
+    expect(d.findings.map((f) => f.kind)).toEqual(['spelling']);
+    expect(d.totalMistakes).toBe(1);
+    expect(d.findings[0].lessonId).toBe('s3-spelling');
+  });
+
+  it('calls an added anusvara a spelling mistake', () => {
+    expect(kinds('भारत सरकार ने कहा', 'भारत सरकार ने कहां')).toEqual({ spelling: 1 });
+  });
+
+  it('calls a dropped nukta a spelling mistake', () => {
+    expect(kinds('वह क़लम है', 'वह कलम है')).toEqual({ spelling: 1 });
+  });
+
+  it('still calls a dropped danda or comma punctuation', () => {
+    expect(kinds('भारत सरकार ने कहा।', 'भारत सरकार ने कहा')).toEqual({ punctuation: 1 });
+    expect(kinds('भारत, सरकार ने कहा', 'भारत सरकार ने कहा')).toEqual({ punctuation: 1 });
+  });
+
+  it('marks spacing, omission and figures in Hindi as it does in English', () => {
+    expect(kinds('भारत सरकार ने कहा', 'भारतसरकार ने कहा')).toEqual({ spacing: 1 });
+    expect(kinds('भारत सरकार ने कहा है', 'भारत ने कहा है')).toEqual({ skipped: 1 });
+    expect(kinds('वर्ष २०१९ में आया', 'वर्ष २०१८ में आया')).toEqual({ figures: 1 });
+  });
+});
+
+describe('no attempt is charged more than it could possibly have earned', () => {
+  const VOCAB = ('the of and to in a is that for it as was with be by on not he this are '
+    + 'but had have from or an they which one you were her all she there would their we him '
+    + 'been has when who will more no if out so said what its about into than them can only').split(' ');
+
+  it('holds every invariant across ten thousand random attempts', () => {
+    // The property that matters: you cannot lose more marks than the number of
+    // words you typed plus the slips you actually made. Every scoring bug this
+    // module has had showed up as a violation of it — phantom skipped words,
+    // a repeated word dragging the anchor, a truncated final word.
+    let seed = 7;
+    const r = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const violations: string[] = [];
+
+    for (let t = 0; t < 10000; t++) {
+      const length = 3 + Math.floor(r() * 60);
+      const passage = Array.from({ length }, () => VOCAB[Math.floor(r() * VOCAB.length)]);
+      let typed = passage.slice(0, Math.floor(r() * (length + 1)));
+
+      const mutations = Math.floor(r() * 5);
+      for (let k = 0; k < mutations && typed.length; k++) {
+        const i = Math.floor(r() * typed.length);
+        switch (Math.floor(r() * 9)) {
+          case 0: typed = typed.map((w, j) => (j === i ? w.toUpperCase() : w)); break;
+          case 1: typed = typed.map((w, j) => (j === i ? w + 'q' : w)); break;
+          case 2: typed = typed.filter((_, j) => j !== i); break;
+          case 3: typed = [...typed.slice(0, i), 'zzz', ...typed.slice(i)]; break;
+          case 4: if (i + 1 < typed.length) typed = [...typed.slice(0, i), typed[i] + typed[i + 1], ...typed.slice(i + 2)]; break;
+          case 5: typed = typed.map((w, j) => (j === i ? w + ',' : w)); break;
+          case 6: if (i + 1 < typed.length) typed = [...typed.slice(0, i), typed[i + 1], typed[i], ...typed.slice(i + 2)]; break;
+          case 7: if (typed[i].length > 2) typed = [...typed.slice(0, i), typed[i].slice(0, 1), typed[i].slice(1), ...typed.slice(i + 1)]; break;
+          default: typed = typed.map((w, j) => (j === i ? w.slice(0, -1) : w));
+        }
+      }
+
+      const d = diagnose(passage.join(' '), typed.join(' '));
+      const where = `\n  passage: ${passage.join(' ')}\n  typed:   ${typed.join(' ')}\n  got:     ${d.totalMistakes} (${d.findings.map((f) => f.kind + ' x' + f.count).join(', ')})`;
+
+      if (d.totalMistakes > Math.max(typed.length, 1) + mutations) violations.push('charged more than was typed' + where);
+      if (Math.abs(d.findings.reduce((s, f) => s + f.cost, 0) - d.totalMistakes) > 1e-9) violations.push('breakdown does not add up to the total' + where);
+      if (d.totalMistakes !== d.fullMistakes + d.halfMistakes / 2) violations.push('full + half/2 does not hold' + where);
+      if (d.wordsCorrect > d.wordsAttempted) violations.push('more words right than were typed' + where);
+      if (d.findings.some((f) => f.count < 1)) violations.push('a finding with no occurrences' + where);
+    }
+
+    expect(violations.slice(0, 3).join('\n'), `${violations.length} of 10000`).toBe('');
+  });
+
+  it('never charges an attempt that stopped early but typed correctly', () => {
+    let seed = 99;
+    const r = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let t = 0; t < 500; t++) {
+      const length = 1 + Math.floor(r() * 120);
+      const passage = Array.from({ length }, () => VOCAB[Math.floor(r() * VOCAB.length)]);
+      const stop = 1 + Math.floor(r() * length);
+      const d = diagnose(passage.join(' '), passage.slice(0, stop).join(' '));
+      expect(d.totalMistakes, `stopped at ${stop} of ${length}: ${passage.join(' ')}`).toBe(0);
+    }
   });
 });

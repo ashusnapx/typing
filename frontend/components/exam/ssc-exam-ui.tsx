@@ -10,7 +10,7 @@ import {
 import { useTypingStore } from '@/store/typing-store';
 import { useTypingEngine } from '@/hooks/use-typing-engine';
 import { calculateWPM, calculateAccuracy, getModeDisplayName } from '@/lib/utils';
-import { getExamSpecs } from '@/lib/exam-config';
+import { getExamSpecs, getExamBar } from '@/lib/exam-config';
 import { ExamChrome, ExamTimeBox, clock } from './exam-chrome';
 
 interface SSCExamUIProps {
@@ -142,6 +142,7 @@ export function SSCExamUI({
   const [fontScale, setFontScale] = useState(17);
 
   const specs = getExamSpecs(mode);
+  const bar = getExamBar(mode);
   const isTyping = phase === 'typing';
   const showLive = LIVE_FEEDBACK_MODES.has(mode);
   const backspaceLocked = specs ? !specs.backspaceAllowed : false;
@@ -241,11 +242,14 @@ export function SSCExamUI({
   const timeState =
     remaining <= 60 ? 'critical' : remaining <= 120 ? 'low' : 'normal';
 
+  // The bar in the language this test is sat in: Hindi LDC/JSA is 30 WPM, and
+  // showing the English 35 on the screen the candidate watches while typing
+  // told them they were failing when they were not.
   const targetLabel =
-    specs?.qualifyingNature === 'speed_wpm'
-      ? `${specs.englishSpeedWpm} WPM`
-      : specs
-        ? `${specs.englishKdph.toLocaleString('en-IN')} KDPH`
+    bar?.nature === 'speed_wpm'
+      ? `${bar.speedWpm} WPM`
+      : bar
+        ? `${bar.kdph.toLocaleString('en-IN')} KDPH`
         : wpmTarget
           ? `${wpmTarget} WPM`
           : '—';

@@ -107,11 +107,8 @@ const T = {
     en: 'This is where most candidates lose the test — not on speed. Two half mistakes cost the same as one full mistake.',
     hi: 'Zyadatar log yahin test haarte hain — speed par nahi. Do aadhi galtiyan milkar ek poori galti ke barabar.',
   },
-  costsFull: { en: 'Costs 1 full mistake', hi: 'Poori galti — 1' },
-  costsHalf: { en: 'Costs half a mistake', hi: 'Aadhi galti — 0.5' },
   passageSays: { en: 'Passage says', hi: 'Passage mein hai' },
   youTyped: { en: 'You typed', hi: 'Aapne type kiya' },
-  howToAvoid: { en: 'How to avoid it', hi: 'Isse kaise bachein' },
   practise: { en: 'Practise this', hi: 'Yeh practice karein' },
 
   comboHeading: { en: ['When mistakes ', 'add up'], hi: ['Jab galtiyan ', 'jud jaati hain'] },
@@ -205,70 +202,81 @@ function KeyDepressionDiagram({ lang }: { lang: Lang }) {
 }
 
 /** One rule, its meaning, and every way it actually shows up. */
-function MistakeCard({
-  group,
+/**
+ * Every mistake and every example, in one table.
+ *
+ * These were eight cards, each carrying a heading, a sentence of meaning, two
+ * or three examples with a sentence apiece explaining them, and a sentence of
+ * advice — some nine hundred words to say what a candidate needs to scan in
+ * ten seconds before a test. The rules and the examples are all still here;
+ * the sentences around them are not, and a table lets a reader find the one
+ * row they came for.
+ */
+function MistakeTable({
+  groups,
   lang,
+  heading,
 }: {
-  group: (typeof MISTAKE_GROUPS)[number];
+  groups: typeof MISTAKE_GROUPS;
   lang: Lang;
+  heading: string;
 }) {
-  const isFull = group.weight === 'full';
   return (
-    <article className="card overflow-hidden">
-      <header
-        className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-vast px-5 py-4 ${
-          isFull ? 'bg-err-bg' : 'bg-warn-bg'
-        }`}
-      >
-        <h3 className="text-2xl">{group.title[lang]}</h3>
-        <span className={`chip ml-auto shrink-0 ${isFull ? 'chip-err' : ''}`}>
-          {isFull ? T.costsFull[lang] : T.costsHalf[lang]}
-        </span>
-      </header>
-
-      <div className="p-5">
-        <p className="text-base leading-relaxed text-vast/70">{group.meaning[lang]}</p>
-
-        <ul className="mt-5 space-y-3">
-          {group.examples.map((ex, i) => (
-            <li key={i} className="card-flat p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="min-w-0">
-                  <span className="eyebrow">{T.passageSays[lang]}</span>
-                  <p className="mt-1.5 break-words font-mono text-base text-ok">
+    <>
+      <h3 className="mt-12 text-3xl">{heading}</h3>
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full min-w-[40rem] text-left">
+          <thead>
+            <tr className="border-b-2 border-vast">
+              <th scope="col" className="eyebrow py-3 pr-4">
+                {lang === 'hi' ? 'Galti' : 'Mistake'}
+              </th>
+              <th scope="col" className="eyebrow py-3 pr-4">
+                {T.passageSays[lang]}
+              </th>
+              <th scope="col" className="eyebrow py-3">
+                {T.youTyped[lang]}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) =>
+              g.examples.map((ex, i) => (
+                <tr key={`${g.kind}-${i}`} className="border-b-2 border-vast/10">
+                  {i === 0 && (
+                    <th
+                      scope="row"
+                      rowSpan={g.examples.length}
+                      className="w-56 py-3 pr-4 align-top"
+                    >
+                      <span className="block text-base font-semibold">{g.title[lang]}</span>
+                      <span className="mt-1 block text-sm font-normal leading-snug text-vast/60">
+                        {g.meaning[lang]}
+                      </span>
+                      {/* The drill that fixes this one. The whole point of
+                          naming the mistake is being able to go and practise
+                          it, so the link survives the trim. */}
+                      <Link
+                        href={`/exam/lesson/${g.lessonId}`}
+                        className="mt-1.5 inline-block text-sm font-normal underline underline-offset-4"
+                      >
+                        {T.practise[lang]}
+                      </Link>
+                    </th>
+                  )}
+                  <td className="break-words py-3 pr-4 align-top font-mono text-[15px] text-ok">
                     {ex.passage}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <span className="eyebrow">{T.youTyped[lang]}</span>
-                  <p className="mt-1.5 break-words font-mono text-base text-err">
+                  </td>
+                  <td className="break-words py-3 align-top font-mono text-[15px] text-err">
                     {ex.typed}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-vast/60">
-                <span className="tnum shrink-0 font-semibold text-vast">
-                  &minus;{ex.cost}
-                </span>
-                {ex.why[lang]}
-              </p>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-5 border-t-2 border-vast/10 pt-4">
-          <span className="eyebrow">{T.howToAvoid[lang]}</span>
-          <p className="mt-2 text-base leading-relaxed text-vast/70">{group.fix[lang]}</p>
-          <Link
-            href={`/exam/lesson/${group.lessonId}`}
-            className="mt-3 inline-flex items-center gap-1.5 text-base font-medium underline underline-offset-4"
-          >
-            {T.practise[lang]}
-            <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-          </Link>
-        </div>
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
       </div>
-    </article>
+    </>
   );
 }
 
@@ -350,17 +358,23 @@ export function MarkingScheme() {
             {h(T.wordsHeading[lang])}
           </h2>
 
-          <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:gap-16">
-            <dl className="min-w-0">
-              {T.terms.map((t) => (
-                <div key={t.word.en} className="border-b-2 border-vast/10 py-4 last:border-0">
-                  <dt className="text-xl">{t.word[lang]}</dt>
-                  <dd className="mt-1.5 text-base leading-relaxed text-vast/65">
-                    {t.body[lang]}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+          <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:gap-16">
+            <div className="min-w-0 overflow-x-auto">
+              <table className="w-full text-left">
+                <tbody>
+                  {T.terms.map((t) => (
+                    <tr key={t.word.en} className="border-b-2 border-vast/10 last:border-0">
+                      <th scope="row" className="w-40 py-3 pr-4 align-top text-base font-semibold">
+                        {t.word[lang]}
+                      </th>
+                      <td className="py-3 align-top text-base leading-relaxed text-vast/65">
+                        {t.body[lang]}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="min-w-0">
               <KeyDepressionDiagram lang={lang} />
             </div>
@@ -376,23 +390,16 @@ export function MarkingScheme() {
           </h2>
           <p className="mt-5 max-w-xl text-lg text-vast/70">{T.mistakesLede[lang]}</p>
 
-          <h3 className="mt-12 text-3xl">
-            {lang === 'hi' ? 'Aadhi galtiyan (0.5)' : 'Half mistakes (0.5 each)'}
-          </h3>
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            {halfGroups.map((g) => (
-              <MistakeCard key={g.kind} group={g} lang={lang} />
-            ))}
-          </div>
-
-          <h3 className="mt-12 text-3xl">
-            {lang === 'hi' ? 'Poori galtiyan (1)' : 'Full mistakes (1 each)'}
-          </h3>
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            {fullGroups.map((g) => (
-              <MistakeCard key={g.kind} group={g} lang={lang} />
-            ))}
-          </div>
+          <MistakeTable
+            groups={halfGroups}
+            lang={lang}
+            heading={lang === 'hi' ? 'Aadhi galtiyan — 0.5 har ek' : 'Half mistakes — 0.5 each'}
+          />
+          <MistakeTable
+            groups={fullGroups}
+            lang={lang}
+            heading={lang === 'hi' ? 'Poori galtiyan — 1 har ek' : 'Full mistakes — 1 each'}
+          />
         </div>
       </section>
 
@@ -404,43 +411,40 @@ export function MarkingScheme() {
           </h2>
           <p className="mt-5 max-w-xl text-lg text-vast/70">{T.comboLede[lang]}</p>
 
-          <ul className="mt-10 space-y-4">
-            {COMBINATIONS.map((c, i) => (
-              <li key={i} className="card p-5 sm:p-6">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <span className="eyebrow">{T.passageSays[lang]}</span>
-                    <p className="mt-1.5 break-words font-mono text-base text-ok">{c.passage}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="eyebrow">{T.youTyped[lang]}</span>
-                    <p className="mt-1.5 break-words font-mono text-base text-err">{c.typed}</p>
-                  </div>
-                </div>
-
-                <div className="tnum mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t-2 border-vast/10 pt-4 text-base">
-                  {c.full > 0 && (
-                    <span className="chip chip-err">
-                      {c.full} &times; {lang === 'hi' ? 'poori' : 'full'} = {c.full}
-                    </span>
-                  )}
-                  {c.half > 0 && (
-                    <span className="chip">
-                      {c.half} &times; {lang === 'hi' ? 'aadhi' : 'half'} = {c.half / 2}
-                    </span>
-                  )}
-                  <span className="ml-auto font-semibold">
-                    {T.totalCost[lang]}: {c.total}{' '}
-                    {c.total === 1
-                      ? T.mistakeWord[lang].one
-                      : T.mistakeWord[lang].many}
-                  </span>
-                </div>
-
-                <p className="mt-3 text-base leading-relaxed text-vast/60">{c.note[lang]}</p>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-8 overflow-x-auto">
+            <table className="w-full min-w-[44rem] text-left">
+              <thead>
+                <tr className="border-b-2 border-vast">
+                  <th scope="col" className="eyebrow py-3 pr-4">{T.passageSays[lang]}</th>
+                  <th scope="col" className="eyebrow py-3 pr-4">{T.youTyped[lang]}</th>
+                  <th scope="col" className="eyebrow py-3 pr-4 text-right">
+                    {lang === 'hi' ? 'Poori' : 'Full'}
+                  </th>
+                  <th scope="col" className="eyebrow py-3 pr-4 text-right">
+                    {lang === 'hi' ? 'Aadhi' : 'Half'}
+                  </th>
+                  <th scope="col" className="eyebrow py-3 text-right">{T.totalCost[lang]}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMBINATIONS.map((c, i) => (
+                  <tr key={i} className="border-b-2 border-vast/10">
+                    <td className="break-words py-3 pr-4 align-top font-mono text-[15px] text-ok">
+                      {c.passage}
+                    </td>
+                    <td className="break-words py-3 pr-4 align-top font-mono text-[15px] text-err">
+                      {c.typed}
+                    </td>
+                    <td className="tnum py-3 pr-4 text-right align-top text-base">{c.full}</td>
+                    <td className="tnum py-3 pr-4 text-right align-top text-base">{c.half}</td>
+                    <td className="tnum py-3 text-right align-top text-base font-semibold">
+                      {c.total}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -464,44 +468,29 @@ export function MarkingScheme() {
 
             <div className="card min-w-0 p-5 sm:p-6">
               <p className="eyebrow">{T.workedExample[lang]}</p>
-              <p className="mt-3 text-base leading-relaxed text-vast/70">
-                {lang === 'hi' ? (
-                  <>
-                    Aapne {ex.minutes} minute mein{' '}
-                    <strong className="tnum text-vast">{ex.keyDepressions.toLocaleString('en-IN')}</strong>{' '}
-                    key depressions kiye, <strong className="tnum text-vast">{ex.full}</strong> poori aur{' '}
-                    <strong className="tnum text-vast">{ex.half}</strong> aadhi galtiyon ke saath.
-                  </>
-                ) : (
-                  <>
-                    You type{' '}
-                    <strong className="tnum text-vast">{ex.keyDepressions.toLocaleString('en-IN')}</strong>{' '}
-                    key depressions in {ex.minutes} minutes, with{' '}
-                    <strong className="tnum text-vast">{ex.full}</strong> full and{' '}
-                    <strong className="tnum text-vast">{ex.half}</strong> half mistakes.
-                  </>
-                )}
-              </p>
-              <dl className="tnum mt-5 space-y-2 text-base">
-                {[
-                  [lang === 'hi' ? 'Gross words' : 'Gross words', String(grossWords)],
-                  [lang === 'hi' ? 'Galtiyan' : 'Mistakes', String(errors)],
-                  [lang === 'hi' ? 'Net speed' : 'Net speed', `${netWpm.toFixed(1)} WPM`],
-                  [lang === 'hi' ? 'Error rate' : 'Error rate', `${errorPct.toFixed(1)}%`],
-                ].map(([k, v], i, arr) => (
-                  <div
-                    key={k}
-                    className={`flex justify-between gap-3 ${i < arr.length - 1 ? 'border-b border-vast/10 pb-2' : ''}`}
-                  >
-                    <dt className="text-vast/60">{k}</dt>
-                    <dd className="font-semibold">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-5 text-base leading-relaxed text-vast/60">
+              <table className="tnum mt-4 w-full text-left text-base">
+                <tbody>
+                  {[
+                    [lang === 'hi' ? 'Key depressions' : 'Key depressions', ex.keyDepressions.toLocaleString('en-IN')],
+                    [lang === 'hi' ? 'Minute' : 'Minutes', String(ex.minutes)],
+                    [lang === 'hi' ? 'Poori galtiyan' : 'Full mistakes', String(ex.full)],
+                    [lang === 'hi' ? 'Aadhi galtiyan' : 'Half mistakes', String(ex.half)],
+                    ['Gross words', String(grossWords)],
+                    [lang === 'hi' ? 'Kul galtiyan' : 'Mistakes', String(errors)],
+                    [lang === 'hi' ? 'Net speed' : 'Net speed', `${netWpm.toFixed(1)} WPM`],
+                    [lang === 'hi' ? 'Error rate' : 'Error rate', `${errorPct.toFixed(1)}%`],
+                  ].map(([k, v], i, arr) => (
+                    <tr key={k} className={i < arr.length - 1 ? 'border-b border-vast/10' : ''}>
+                      <th scope="row" className="py-2 pr-4 font-normal text-vast/60">{k}</th>
+                      <td className="py-2 text-right font-semibold">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-4 text-sm leading-relaxed text-vast/55">
                 {lang === 'hi'
-                  ? 'Yeh LDC/JSA pass kar leta hai — speed bhi (35 chahiye) aur errors bhi (UR ke liye 7% tak). Aath aadhi galtiyon ne chaar poore shabd kha liye.'
-                  : 'That clears LDC/JSA on speed (needs 35) and on errors (limit 7% for UR). Eight half mistakes cost this candidate four whole words.'}
+                  ? 'LDC/JSA pass — speed 35 se upar, errors 7% ke andar.'
+                  : 'Clears LDC/JSA: above 35 WPM, inside the 7% limit.'}
               </p>
             </div>
           </div>
@@ -624,8 +613,14 @@ export function MarkingScheme() {
                 hi: { t: 'Aapki post, aapka bar', b: `Sabhi ${EXAM_VARIANTS.length} post apne-apne speed aur error limit par jaanche jaate hain, aur aapki category limit badal deti hai.` },
               },
               {
-                en: { t: 'Half the passage, minimum', b: 'Speed over three lines proves nothing, so an attempt has to reach half the passage to count as a pass. That rule is ours, not the Commission’s.' },
-                hi: { t: 'Kam se kam aadha passage', b: 'Teen line ki speed kuch sabit nahi karti, isliye pass hone ke liye aadha passage type karna zaroori hai. Yeh niyam hamara hai, SSC ka nahi.' },
+                /* This used to promise a rule of our own — at least half the
+                   passage typed, or no pass. There is no such rule in the
+                   Commission's guidelines, and there is no longer one here
+                   either: an attempt that stops early is measured over the
+                   whole window, exactly as the clock in the hall runs, so
+                   giving up produces a low speed on its own. */
+                en: { t: 'The clock runs on', b: 'Stop early and the rest of the window still counts, as it does in the hall. Finish early and the time you saved counts for you.' },
+                hi: { t: 'Ghadi chalti rehti hai', b: 'Beech mein chhod diya to baaki time bhi ginta hai, jaise exam hall mein hota hai. Jaldi khatam kiya to bacha hua time aapke faayde mein.' },
               },
             ].map((c) => (
               <li key={c.en.t} className="card p-6">

@@ -322,18 +322,15 @@ export default function LearnPage() {
       <section className="px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16">
         <div className="mx-auto w-full max-w-content">
           <div className="max-w-3xl">
-            <p className="eyebrow">
-              The course · six stages ·{' '}
-              <span className="tnum">{totalLessons}</span> lessons
-            </p>
-            <h1 className="mt-6 text-5xl sm:text-7xl">
+            {/* Three lines said what one says. A learner arriving here wants
+                the course, not a paragraph about it. */}
+            <h1 className="text-5xl sm:text-7xl">
               Start at zero.
               <br />
               <em>Finish exam-ready.</em>
             </h1>
-            <p className="mt-7 max-w-md text-lg text-vast/70">
-              The middle of it is the half and full mistakes that fail
-              candidates who already type fast enough.
+            <p className="eyebrow mt-5">
+              <span className="tnum">{totalLessons}</span> lessons · six stages
             </p>
           </div>
 

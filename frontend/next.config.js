@@ -25,11 +25,15 @@ const nextConfig = {
      was installed there with npm rather than globally. So it inferred `~` as
      the root, warned that this project's own lockfile was an "additional" one,
      and would have traced files from the wrong directory. Pinning it is the
-     fix; the stray lockfile upstairs is harmless once we stop looking at it. */
+     fix; the stray lockfile upstairs is harmless once we stop looking at it.
+  
+     `outputFileTracingRoot` was set here too and had to come out: it made the
+     build succeed and then fail while deploying its own output, looking for
+     `.next/package.json` at a path that is not a package. The warning only
+     ever asked for the turbopack root. */
   turbopack: {
     root: __dirname,
   },
-  outputFileTracingRoot: __dirname,
   /**
    * /dashboard/analytics was a second view of the same `useDashboard()` data
    * the dashboard already renders — the same four figures, the same history,

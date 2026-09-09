@@ -1,10 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import {
-  EB_Garamond,
-  Figtree,
-  JetBrains_Mono,
-  Noto_Sans_Devanagari,
-} from "next/font/google";
+import { Figtree, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { APP } from "@/lib/config";
@@ -12,25 +7,21 @@ import { Navbar } from "@/components/layout/navbar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Reveal } from "@/components/layout/reveal";
 
-const garamond = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
-  variable: "--font-display",
-  display: "swap",
-});
-
+/* One typeface.
+ *
+ * There were four: a serif for headings, this for body, a monospace for
+ * figures and passages, and Devanagari. Four voices on one page is noise to a
+ * reader who is here to pass an exam, and it made the same number look like
+ * two different numbers depending on which card it sat in.
+ *
+ * Every role now points at this one family. Figures stay aligned through
+ * `font-variant-numeric: tabular-nums` rather than through a second face.
+ * Devanagari remains only because no Latin font carries Devanagari glyphs —
+ * it is a script fallback, not a second voice. */
 const figtree = Figtree({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-body",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -59,7 +50,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffeb",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -73,7 +64,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${garamond.variable} ${figtree.variable} ${jetbrainsMono.variable} ${devanagari.variable}`}
+      className={`${figtree.variable} ${devanagari.variable}`}
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col bg-bg text-ink antialiased">

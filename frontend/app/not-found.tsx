@@ -35,7 +35,7 @@ export default function NotFound() {
           </Link>
           <Link
             href={ROUTES.examPractice}
-            className={`inline-flex items-center px-6 py-3 border-[3px] border-pencil bg-muted text-pencil font-hand text-lg ${CSS.shadows.md} hover:bg-blue-pen hover:text-white hover:${CSS.shadows.hover} transition-all duration-100 active:translate-x-1 active:translate-y-1 active:shadow-none`}
+            className={`inline-flex items-center px-6 py-3 border-[3px] border-pencil bg-muted text-pencil font-hand text-lg ${CSS.shadows.md} hover:bg-vast hover:text-white hover:${CSS.shadows.hover} transition-all duration-100 active:translate-x-1 active:translate-y-1 active:shadow-none`}
             style={{ borderRadius: CSS.radii.sm }}
           >
             Start Typing

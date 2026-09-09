@@ -9,17 +9,32 @@ export interface KeyDef {
   finger: FingerZone;
 }
 
+/* Eight fingers, two colours.
+ *
+ * These were eight hues — red, orange, yellow, green, blue, purple, pink,
+ * slate — which is a legend a beginner has to memorise before the keyboard
+ * means anything, and it fought every other colour on the page.
+ *
+ * Left hand reads light, right hand reads dark, and each finger is one step
+ * along that ramp, so a glance tells you the hand and a second look tells you
+ * the finger. What actually names the finger is the label printed on the key,
+ * which needs no legend at all. Yellow is not spent here: it is saved for the
+ * keys the current lesson is teaching.
+ */
 export const FINGER_COLORS: Record<FingerZone, string> = {
-  lp: '#E74C3C',  // Left Pinky — Red
-  lr: '#E67E22',  // Left Ring — Orange
-  lm: '#F1C40F',  // Left Middle — Yellow
-  li: '#2ECC71',  // Left Index — Green
-  ri: '#3498DB',  // Right Index — Blue
-  rm: '#9B59B6',  // Right Middle — Purple
-  rr: '#E91E63',  // Right Ring — Pink
-  rp: '#607D8B',  // Right Pinky — Slate
-  thumb: '#78909C', // Thumb — Light Slate
+  lp: '#d8d8d4',  // Left pinky  — lightest
+  lr: '#c4c4bf',  // Left ring
+  lm: '#b0b0aa',  // Left middle
+  li: '#9c9c95',  // Left index
+  ri: '#6f6f69',  // Right index
+  rm: '#5b5b56',  // Right middle
+  rr: '#474743',  // Right ring
+  rp: '#333330',  // Right pinky — darkest
+  thumb: '#88888210', // Thumbs share the space bar
 };
+
+/** The keys the lesson is teaching right now. The only yellow on the board. */
+export const ACTIVE_KEY_COLOR = '#ffd11a';
 
 export const FINGER_NAMES: Record<FingerZone, string> = {
   lp: 'Left Pinky',

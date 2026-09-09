@@ -30,11 +30,15 @@ interface WordInfo {
  *  vocabulary, and hardcoded colours here meant the legend named one colour
  *  while the passage painted another. */
 const STATUS_CLASS: Record<WordInfo['status'], string> = {
-  correct: 'text-ok',
-  partial: 'text-warn font-semibold line-through',
-  wrong: 'text-err font-semibold line-through',
+  // Correct is plain: there is nothing to look at, and that is the point. The
+  // accent marks what cost marks, in two strengths — soft for a half mistake,
+  // full for a whole one — so the weight on the page matches the weight in the
+  // marking.
+  correct: '',
+  partial: 'bg-accent-soft font-semibold underline decoration-2',
+  wrong: 'bg-accent font-semibold',
   missed: 'text-vast/35 font-semibold line-through',
-  extra: 'text-err font-semibold underline',
+  extra: 'bg-accent font-semibold line-through',
   // Not a mistake: the clock stopped here. Shown faintly and without a strike,
   // because painting the rest of the passage as errors is what made a candidate
   // who ran out of time think they had typed it all wrong.

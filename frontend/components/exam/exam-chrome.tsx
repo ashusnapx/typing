@@ -13,13 +13,13 @@ import { useAuthStore } from '@/store/auth-store';
  * the result means the only screen that ever changes is the one in the middle.
  *
  * Everything here reproduces the platform rather than expressing the site —
- * Verdana at fixed small sizes, #0854AC chrome, the amber sliver under the
+ * Verdana at fixed small sizes, #1a1a1a chrome, the amber sliver under the
  * footer. See the `.exam-*` tokens in globals.css.
  */
 
 /** The roll number tiled diagonally behind every post-login screen.
  *
- *  The platform draws it at ~100pt in #d0d0d0 — enormous, pale, unmissable,
+ *  The platform draws it at ~100pt in #d4d4d0 — enormous, pale, unmissable,
  *  and reproduced by no practice site, so candidates meet it for the first
  *  time on exam day and find it distracting. Better to have stopped noticing. */
 function Watermark({ text }: { text: string }) {
@@ -30,7 +30,7 @@ function Watermark({ text }: { text: string }) {
       style={{
         // Generated from a runtime value, so it cannot live in the stylesheet.
         backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420"><text x="20" y="300" transform="rotate(-26 20 300)" font-family="Verdana, Geneva, sans-serif" font-size="78" fill="#e2e2e2">${text}</text></svg>`
+          `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420"><text x="20" y="300" transform="rotate(-26 20 300)" font-family="Verdana, Geneva, sans-serif" font-size="78" fill="#e8e8e4">${text}</text></svg>`
         )}")`,
         backgroundRepeat: 'repeat',
       }}

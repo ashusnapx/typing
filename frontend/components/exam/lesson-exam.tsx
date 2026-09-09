@@ -17,6 +17,7 @@ import KeyboardSVG from '@/components/learn/keyboard-svg';
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
+import { HomeRowHands, PostureSideView } from '@/components/learn/hand-guide';
 
 import {
   Check, CheckCircle2, XCircle, RotateCcw,
@@ -247,6 +248,11 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   /* ══════════════════════════════════════════════════════ ready — expressive */
   if (phase === 'ready') {
     const isHindi = lessonKeys.some(k => k.includes('hindi') || k === 'hi' || lesson.id.includes('hindi'));
+    /* Hand position is worth showing on any lesson that types letters, and is
+       the entire point of the posture and anchor lessons. */
+    const showsPosture = lesson.id === 's0-posture';
+    const showsHands =
+      !isMouseLesson && !isHindi && (showsPosture || lesson.id.startsWith('s0-') || lesson.drillType === 'letters');
     const facts = [
       ...(isMouseLesson ? [] : [
         { label: 'Target speed', value: lesson.targetWpm ? `${lesson.targetWpm} WPM` : 'No target' },
@@ -319,6 +325,25 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         {!isMouseLesson && (
           <div className="mt-4">
             <CapsLockNotice text={sampleText} />
+          </div>
+        )}
+
+        {/* Where the hands go, drawn.
+        
+            The posture lesson described the sitting position in a sentence and
+            showed nothing, which is no use to the reader it is written for —
+            someone who has not used a keyboard properly before. Every
+            letter lesson gets the home-row hands; the posture lesson gets the
+            side view as well, because that is the whole lesson. */}
+        {showsPosture && (
+          <div className="mt-4">
+            <PostureSideView />
+          </div>
+        )}
+
+        {showsHands && (
+          <div className="mt-4">
+            <HomeRowHands />
           </div>
         )}
 
@@ -503,7 +528,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
                       }`}
                     >
                       <span className={`tnum flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-                        done ? 'border-ok bg-ok text-lumen' :
+                        done ? 'border-vast bg-vast text-white' :
                         active ? 'border-vast bg-lumen' :
                         'border-vast/25 text-vast/40'
                       }`}>

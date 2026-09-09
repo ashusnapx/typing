@@ -57,8 +57,9 @@ const config: Config = {
         paper: t("bg"),
         pencil: t("text"),
         muted: t("lumen-dark"),
-        accent: t("flare"),
-        "blue-pen": t("fathom"),
+        accent: { DEFAULT: t("accent"), soft: t("accent-soft") },
+        "blue-pen": t("vast"),
+        "purple-pen": t("vast"),
         postit: t("dawn"),
         surface: { DEFAULT: t("bg-alt"), 2: t("lumen-dark"), 3: t("lumen-dark") },
         line: { DEFAULT: t("lumen-dark"), strong: t("vast") },
@@ -78,10 +79,13 @@ const config: Config = {
         info: { DEFAULT: t("fathom"), wash: t("lumen-dark") },
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
+        // Every role is the same family now. The names are kept because 156
+        // places name a role rather than a face, and a role is still worth
+        // naming even when they all resolve to one voice.
+        display: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
         sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        mono: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
         hindi: [
           "var(--font-devanagari)",
           "Noto Sans Devanagari",
@@ -90,7 +94,7 @@ const config: Config = {
         ],
         // Legacy — the handwriting faces are retired.
         hand: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
-        marker: ["var(--font-display)", "Georgia", "serif"],
+        marker: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       fontSize: {
         // Body ramp mirrors the source system's body tokens.

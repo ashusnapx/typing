@@ -8,7 +8,7 @@ export function blastConfetti() {
   canvas.height = window.innerHeight;
 
   const ctx = canvas.getContext('2d')!;
-  const colors = ['#2F5BFF', '#4ec5df', '#4caf50', '#ff9800', '#e53935'];
+  const colors = ['#1a1a1a', '#d8d8d4', '#8a8a84', '#fff6cc', '#ffd11a'];
   const pieces: { x: number; y: number; vx: number; vy: number; size: number; color: string }[] = [];
 
   for (let i = 0; i < 120; i++) {

@@ -255,35 +255,23 @@ export function formatPolicyDate(iso: string): string {
 export const FOOTER = {
   description:
     'SSC skill tests, scored the way the Commission scores them.',
+  /* Two exams, not nine variants. A candidate picks the exam they have
+     applied for; which posts they are in the running for is something the
+     result tells them afterwards, from their own score. */
   examLinks: [
-    { label: 'CHSL — LDC / JSA', href: '/exam/chsl' },
-    { label: 'CHSL — DEO', href: '/exam/chsl-deo' },
-    { label: "CHSL — DEO Grade 'A'", href: '/exam/chsl-deo-grade-a' },
-    { label: 'CGL — DEST', href: '/exam/cgl-dest' },
-    { label: 'CGL — CPT', href: '/exam/cgl-cpt' },
-    { label: 'SSC Hindi', href: '/exam/hindi' },
-    { label: 'Practice', href: '/exam/practice' },
-    { label: 'Blind', href: '/exam/blind' },
-    { label: 'Eduquity replica', href: '/exam/tcs-ion' },
+    { label: 'SSC CHSL typing test', href: '/exam/chsl' },
+    { label: 'SSC CGL typing test', href: '/exam/cgl-dest' },
+    { label: 'Marking scheme', href: '/marking-scheme' },
   ],
   quickLinks: [
-    { label: 'Marking scheme', href: '/marking-scheme' },
-    { label: 'Learn Typing', href: '/learn' },
-    { label: 'AI Coach', href: '/coach' },
-    { label: 'Leaderboard', href: '/leaderboard' },
+    { label: 'Learn to type', href: '/learn' },
     { label: 'Dashboard', href: '/dashboard' },
-    { label: 'FAQ', href: '/faq' },
-  ],
-  accountLinks: [
-    { label: 'Login', href: '/auth/login' },
-    { label: 'Register', href: '/auth/register' },
+    { label: 'Leaderboard', href: '/leaderboard' },
   ],
   companyLinks: [
-    { label: 'About us', href: '/about' },
-    { label: 'Contact us', href: '/contact' },
-    { label: 'Privacy policy', href: '/privacy' },
-    { label: 'Terms of service', href: '/terms' },
-    { label: 'Cancellation & refunds', href: '/refunds' },
+    { label: 'Contact', href: '/contact' },
+    { label: 'Privacy', href: '/privacy' },
+    { label: 'Terms', href: '/terms' },
   ],
   socialLinks: [
     {
@@ -375,16 +363,8 @@ export const CSS = {
     mdHover: 'hover:shadow-hard',
     cardPostit: 'card-postit',
   },
-  colors: {
-    blue: '#2F5BFF',
-    teal: '#4ec5df',
-    green: '#4caf50',
-    orange: '#ff9800',
-    red: '#e53935',
-    bg: '#f5f5f5',
-    text: '#333333',
-    border: '#dcdcdc',
-  },
+  /* The palette lives in globals.css now, as two colours and the ink between
+     them. The eight hues that used to sit here were referenced nowhere. */
   rotations: ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-2', '-rotate-0.5', 'rotate-0.5'],
 } as const;
 

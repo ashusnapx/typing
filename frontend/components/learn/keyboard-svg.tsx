@@ -191,16 +191,16 @@ export default function KeyboardSVG({
       <div className="px-4 py-2 bg-pencil/5 border-b-2 border-pencil/10 flex items-center justify-between">
         <span className="text-sm font-hand text-pencil/60">Keyboard</span>
         {expectedChar && !fingerQuizMode && (
-          <span className="text-sm font-mono font-bold text-blue-pen">
+          <span className="text-sm font-mono font-bold text-vast">
             Next: <kbd className="px-2 py-0.5 bg-white border border-pencil/30 rounded text-pencil">{expectedChar === ' ' ? '␣' : expectedChar}</kbd>
           </span>
         )}
         {expectedChar && fingerQuizMode && (
-          <span className="text-sm font-mono font-bold text-purple-pen">
+          <span className="text-sm font-mono font-bold text-vast">
             Which finger for{' '}
             <kbd className="px-2 py-0.5 bg-white border border-pencil/30 rounded text-pencil">{expectedChar === ' ' ? '␣' : expectedChar}</kbd>
             ?{showFingerAnswer && (
-              <span className="ml-2 text-green-600 font-bold">
+              <span className="ml-2 text-vast font-bold">
                 → {FINGER_NAMES[getFingerForLabel(expectedChar)] || '?'}
               </span>
             )}
@@ -220,8 +220,8 @@ export default function KeyboardSVG({
                 50% { opacity: 0.5; }
               }
               @keyframes key-flash-red {
-                0% { fill: #ff4444; stroke: #cc0000; }
-                100% { fill: #ff4444; stroke: #cc0000; }
+                0% { fill: #ffd11a; stroke: #1a1a1a; }
+                100% { fill: #ffd11a; stroke: #1a1a1a; }
               }
               @keyframes key-glow-pulse {
                 0%, 100% { filter: drop-shadow(0 0 3px rgba(255,255,255,0.4)); }
@@ -265,7 +265,7 @@ export default function KeyboardSVG({
 
               let fillColor = fingerColor;
               let fillOpacity = 0.15;
-              let strokeColor = '#ddd8d0';
+              let strokeColor = '#e8e8e4';
               let textFill = '#555';
               let strokeW = 1.5;
               let fontWeight = 400;
@@ -273,8 +273,8 @@ export default function KeyboardSVG({
               let useGlow = false;
 
               if (isWrong) {
-                fillColor = '#ff4444';
-                strokeColor = '#cc0000';
+                fillColor = '#ffd11a';
+                strokeColor = '#1a1a1a';
                 textFill = '#fff';
                 strokeW = 2.5;
                 fontWeight = 700;

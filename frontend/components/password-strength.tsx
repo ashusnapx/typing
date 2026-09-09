@@ -13,7 +13,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
   if (!password) return null;
 
   const ratio = len <= maxLen ? len / maxLen : Math.max(0, 1 - (len - maxLen) / maxLen);
-  const barColor = valid ? 'bg-ok' : 'bg-err';
+  const barColor = valid ? 'bg-vast' : 'bg-accent';
   const label = valid ? 'OK' : len < minLen ? 'Too short' : 'Too long';
   const labelColor = valid ? 'text-ok' : 'text-err';
 

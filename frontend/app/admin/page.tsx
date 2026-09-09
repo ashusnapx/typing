@@ -67,7 +67,7 @@ export default function AdminPage() {
                     <td className="px-6 py-3 text-right font-bold text-accent">{u.xp}</td>
                     <td className="px-6 py-3 text-right">
                       {u.is_premium
-                        ? <span className="font-bold text-green-600">Yes</span>
+                        ? <span className="font-bold text-vast">Yes</span>
                         : <span className="text-pencil/40">No</span>}
                     </td>
                   </tr>

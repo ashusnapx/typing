@@ -24,8 +24,8 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
   const face = useMemo(() => {
     const cx = 100;
     const cy = 100;
-    const baseColor = '#f5e6d3';
-    const darkColor = '#5a3e2b';
+    const baseColor = '#f5f5f2';
+    const darkColor = '#1a1a1a';
 
     const eyes = () => {
       switch (mood) {
@@ -44,8 +44,8 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
               <circle cx="125" cy="82" r="7" fill={darkColor} />
               <circle cx="73" cy="80" r="3" fill="white" />
               <circle cx="123" cy="80" r="3" fill="white" />
-              <ellipse cx="75" cy="96" rx="6" ry="3" fill="#e8c4b0" opacity="0.6" />
-              <ellipse cx="125" cy="96" rx="6" ry="3" fill="#e8c4b0" opacity="0.6" />
+              <ellipse cx="75" cy="96" rx="6" ry="3" fill="#ebebe7" opacity="0.6" />
+              <ellipse cx="125" cy="96" rx="6" ry="3" fill="#ebebe7" opacity="0.6" />
             </g>
           );
         case 'excited':
@@ -111,8 +111,8 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
       if (mood === 'happy' || mood === 'proud' || mood === 'excited') {
         return (
           <g>
-            <ellipse cx="58" cy="100" rx="9" ry="5" fill="#ffb3b3" opacity="0.5" />
-            <ellipse cx="142" cy="100" rx="9" ry="5" fill="#ffb3b3" opacity="0.5" />
+            <ellipse cx="58" cy="100" rx="9" ry="5" fill="#fff6cc" opacity="0.5" />
+            <ellipse cx="142" cy="100" rx="9" ry="5" fill="#fff6cc" opacity="0.5" />
           </g>
         );
       }
@@ -123,7 +123,7 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
       if (mood === 'sad') {
         return (
           <g>
-            <path d="M 65 70 Q 62 76 65 80 Q 68 76 65 70 Z" fill="#88c0ff" opacity="0.7" />
+            <path d="M 65 70 Q 62 76 65 80 Q 68 76 65 70 Z" fill="#d8d8d4" opacity="0.7" />
           </g>
         );
       }
@@ -134,9 +134,9 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
       if (mood === 'sleepy') {
         return (
           <g>
-            <text x="148" y="55" fontSize="10" fontFamily="monospace" fontWeight="bold" fill="#5a3e2b" opacity="0.4">z</text>
-            <text x="156" y="48" fontSize="12" fontFamily="monospace" fontWeight="bold" fill="#5a3e2b" opacity="0.5">z</text>
-            <text x="166" y="39" fontSize="14" fontFamily="monospace" fontWeight="bold" fill="#5a3e2b" opacity="0.6">Z</text>
+            <text x="148" y="55" fontSize="10" fontFamily="monospace" fontWeight="bold" fill="#1a1a1a" opacity="0.4">z</text>
+            <text x="156" y="48" fontSize="12" fontFamily="monospace" fontWeight="bold" fill="#1a1a1a" opacity="0.5">z</text>
+            <text x="166" y="39" fontSize="14" fontFamily="monospace" fontWeight="bold" fill="#1a1a1a" opacity="0.6">Z</text>
           </g>
         );
       }
@@ -159,19 +159,19 @@ export default function CuteCat({ mood, wpm, accuracy }: CuteCatProps) {
       <polygon points="40,68 55,20 70,68" fill={baseColor} stroke={darkColor} strokeWidth="2.5" strokeLinejoin="round" />
     );
     const earLeftInner = (
-      <polygon points="47,63 55,30 63,63" fill="#e8c4b0" stroke="none" />
+      <polygon points="47,63 55,30 63,63" fill="#ebebe7" stroke="none" />
     );
     const earRight = (
       <polygon points="130,68 145,20 160,68" fill={baseColor} stroke={darkColor} strokeWidth="2.5" strokeLinejoin="round" />
     );
     const earRightInner = (
-      <polygon points="137,63 145,30 153,63" fill="#e8c4b0" stroke="none" />
+      <polygon points="137,63 145,30 153,63" fill="#ebebe7" stroke="none" />
     );
     const faceOutline = (
       <circle cx={cx} cy={cy} r="60" fill={baseColor} stroke={darkColor} strokeWidth="2.5" />
     );
     const nose = (
-      <polygon points="97,100 103,100 100,105" fill="#ff8a8a" stroke="none" />
+      <polygon points="97,100 103,100 100,105" fill="#fff6cc" stroke="none" />
     );
     const whiskerLeft = (
       <g stroke={darkColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.5">

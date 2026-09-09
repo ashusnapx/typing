@@ -62,7 +62,7 @@ function BarRow({
         aria-label={`${youLabel} of ${needLabel} needed`}
       >
         <div
-          className={`h-full ${met ? 'bg-ok' : 'bg-err'}`}
+          className={`h-full ${met ? 'bg-vast' : 'bg-accent'}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -182,9 +182,12 @@ export default function AnalysisPage() {
       <section className="card mb-5 p-5 sm:p-6">
         <div className="flex flex-wrap items-start gap-3">
           <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-              qualified ? 'bg-ok' : 'bg-err'
-            } text-cream`}
+            /* Ink for a pass, the accent for a fail: with one accent colour
+               the difference has to be fill against fill, not green against
+               red — both of those now resolve to the same ink. */
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-vast ${
+              qualified ? 'bg-vast text-white' : 'bg-accent text-vast'
+            }`}
           >
             {qualified ? <Check className="h-6 w-6" strokeWidth={3} /> : <X className="h-6 w-6" strokeWidth={3} />}
           </span>
@@ -315,7 +318,7 @@ export default function AnalysisPage() {
         </p>
         <div className="mt-3 h-2.5 w-full border-2 border-vast/20 bg-lumen">
           <div
-            className="h-full bg-fathom"
+            className="h-full bg-vast"
             style={{ width: `${passageWords ? Math.min(100, (typedWords / passageWords) * 100) : 0}%` }}
           />
         </div>

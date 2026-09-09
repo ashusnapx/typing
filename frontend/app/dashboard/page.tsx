@@ -517,8 +517,8 @@ export default function DashboardPage() {
                       className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 transition-colors hover:bg-dawn/25"
                     >
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                          test.qualified ? 'bg-ok text-cream' : 'bg-err text-cream'
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-vast ${
+                          test.qualified ? 'bg-vast text-white' : 'bg-accent text-vast'
                         }`}
                       >
                         {test.qualified ? (

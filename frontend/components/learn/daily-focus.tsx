@@ -39,8 +39,8 @@ export function DailyFocus({
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-amber-50 border-2 border-amber-300 flex items-center justify-center" style={{ borderRadius: CSS.radii.sm }}>
-          <Target className="w-4 h-4 text-amber-600" strokeWidth={3} />
+        <div className="w-8 h-8 rounded-lg bg-accent-soft border-2 border-vast/20 flex items-center justify-center" style={{ borderRadius: CSS.radii.sm }}>
+          <Target className="w-4 h-4 text-vast" strokeWidth={3} />
         </div>
         <div>
           <h3 className="font-marker text-base text-pencil leading-none">Today's Focus</h3>
@@ -50,7 +50,7 @@ export function DailyFocus({
 
       {/* Streak */}
       <div className="flex items-center gap-2 bg-postit border-2 border-pencil/15 p-3" style={{ borderRadius: CSS.radii.sm }}>
-        <Flame className={`w-5 h-5 ${streak > 0 ? 'text-orange-500' : 'text-gray-300'}`} strokeWidth={2.5} fill={streak > 0 ? 'currentColor' : 'none'} />
+        <Flame className={`w-5 h-5 ${streak > 0 ? 'text-vast' : 'text-gray-300'}`} strokeWidth={2.5} fill={streak > 0 ? 'currentColor' : 'none'} />
         <div>
           <span className="font-marker text-lg text-pencil">{streak}</span>
           <span className="text-xs font-hand text-pencil/50 ml-1">day streak</span>
@@ -61,14 +61,14 @@ export function DailyFocus({
       <div className="flex items-center gap-4">
         <div className="relative w-20 h-20 shrink-0">
           <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+            <circle cx="40" cy="40" r="36" fill="none" stroke="#ebebe7" strokeWidth="6" />
             <circle
               cx="40" cy="40" r="36"
               fill="none"
               stroke="currentColor"
               strokeWidth="6"
               strokeLinecap="round"
-              className="text-blue-500 transition-all duration-500"
+              className="text-vast transition-all duration-500"
               style={{ strokeDasharray: circumference, strokeDashoffset }}
             />
           </svg>
@@ -82,7 +82,7 @@ export function DailyFocus({
           <div className="text-[10px] font-hand text-pencil/50 mb-1">{todayMinutes} / {DAILY_GOAL_MINUTES} minutes</div>
           <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-blue-400 transition-all duration-500"
+              className="h-full rounded-full bg-lumen-dark transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -96,7 +96,7 @@ export function DailyFocus({
       {weakestKeys.length > 0 && (
         <div>
           <div className="flex items-center gap-1 mb-2">
-            <Zap className="w-3 h-3 text-red-400" strokeWidth={3} />
+            <Zap className="w-3 h-3 text-vast" strokeWidth={3} />
             <span className="text-[10px] font-marker text-pencil/60 uppercase tracking-wider">Weak Keys</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -105,7 +105,7 @@ export function DailyFocus({
                 key={key}
                 type="button"
                 onClick={() => onStartDrill?.(key)}
-                className="px-2.5 py-1 border-2 border-red-300 bg-red-50 text-red-700 font-marker text-xs hover:bg-red-100 hover:shadow-hard-sm transition-all"
+                className="px-2.5 py-1 border-2 border-vast/20 bg-accent text-vast font-marker text-xs hover:bg-accent hover:shadow-hard-sm transition-all"
                 style={{ borderRadius: CSS.radii.sm }}
               >
                 {key === ' ' ? '␣ Space' : key}
@@ -119,7 +119,7 @@ export function DailyFocus({
       <button
         type="button"
         onClick={() => onStartDrill?.('quick')}
-        className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-500 text-white border-2 border-blue-600 font-marker text-sm shadow-hard-sm hover:bg-blue-600 active:translate-y-0.5 transition-all"
+        className="w-full flex items-center justify-center gap-2 py-2.5 bg-lumen-dark text-white border-2 border-vast/20 font-marker text-sm shadow-hard-sm hover:bg-lumen-dark active:translate-y-0.5 transition-all"
         style={{ borderRadius: CSS.radii.sm }}
       >
         <Clock className="w-4 h-4" strokeWidth={3} />

@@ -60,9 +60,11 @@ export function MistakeBreakdown({
             <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
               {f.examples.map((ex, i) => (
                 <li key={i} className="tnum text-vast/55">
-                  <span className="text-ok">{ex.expected || '—'}</span>
+                  <span className="text-vast/70">{ex.expected || '—'}</span>
                   {' → '}
-                  <span className="text-err">{ex.typed || '(skipped)'}</span>
+                  <span className="bg-accent px-1 font-semibold">
+                    {ex.typed || '(skipped)'}
+                  </span>
                 </li>
               ))}
             </ul>

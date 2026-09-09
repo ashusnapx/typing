@@ -232,7 +232,7 @@ function StageSection({
       >
         <div
           className={`h-full rounded-full transition-all duration-500 ${
-            complete ? 'bg-ok' : onDark ? 'bg-lumen' : 'bg-vast'
+            complete ? 'bg-vast' : onDark ? 'bg-white' : 'bg-vast/30'
           }`}
           style={{ width: `${pct}%` }}
         />

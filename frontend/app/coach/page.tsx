@@ -37,7 +37,7 @@ export default function AICoachPage() {
     <div className="min-h-screen bg-paper">
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center space-x-4 mb-8 rotate-1">
-          <Brain className="w-8 h-8 text-blue-pen" strokeWidth={3} />
+          <Brain className="w-8 h-8 text-vast" strokeWidth={3} />
           <h1 className="text-3xl font-bold text-pencil font-marker">AI Typing Coach</h1>
         </div>
 
@@ -67,7 +67,7 @@ export default function AICoachPage() {
                     <div className="text-xs text-pencil/60 mt-1">
                       {test.wpm?.toFixed(1)} WPM | {test.accuracy?.toFixed(1)}% |{' '}
                       {test.qualified
-                        ? <CheckCircle2 className="w-3 h-3 inline text-green-600" strokeWidth={3} />
+                        ? <CheckCircle2 className="w-3 h-3 inline text-vast" strokeWidth={3} />
                         : <XCircle className="w-3 h-3 inline text-accent" strokeWidth={3} />}
                     </div>
                   </button>
@@ -122,13 +122,13 @@ export default function AICoachPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="bg-white border-2 border-pencil shadow-hard-sm p-4 -rotate-1 hover:rotate-0 transition-transform">
                     <div className="flex items-center space-x-2 mb-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" strokeWidth={3} />
+                      <CheckCircle2 className="w-5 h-5 text-vast" strokeWidth={3} />
                       <h3 className="font-bold text-pencil font-marker">Strengths</h3>
                     </div>
                     <ul className="space-y-2">
                       {feedback.strengths?.map((s: string, i: number) => (
                         <li key={i} className="text-base text-pencil font-hand flex items-start space-x-2">
-                          <span className="text-green-600 mt-0.5">&#10003;</span>
+                          <span className="text-vast mt-0.5">&#10003;</span>
                           <span>{s}</span>
                         </li>
                       ))}
@@ -153,7 +153,7 @@ export default function AICoachPage() {
                 {/* Daily Drills */}
                 <div className="bg-white border-2 border-pencil shadow-hard-sm p-4 rotate-[0.2deg]">
                   <div className="flex items-center space-x-2 mb-3">
-                    <Dumbbell className="w-5 h-5 text-blue-pen" strokeWidth={3} />
+                    <Dumbbell className="w-5 h-5 text-vast" strokeWidth={3} />
                     <h3 className="font-bold text-pencil font-marker">Daily Drills</h3>
                   </div>
                   <div className="space-y-3">
@@ -190,7 +190,7 @@ export default function AICoachPage() {
               </div>
             ) : (
               <div className="bg-white border-2 border-pencil shadow-hard p-12 text-center -rotate-[0.5deg]">
-                <Lightbulb className="w-16 h-16 text-postit mx-auto mb-4" strokeWidth={2} fill="#fff9c4" />
+                <Lightbulb className="w-16 h-16 text-postit mx-auto mb-4" strokeWidth={2} fill="#fff6cc" />
                 <h2 className="text-2xl font-bold text-pencil font-marker mb-2">
                   Select a test to get AI feedback
                 </h2>

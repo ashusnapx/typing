@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Youtube, Instagram, Send, Github, ExternalLink } from 'lucide-react';
 import { APP, FOOTER } from '@/lib/config';
-import { HealthIndicator } from '@/components/health-indicator';
 
 const SOCIAL_ICONS = { Youtube, Instagram, Send, Github } as const;
 
@@ -16,91 +14,79 @@ function isImmersive(pathname: string): boolean {
   return pathname.startsWith('/exam/') || pathname.startsWith('/auth/');
 }
 
-function LinkColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: ReadonlyArray<{ readonly label: string; readonly href: string }>;
-}) {
-  return (
-    <div>
-      <h3 className="eyebrow !text-cream/50">{title}</h3>
-      <ul className="mt-4 space-y-2.5">
-        {links.map((link) => (
-          <li key={link.href + link.label}>
-            <Link
-              href={link.href}
-              className="text-base text-lumen/70 transition-colors hover:text-lumen"
-            >
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
+/**
+ * The footer, in yellow.
+ *
+ * It was a dark slab carrying four columns and twenty-one links — every exam
+ * variant, an account column duplicating the navbar, a health indicator, a
+ * logo, a strapline and a disclaimer. Most of it was there because footers
+ * usually have it, not because anyone needed it.
+ *
+ * Nine links now, in three groups a candidate would actually go looking for,
+ * and it is the one place the accent runs at full size: the end of the page is
+ * where a block of yellow costs nothing and marks the edge clearly.
+ */
 export function SiteFooter() {
   const pathname = usePathname();
   if (isImmersive(pathname)) return null;
 
+  const groups = [
+    { title: 'Tests', links: FOOTER.examLinks },
+    { title: 'Practice', links: FOOTER.quickLinks },
+    { title: 'Company', links: FOOTER.companyLinks },
+  ];
+
   return (
-    <footer className="on-dark slab slab-ink !pb-10">
+    /* A slab like every other section, so it carries the same rounded seam.
+       Butted against the section above as a plain rectangle it read as cut
+       off. */
+    <footer className="slab bg-accent text-vast !pb-10 !pt-14">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-        <div className="grid gap-12 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
-          <div className="max-w-sm">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <Image
-                src={APP.logo}
-                alt=""
-                width={30}
-                height={30}
-                className="h-[30px] w-[30px] rounded-md"
-              />
-              <span className="font-display text-2xl leading-none">
-                {APP.name}
-              </span>
-            </Link>
-            <p className="mt-4 text-base leading-relaxed text-lumen/70">
-              {FOOTER.description}
-            </p>
-            <div className="mt-6 flex items-center gap-2">
-              {FOOTER.socialLinks.map((link) => {
-                const Icon =
-                  SOCIAL_ICONS[link.icon as keyof typeof SOCIAL_ICONS] ??
-                  ExternalLink;
-                return (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={link.label}
-                    className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-lumen/25 text-lumen/70 transition-colors hover:border-lumen hover:text-lumen"
-                  >
-                    <Icon className="h-4 w-4" strokeWidth={1.8} />
-                  </a>
-                );
-              })}
+        <div className="grid gap-8 sm:grid-cols-3">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <h2 className="eyebrow">{group.title}</h2>
+              <ul className="mt-3 space-y-2">
+                {group.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-[15px] underline-offset-4 hover:underline"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-
-          <LinkColumn title="Exams" links={FOOTER.examLinks} />
-          <LinkColumn title="Practice" links={FOOTER.quickLinks} />
-          <LinkColumn title="Company" links={FOOTER.companyLinks} />
+          ))}
         </div>
 
-        <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-lumen/15 pt-6 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-sm text-lumen/60">{FOOTER.legal.copyright}</p>
-            <p className="mt-1 max-w-prose text-xs leading-relaxed text-lumen/40">
-              {FOOTER.legal.disclaimer}
-            </p>
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-2 border-vast/20 pt-5">
+          <p className="text-sm">{FOOTER.legal.copyright}</p>
+          <div className="ml-auto flex items-center gap-3">
+            {FOOTER.socialLinks.map((link) => {
+              const Icon =
+                SOCIAL_ICONS[link.icon as keyof typeof SOCIAL_ICONS] ?? ExternalLink;
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={link.label}
+                  className="transition-opacity hover:opacity-60"
+                >
+                  <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+                </a>
+              );
+            })}
           </div>
-          <HealthIndicator />
         </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-vast/60">
+          {APP.name} is not affiliated with the Staff Selection Commission.
+        </p>
       </div>
     </footer>
   );

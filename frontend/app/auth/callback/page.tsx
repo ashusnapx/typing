@@ -103,8 +103,8 @@ export default function AuthCallbackPage() {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white border-2 border-pencil shadow-hard p-8 text-center">
-          <div className="w-16 h-16 border-2 border-red-400 bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl font-bold text-red-500">!</span>
+          <div className="w-16 h-16 border-2 border-vast/20 bg-accent flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl font-bold text-vast">!</span>
           </div>
           <h1 className="text-xl font-bold text-pencil font-marker mb-3">Sign-in Failed</h1>
           <p className="text-base text-pencil/60 font-hand mb-6">{errorMsg}</p>

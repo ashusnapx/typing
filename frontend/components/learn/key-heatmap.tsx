@@ -20,15 +20,15 @@ const ROW_OFFSETS = [0, 0.75, 1.5, 2];
 function getAccuracyColor(
   data: { correct: number; incorrect: number } | undefined,
 ): string {
-  if (!data || (data.correct === 0 && data.incorrect === 0)) return '#e5e7eb';
+  if (!data || (data.correct === 0 && data.incorrect === 0)) return '#ebebe7';
   const total = data.correct + data.incorrect;
-  if (total === 0) return '#e5e7eb';
+  if (total === 0) return '#ebebe7';
   const ratio = data.correct / total;
-  if (ratio >= 0.95) return '#22c55e';
-  if (ratio >= 0.85) return '#86efac';
-  if (ratio >= 0.75) return '#fde047';
-  if (ratio >= 0.6) return '#fb923c';
-  return '#ef4444';
+  if (ratio >= 0.95) return '#e8e8e4';
+  if (ratio >= 0.85) return '#f2f2ef';
+  if (ratio >= 0.75) return '#fff6cc';
+  if (ratio >= 0.6) return '#ffd11a';
+  return '#ffd11a';
 }
 
 function getAccuracyText(
@@ -71,9 +71,9 @@ export function KeyHeatmap({ accuracyData, onKeyClick, compact }: KeyHeatmapProp
                     `}
                     style={{
                       backgroundColor: color,
-                      borderColor: data ? 'rgba(0,0,0,0.15)' : '#e5e7eb',
+                      borderColor: data ? 'rgba(0,0,0,0.15)' : '#ebebe7',
                       borderRadius: CSS.radii.sm,
-                      color: color === '#e5e7eb' ? '#9ca3af' : '#1a1a1a',
+                      color: color === '#ebebe7' ? '#a8a8a2' : '#1a1a1a',
                     }}
                     title={data ? `${key}: ${data.correct}/${data.correct + data.incorrect} (${text || 'N/A'})` : `${key}: No data`}
                     aria-label={`Key ${key}${text ? `, accuracy ${text}` : ', no data'}`}
@@ -92,11 +92,11 @@ export function KeyHeatmap({ accuracyData, onKeyClick, compact }: KeyHeatmapProp
       </div>
       {/* Legend */}
       <div className="flex items-center justify-center gap-2 mt-2 text-[9px] font-hand text-pencil/50">
-        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#22c55e' }} /> ≥95%</span>
-        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#86efac' }} /> ≥85%</span>
-        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#fde047' }} /> ≥75%</span>
-        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#fb923c' }} /> ≥60%</span>
-        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#ef4444' }} /> {'<'}60%</span>
+        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#e8e8e4' }} /> ≥95%</span>
+        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#f2f2ef' }} /> ≥85%</span>
+        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#fff6cc' }} /> ≥75%</span>
+        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#ffd11a' }} /> ≥60%</span>
+        <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: '#ffd11a' }} /> {'<'}60%</span>
       </div>
     </div>
   );

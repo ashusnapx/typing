@@ -84,7 +84,7 @@ export function CurriculumTimeline({
             {idx < levels.length - 1 && fillHeight > 0 && (
               <div className="absolute left-[26px] top-[14px] bottom-0 w-0.5 bg-pencil/15">
                 <div
-                  className="absolute left-0 top-0 w-full bg-green-400 transition-all duration-500"
+                  className="absolute left-0 top-0 w-full bg-lumen-dark transition-all duration-500"
                   style={{ height: `${fillHeight}%` }}
                 />
               </div>
@@ -95,9 +95,9 @@ export function CurriculumTimeline({
                 className={`
                   w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300
                   ${isMastered
-                    ? 'bg-green-100 border-green-500 text-green-600 scale-110 shadow-hard-sm'
+                    ? 'bg-lumen-dark border-vast/20 text-vast scale-110 shadow-hard-sm'
                     : isCompleted
-                      ? 'bg-blue-50 border-blue-400 text-blue-500'
+                      ? 'bg-lumen-dark border-vast/20 text-vast'
                       : isUnlocked
                         ? 'bg-paper border-pencil text-pencil'
                         : 'bg-gray-100 border-gray-300 text-gray-300'
@@ -122,9 +122,9 @@ export function CurriculumTimeline({
                 bg-white border-2 shadow-hard-sm transition-all duration-300
                 ${isOpen ? 'shadow-hard' : 'hover:shadow-hard'}
                 ${isMastered
-                  ? 'border-green-400/60'
+                  ? 'border-vast/20/60'
                   : isCompleted
-                    ? 'border-blue-400/60'
+                    ? 'border-vast/20/60'
                     : isUnlocked
                       ? 'border-pencil/30'
                       : 'border-pencil/10 opacity-60'
@@ -141,8 +141,8 @@ export function CurriculumTimeline({
                   <div
                     className={`
                       w-10 h-10 rounded-lg border-2 flex items-center justify-center shrink-0
-                      ${isMastered ? 'bg-green-50 border-green-300 text-green-600'
-                        : isCompleted ? 'bg-blue-50 border-blue-300 text-blue-500'
+                      ${isMastered ? 'bg-lumen-dark border-vast/20 text-vast'
+                        : isCompleted ? 'bg-lumen-dark border-vast/20 text-vast'
                         : 'bg-paper border-pencil/20 text-pencil'
                       }
                     `}
@@ -157,7 +157,7 @@ export function CurriculumTimeline({
                       </span>
                       <h3 className="font-marker text-base md:text-lg text-pencil truncate">{level.name}</h3>
                       {isMastered && (
-                        <span className="text-[10px] font-marker bg-green-100 text-green-700 border border-green-300 px-1.5 py-0.5 rounded uppercase tracking-wider">Mastered</span>
+                        <span className="text-[10px] font-marker bg-lumen-dark text-vast border border-vast/20 px-1.5 py-0.5 rounded uppercase tracking-wider">Mastered</span>
                       )}
                     </div>
                     <p className="text-xs font-hand text-pencil/60 mt-0.5 truncate">{level.subtitle}</p>
@@ -185,7 +185,7 @@ export function CurriculumTimeline({
                   {completed > 0 && completed < total && (
                     <div className="mt-2 w-full h-1.5 bg-pencil/5 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-blue-400 transition-all duration-500"
+                        className="h-full rounded-full bg-lumen-dark transition-all duration-500"
                         style={{ width: `${(completed / total) * 100}%` }}
                       />
                     </div>
@@ -207,15 +207,15 @@ export function CurriculumTimeline({
                     let statusBadge: React.ReactNode;
                     if (lessonProg?.qualified) {
                       statusBadge = (
-                        <span className="text-[10px] font-marker bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded">PASSED</span>
+                        <span className="text-[10px] font-marker bg-lumen-dark text-vast border border-vast/20 px-1.5 py-0.5 rounded">PASSED</span>
                       );
                     } else if (lessonProg) {
                       statusBadge = (
-                        <span className="text-[10px] font-marker bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded">ATTEMPTED</span>
+                        <span className="text-[10px] font-marker bg-accent-soft text-vast border border-vast/20 px-1.5 py-0.5 rounded">ATTEMPTED</span>
                       );
                     } else if (unlocked) {
                       statusBadge = (
-                        <span className="text-[10px] font-marker bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded">READY</span>
+                        <span className="text-[10px] font-marker bg-lumen-dark text-vast border border-vast/20 px-1.5 py-0.5 rounded">READY</span>
                       );
                     } else {
                       statusBadge = (
@@ -231,7 +231,7 @@ export function CurriculumTimeline({
                         className={`
                           border-2 transition-all duration-200 border-l-4 relative overflow-hidden
                           ${lessonProg?.qualified
-                            ? 'bg-green-50/10 border-green-300'
+                            ? 'bg-lumen-dark/10 border-vast/20'
                             : unlocked
                               ? 'bg-paper/20 border-pencil/20 hover:shadow-hard-sm'
                               : 'bg-gray-50/60 border-pencil/10 opacity-60'
@@ -262,7 +262,7 @@ export function CurriculumTimeline({
                                   {lesson.newKeys.map((k) => (
                                     <span
                                       key={k}
-                                      className="text-[10px] font-mono bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded"
+                                      className="text-[10px] font-mono bg-lumen-dark text-vast border border-vast/20 px-1.5 py-0.5 rounded"
                                     >
                                       {k === ' ' ? '␣' : k}
                                     </span>
@@ -289,7 +289,7 @@ export function CurriculumTimeline({
                                   {Array.from({ length: 5 }).map((_, i) => (
                                     <Star
                                       key={i}
-                                      className={`w-2.5 h-2.5 ${i < stars ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`}
+                                      className={`w-2.5 h-2.5 ${i < stars ? 'text-vast fill-amber-400' : 'text-gray-200'}`}
                                       strokeWidth={2}
                                     />
                                   ))}
@@ -306,7 +306,7 @@ export function CurriculumTimeline({
                               {/* Psych tip */}
                               {lesson.psychTip && (
                                 <div className="mt-2 flex items-start gap-1 text-[10px] font-hand text-pencil/50 italic bg-postit/50 p-1.5 rounded">
-                                  <Sparkles className="w-2.5 h-2.5 mt-0.5 shrink-0 text-amber-400" />
+                                  <Sparkles className="w-2.5 h-2.5 mt-0.5 shrink-0 text-vast" />
                                   <span>{lesson.psychTip}</span>
                                 </div>
                               )}
@@ -318,7 +318,7 @@ export function CurriculumTimeline({
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); onStartLesson(lesson.id); }}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white border-2 border-blue-600 font-marker text-xs shadow-hard-sm hover:bg-blue-600 transition-colors"
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-lumen-dark text-white border-2 border-vast/20 font-marker text-xs shadow-hard-sm hover:bg-lumen-dark transition-colors"
                                   style={{ borderRadius: WOBBLY_RADII.sm }}
                                 >
                                   <Play className="w-3 h-3" fill="currentColor" strokeWidth={3} />

@@ -1,3 +1,4 @@
+import type { LeaderboardRow } from '@/src/server/trpc/routers/leaderboard';
 import { trpcClient, getToken as getSupabaseToken, setSupabaseToken } from './trpc-client';
 import { TRPCClientError } from '@trpc/client';
 import { useTypingStore } from '@/store/typing-store';
@@ -407,22 +408,23 @@ class ApiClient {
   }
 
   // Leaderboard
-  async getLeaderboard(scope = 'global', limit = 100) {
+  async getLeaderboard(state?: string, limit = 50): Promise<LeaderboardRow[]> {
     if (ENABLE_TRPC) {
-      const data = await this._t(() => trpcClient.leaderboard.getRankings.query({ scope, limit }));
-      return {
-        entries: data.map((item) => ({
-          rank: item.rank,
-          full_name: item.fullName,
-          college: item.college || '',
-          best_wpm: item.bestWpm ?? item.score,
-          best_accuracy: item.bestAccuracy ?? 0,
-          tests_taken: item.totalTestsTaken,
-          xp: item.xp,
-        })),
-      };
+      return trpcClient.leaderboard.top.query({ state, limit });
     }
-    return this.request<any>(`/leaderboard?scope=${scope}&limit=${limit}`);
+    return this.request<LeaderboardRow[]>(
+      `/leaderboard?limit=${limit}${state ? `&state=${encodeURIComponent(state)}` : ''}`
+    );
+  }
+
+  async getMyLeaderboardRank(): Promise<LeaderboardRow | null> {
+    if (ENABLE_TRPC) return trpcClient.leaderboard.me.query();
+    return this.request<LeaderboardRow | null>('/leaderboard/me');
+  }
+
+  async getLeaderboardStates() {
+    if (ENABLE_TRPC) return trpcClient.leaderboard.states.query();
+    return this.request<string[]>('/leaderboard/states');
   }
 
   // AI Coach

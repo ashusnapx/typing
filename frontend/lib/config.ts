@@ -309,6 +309,9 @@ export const ROUTES = {
   home: '/',
   learn: '/learn',
   dashboard: '/dashboard',
+  /** Off for now. The page lives at app/_coach — an underscore folder is
+   *  private to the router, so the code is kept but the route does not
+   *  resolve. Rename the folder back to re-enable it. */
   coach: '/coach',
   leaderboard: '/leaderboard',
   faq: '/faq',

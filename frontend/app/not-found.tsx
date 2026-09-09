@@ -50,7 +50,6 @@ export default function NotFound() {
               { href: '/exam/cgl-dest', label: 'SSC CGL DEST' },
               { href: '/learn', label: 'Learn Typing' },
               { href: '/dashboard', label: 'Dashboard' },
-              { href: '/coach', label: 'AI Coach' },
             ].map((link) => (
               <Link
                 key={link.href}

@@ -1,13 +1,17 @@
 'use client';
 
+import { Brand } from '@/components/layout/brand';
+
 /**
  * Loading states for a typing product.
  *
- * A rotating logo says nothing about what the app does and reads as a stock
- * spinner. These are built from the one mark this product actually owns — the
- * caret — plus a row of keys depressing in sequence. Both are pure CSS on
- * existing tokens, so they cost nothing and inherit whichever ground they land
- * on, expressive or exam.
+ * The small ones are built from the one mark this product owns — the caret —
+ * so they cost nothing and inherit whichever ground they land on.
+ *
+ * The full-page one is the brand itself. Five grey rectangles pulsing in
+ * sequence said nothing and looked like a placeholder that had not been
+ * finished; the moment before a page arrives is the one moment a product has
+ * the reader's whole attention, and it may as well say who it is.
  */
 
 interface SpinnerProps {
@@ -81,16 +85,33 @@ export function LoadingOverlay({ text = 'Please wait…' }: { text?: string }) {
   );
 }
 
+/**
+ * The mark, breathing.
+ *
+ * Slow enough to read as waiting rather than as a spinner, and it stops
+ * entirely for anyone who has asked their system for less motion.
+ */
+function BrandMark({ text }: { text: string }) {
+  return (
+    <>
+      <span className="animate-brand-breathe motion-reduce:animate-none">
+        <Brand size="lg" />
+      </span>
+      <p className="text-base text-vast/45">{text}</p>
+      <span className="sr-only">{text}</span>
+    </>
+  );
+}
+
 /** Inline block loader — used where a section is still resolving. */
 export function LoadingLogo({ text = 'Loading' }: { text?: string }) {
   return (
     <div
-      className="flex min-h-[50vh] flex-col items-center justify-center gap-5"
+      className="flex min-h-[50vh] flex-col items-center justify-center gap-6"
       role="status"
       aria-live="polite"
     >
-      <KeyLoader />
-      <p className="text-base text-vast/50">{text}</p>
+      <BrandMark text={text} />
     </div>
   );
 }
@@ -99,12 +120,11 @@ export function LoadingLogo({ text = 'Loading' }: { text?: string }) {
 export function FullPageLoader({ text = 'Loading' }: { text?: string }) {
   return (
     <div
-      className="flex min-h-screen flex-col items-center justify-center gap-5 bg-lumen"
+      className="flex min-h-screen flex-col items-center justify-center gap-6 bg-lumen"
       role="status"
       aria-live="polite"
     >
-      <KeyLoader />
-      <p className="text-base text-vast/50">{text}</p>
+      <BrandMark text={text} />
     </div>
   );
 }

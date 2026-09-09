@@ -667,3 +667,15 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
 }
+
+/* The loading mark: a slow breath, not a spin. Paused for anyone who has asked
+   their system for reduced motion. */
+@keyframes brand-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.985); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+.animate-brand-breathe {
+  display: inline-block;
+  animation: brand-breathe 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

@@ -127,16 +127,30 @@ export function useTestReplay(testId: string) {
 // =============================================================================
 // Leaderboard
 // =============================================================================
-export function useLeaderboard(scope: string = 'global') {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
+export function useLeaderboard(state?: string) {
   return useQuery({
-    queryKey: ['leaderboard', scope],
-    queryFn: () => api.getLeaderboard(scope),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    queryKey: ['leaderboard', state ?? 'all'],
+    queryFn: () => api.getLeaderboard(state),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Where the signed-in candidate stands, however far down that is. */
+export function useMyRank() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return useQuery({
+    queryKey: ['leaderboard', 'me'],
+    queryFn: () => api.getMyLeaderboardRank(),
+    staleTime: 60 * 1000,
     enabled: isAuthenticated,
-    refetchOnWindowFocus: false,
+  });
+}
+
+export function useLeaderboardStates() {
+  return useQuery({
+    queryKey: ['leaderboard', 'states'],
+    queryFn: () => api.getLeaderboardStates(),
+    staleTime: 10 * 60 * 1000,
   });
 }
 

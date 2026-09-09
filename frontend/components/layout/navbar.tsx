@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useTypingStore } from '@/store/typing-store';
+import { Brand } from '@/components/layout/brand';
 import { APP } from '@/lib/config';
 
 /** The two things a visitor is here to do. Everything else lives further in. */
@@ -24,7 +25,6 @@ const PRIMARY = [
 
 const SECONDARY = [
   { href: '/marking-scheme', label: 'Marking' },
-  { href: '/coach', label: 'Coach' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/faq', label: 'FAQ' },
 ] as const;
@@ -92,17 +92,7 @@ export function Navbar() {
           shows around it, which is what makes the chrome feel light. */}
       <nav className="mx-auto flex w-full max-w-content items-center gap-3 rounded-2xl border-2 border-vast bg-lumen px-3 py-2.5 sm:gap-4 sm:px-4">
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
-          <Image
-            src={APP.logo}
-            alt=""
-            width={30}
-            height={30}
-            className="h-[34px] w-[34px]"
-            priority
-          />
-          {/* Set the same as the footer: one mark, one weight, one size, so
-              the top and the bottom of the page are plainly the same product. */}
-          <span className="text-2xl font-semibold leading-none">{APP.name}</span>
+          <Brand />
         </Link>
 
         {/* Segmented pill for the two primary destinations. */}

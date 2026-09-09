@@ -106,9 +106,18 @@ describe('checkQualification', () => {
     expect(result.required).toContain('7%');
   });
 
-  it('qualifies CGL DEST with sufficient KDPH', () => {
-    const result = checkQualification('ssc_cgl_dest', 40, 95, 9000, 15, 'UR');
+  it('qualifies CGL DEST with sufficient KDPH and errors inside the cap', () => {
+    const result = checkQualification('ssc_cgl_dest', 40, 95, 9000, 4, 'UR');
     expect(result.qualified).toBe(true);
+  });
+
+  it('holds CGL DEST to the strict 5% cap, not the data-entry 20%', () => {
+    // Sources disagree on whether Tax Assistant is marked at 5% or 20%. We
+    // mark at 5%, so a pass here is a pass under either reading — telling a
+    // candidate at 15% errors that they passed would fail them on the day.
+    const result = checkQualification('ssc_cgl_dest', 40, 95, 9000, 15, 'UR');
+    expect(result.qualified).toBe(false);
+    expect(result.required).toContain('5%');
   });
 
   it('fails CGL DEST with low KDPH', () => {

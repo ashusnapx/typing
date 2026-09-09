@@ -69,6 +69,8 @@ export const testsRouter = router({
         idempotencyKey: z.string(),
         keystrokeEvents: z.array(keystrokeSchema),
         testId: z.string().optional(),
+        /** Seconds actually spent typing. Speed is measured against this. */
+        timeTakenSeconds: z.number().min(0).max(7200).optional(),
       })
     )
     .output(
@@ -120,8 +122,21 @@ export const testsRouter = router({
       const createdAt = new Date();
 
       const report = input.originalContent && input.typedContent
-        ? errorEngine.evaluate(input.originalContent, input.typedContent, input.durationSeconds, input.mode)
+        ? errorEngine.evaluate(
+            input.originalContent,
+            input.typedContent,
+            input.durationSeconds,
+            input.mode,
+            input.timeTakenSeconds,
+          )
         : null;
+
+      // What the speed was actually divided by, and therefore what belongs in
+      // the row — not the allotted window, which is what used to be stored.
+      const elapsedSeconds = Math.min(
+        input.durationSeconds,
+        Math.max(1, input.timeTakenSeconds ?? input.durationSeconds),
+      );
 
       const isQualified = report
         ? errorEngine.isQualifiedFromReport(report, input.mode)
@@ -163,7 +178,13 @@ export const testsRouter = router({
               pauseCount,
               consistencyScore: report ? 100 : null,
               typingRhythmScore: report ? 100 : null,
-              timeTakenSeconds: input.durationSeconds,
+              timeTakenSeconds: elapsedSeconds,
+              // Computed since the first version of this mutation and returned
+              // to the client, but never written — so every stored attempt had
+              // a null verdict and anything reading the row had to re-derive it
+              // from a bar that may not be the candidate's.
+              isQualified,
+              errorPercentage: report?.sscErrorPercentage,
             })
             .returning();
 

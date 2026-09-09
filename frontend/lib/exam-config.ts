@@ -117,12 +117,22 @@ export const SSC_EXAM_SPECS: Record<SscExamType, SscExamSpec> = {
     hindiKdph: null,
     passageKeyDepressions: [2000, 2200],
     qualifyingNature: 'kdph',
-    errorAllowanceGeneral: 20,
-    errorAllowanceObcEws: 25,
-    errorAllowanceScSt: 30,
+    // The stricter of the two readings, deliberately.
+    //
+    // Published sources disagree on whether Tax Assistant is marked against
+    // the 20% cap used for data-entry posts or the 5% cap used for the
+    // Computer Proficiency Test, and lib/ssc-posts.ts has carried that
+    // dispute as `disputed: true` from the start. Evaluating at 20% while
+    // telling candidates elsewhere to practise to 5% is the worst of both:
+    // someone finishing at 15% errors is told they passed, and would fail the
+    // real test. Marked at 5%, a pass here is a pass under either reading.
+    errorAllowanceGeneral: 5,
+    errorAllowanceObcEws: 7,
+    errorAllowanceScSt: 7,
     backspaceAllowed: true,
     posts: ['Tax Assistant (CBDT/CBIC)', 'Compiler (MoSPI/NSSO)'],
-    source: 'SSC CGL 2025 Notification Tier-4 DEST',
+    source:
+      'SSC CGL 2025 Notification Tier-4 DEST, marked against the stricter CPT error cap',
     citations: [
       'https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_cgl_2025.pdf',
     ],

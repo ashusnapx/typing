@@ -15,6 +15,8 @@ import { ROUTES } from '@/lib/config';
 import PassageDiffView from './passage-diff';
 import { useAuthStore } from '@/store/auth-store';
 import { ExamChrome } from './exam-chrome';
+import { diagnose } from '@/lib/exam-diagnosis';
+import { ArrowRight } from 'lucide-react';
 
 /* ------------------------------------------------------------------ types */
 
@@ -230,6 +232,15 @@ export function ResultScreen({
       need: `≥ ${MIN_COMPLETION_PCT}%`,
     },
   ];
+
+  /* What actually went wrong, aligned rather than compared word-by-index, and
+     each finding pointing at the lesson that drills it. This is the part of the
+     report a candidate can act on — the figures above only say whether they
+     passed. */
+  const diagnosis = useMemo(
+    () => diagnose(originalContent || '', typedContent || ''),
+    [originalContent, typedContent]
+  );
 
   const breakdown = [
     { label: 'Omission', value: result.omission_errors || 0 },
@@ -534,6 +545,73 @@ export function ResultScreen({
               Save my result
             </Link>
           </div>
+        )}
+
+        {/* ────────────────────────────────────────────────── what to fix */}
+        {diagnosis.findings.length > 0 && (
+          <Panel
+            title="What cost you marks"
+            right={
+              <span className="tnum text-xs text-exam-muted">
+                {diagnosis.totalMistakes.toFixed(1)} mistakes
+              </span>
+            }
+          >
+            <p className="mb-3 text-[13px] text-exam-muted">
+              Biggest first. Each one links to the drill that fixes it.
+            </p>
+
+            <ul className="space-y-2">
+              {diagnosis.findings.map((f) => (
+                <li
+                  key={f.kind}
+                  className="border border-exam-line bg-white px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="text-[13px] font-bold text-exam-navy">
+                      {f.label}
+                    </span>
+                    <span className="tnum text-[12px] text-exam-muted">
+                      {f.count}&times;
+                      {' · '}
+                      {/* The cost, in the Commission's own units — a half
+                          mistake is genuinely half, and saying so is what makes
+                          the ranking above make sense. */}
+                      {f.cost % 1 === 0 ? f.cost : f.cost.toFixed(1)} mistake
+                      {f.cost === 1 ? '' : 's'}
+                    </span>
+                    <a
+                      href={f.href}
+                      className="ml-auto inline-flex items-center gap-1 text-[12px] font-bold text-exam-navy underline"
+                    >
+                      Practise: {f.lessonTitle}
+                      <ArrowRight className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                    </a>
+                  </div>
+
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-exam-text">
+                    {f.advice}
+                  </p>
+
+                  {f.examples.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+                      {f.examples.map((ex, i) => (
+                        <li key={i} className="text-exam-muted">
+                          <span className="text-exam-ok">
+                            {ex.expected || '\u2014'}
+                          </span>
+                          {' \u2192 '}
+                          <span className="text-exam-err">
+                            {ex.typed || '(skipped)'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Panel>
         )}
 
         {/* ───────────────────────────────────────────────────────── diff */}

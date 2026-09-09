@@ -196,6 +196,7 @@ class ApiClient {
         totalErrors: 0,
         trustScore: 100,
         idempotencyKey: testId && testId !== 'local' ? testId : (Math.random().toString(36).substring(2, 15) + Date.now().toString(36)),
+        timeTakenSeconds: time_taken_seconds,
         keystrokeEvents: keystroke_events.map(e => ({
           key: e.key || '',
           timestamp_ms: e.timestamp_ms || 0,
@@ -257,6 +258,7 @@ class ApiClient {
         totalErrors: 0,
         trustScore: 100,
         idempotencyKey: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
+        timeTakenSeconds: time_taken_seconds,
         keystrokeEvents: keystroke_events.map(e => ({
           key: e.key || '',
           timestamp_ms: e.timestamp_ms || 0,

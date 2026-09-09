@@ -30,11 +30,15 @@ import { LogoSpinner } from '@/components/ui/loading-logo';
 export function CompleteProfileModal() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // The session-derived user carries no father_name or phone — those live only
+  // on the profile row. Opening on that would flash this modal at everyone on
+  // every refresh, for the second or two before the row arrives.
+  const isProfileLoaded = useAuthStore((s) => s.isProfileLoaded);
   const complete = useCompleteProfile();
   const panelRef = useRef<HTMLDivElement>(null);
 
   const missing = missingProfileFields(user);
-  const open = isAuthenticated && !!user && missing.length > 0;
+  const open = isAuthenticated && isProfileLoaded && !!user && missing.length > 0;
 
   const {
     register,

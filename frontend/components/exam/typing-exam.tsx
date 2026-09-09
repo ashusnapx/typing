@@ -242,6 +242,11 @@ export function TypingExam({
       }
       loadUser();
       setPhase('result');
+      // Only a genuine pass is celebrated. Confetti used to sit at the very end
+      // of this function, which is reached only when submission FAILED — so it
+      // fired on the fallback result and never on a real one, and a candidate
+      // who missed the bar was congratulated for it.
+      if (resultData.is_qualified) blastConfetti();
       return;
     }
 
@@ -299,7 +304,7 @@ export function TypingExam({
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     window.dispatchEvent(new CustomEvent('dashboard-invalidate'));
     setPhase('result');
-    blastConfetti();
+    if (clientResult.is_qualified) blastConfetti();
   };
 
   const content = (() => {

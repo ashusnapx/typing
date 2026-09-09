@@ -1,3 +1,6 @@
+import { getExamSpecs } from '@/lib/exam-config';
+import { diagnose } from '@/lib/exam-diagnosis';
+
 function levenshteinDistance(a: string, b: string): number {
   const m = a.length, n = b.length;
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -112,12 +115,27 @@ export interface ErrorReport {
 export class SSCErrorEngine {
   private minimumAccuracyForQualifying = 0.95;
 
+  /**
+   * @param durationSeconds  The test's allotted window.
+   * @param timeTakenSeconds How long the candidate actually typed for. Speed is
+   *   measured against this: scoring a passage finished in six minutes as
+   *   though it took ten under-reported every fast candidate by 40%. It is
+   *   clamped to the window, so a clock that over-runs cannot inflate anyone,
+   *   and floored at one second so an instant submit cannot divide by zero.
+   *   Omitted, it falls back to the window — which is what an expired timer
+   *   means anyway.
+   */
   evaluate(
     original: string,
     typed: string,
     durationSeconds: number,
     _mode: string = 'ssc_chsl',
+    timeTakenSeconds?: number,
   ): ErrorReport {
+    const elapsedSeconds = Math.min(
+      durationSeconds > 0 ? durationSeconds : Number.MAX_SAFE_INTEGER,
+      Math.max(1, timeTakenSeconds ?? durationSeconds),
+    );
     const originalClean = original.trim();
     const typedClean = typed.trim();
 
@@ -144,29 +162,46 @@ export class SSCErrorEngine {
     const incorrectKeyDepressions = omissionErrors + additionErrors + substitutionErrors + spaceErrors;
     const correctKeyDepressions = Math.max(0, keyDepressionCount - incorrectKeyDepressions);
 
-    const grossWpm = this.calculateGrossWpm(typedClean, durationSeconds);
-    const netWpm = this.calculateNetWpm(typedClean, durationSeconds, incorrectKeyDepressions);
+    const grossWpm = this.calculateGrossWpm(typedClean, elapsedSeconds);
+    const netWpm = this.calculateNetWpm(typedClean, elapsedSeconds, incorrectKeyDepressions);
 
     const totalErrors = omissionErrors + additionErrors + substitutionErrors + spaceErrors;
     const accuracy = keyDepressionCount > 0
       ? this.calculateAccuracy(correctKeyDepressions, keyDepressionCount)
       : 0;
-    const errorPercentage = accuracy > 0 ? Math.round((100 - accuracy) * 100) / 100 : 0;
+    // NOT `accuracy > 0 ? 100 - accuracy : 0`. That guard turned the worst
+    // possible attempt — 0% accurate — into a report of 0% errors, which then
+    // passed every error cap it was checked against.
+    const errorPercentage =
+      keyDepressionCount > 0 ? Math.round((100 - accuracy) * 100) / 100 : 0;
 
     const originalWords = originalClean.split(/\s+/);
     const typedWords = typedClean.split(/\s+/);
     const totalCorrectWords = wordErrors.filter(w => w.isCorrect).length;
 
-    const [fullMistakes, halfMistakes] = this.calculateFullHalfMistakes(
-      originalClean, typedClean, charDiffs, wordErrors,
-    );
+    /* Full and half mistakes come from the aligned diagnosis, not from the
+       index-by-index word mapping below.
+    
+       That mapping compared originalWords[i] against typedWords[i]. Skip one
+       word and every word after it lines up against its neighbour: in a
+       nine-word sentence, dropping a single word was scored as seven mistakes.
+       Real attempts collapsed to 0 WPM and 0% accuracy, which is what made the
+       whole report untrustworthy.
+    
+       Sharing `diagnose` also means the figure the candidate is scored on and
+       the breakdown they are shown are the same calculation, so the report can
+       never explain a number the score disagrees with. */
+    const diagnosis = diagnose(originalClean, typedClean);
+    const fullMistakes = diagnosis.fullMistakes;
+    const halfMistakes = diagnosis.halfMistakes;
 
-    const minutes = durationSeconds > 0 ? durationSeconds / 60 : 1;
+    const minutes = elapsedSeconds > 0 ? elapsedSeconds / 60 : 1;
     const sscNetWpm = this.calculateSscNetWpm(keyDepressionCount, fullMistakes, halfMistakes, minutes);
 
     const grossWords = keyDepressionCount / 5;
     const sscAccuracy = this.calculateSscAccuracy(grossWords, fullMistakes, halfMistakes);
-    const sscErrorPct = sscAccuracy > 0 ? Math.round((100 - sscAccuracy) * 100) / 100 : 0;
+    const sscErrorPct =
+      keyDepressionCount > 0 ? Math.round((100 - sscAccuracy) * 100) / 100 : 0;
 
     return {
       grossWpm: Math.round(grossWpm * 100) / 100,
@@ -372,15 +407,49 @@ export class SSCErrorEngine {
     return wpm >= 35 && accuracy >= 95;
   }
 
-  isQualifiedFromReport(report: ErrorReport, testMode: string): boolean {
-    if (['ssc_chsl', 'ssc_hindi', 'ssc_cgl_dest'].includes(testMode)) {
-      if (testMode === 'ssc_cgl_dest') {
-        return report.sscErrorPercentage <= 20;
-      }
-      const wpmTarget = testMode === 'ssc_hindi' ? 30 : 35;
-      return report.sscNetWpm >= wpmTarget && report.sscErrorPercentage <= 7;
+  /**
+   * Judged against the bar for the post, not a hardcoded 35 WPM.
+   *
+   * The post-wise variants — CHSL DEO at 8,000 KDPH, DEO Grade 'A' at 15,000,
+   * CGL CPT at a 5% error cap — were not in the list this used to check, so
+   * every one of them fell through to a default that belonged to LDC/JSA. A
+   * DEO candidate was told they had failed a 35 WPM bar that does not apply to
+   * them.
+   *
+   * `getExamSpecs` is the same table the instructions screen and the result
+   * screen read, so the verdict here cannot disagree with what the candidate
+   * was shown before they started.
+   */
+  isQualifiedFromReport(
+    report: ErrorReport,
+    testMode: string,
+    category: 'ur' | 'obcEws' | 'scSt' = 'ur',
+  ): boolean {
+    const specs = getExamSpecs(testMode);
+
+    if (!specs) {
+      // Training modes have no official bar; hold them to the LDC/JSA one so
+      // practice still means something.
+      return report.sscNetWpm >= 35 && report.sscErrorPercentage <= 7;
     }
-    return this.isQualified(report.netWpm, report.accuracy, testMode);
+
+    const cap =
+      category === 'scSt'
+        ? specs.errorAllowanceScSt
+        : category === 'obcEws'
+          ? specs.errorAllowanceObcEws
+          : specs.errorAllowanceGeneral;
+
+    const errorsOk = report.sscErrorPercentage <= cap;
+
+    if (specs.qualifyingNature === 'speed_wpm') {
+      return report.sscNetWpm >= specs.englishSpeedWpm && errorsOk;
+    }
+
+    // KDPH posts are judged on key depressions per hour, which is what the
+    // notification states — not on a words-per-minute figure derived from it.
+    const kdph = report.sscNetWpm * 5 * 60;
+    return kdph >= specs.englishKdph && errorsOk;
   }
 }
 

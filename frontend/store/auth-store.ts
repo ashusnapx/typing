@@ -55,6 +55,12 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** True once the profile row has been read, not merely once a session
+   *  exists. Anything that reacts to a *missing* field has to wait for this:
+   *  the session-derived user has no father_name or phone, so acting on it
+   *  early flashes a "finish your profile" modal at people who finished it
+   *  long ago. */
+  isProfileLoaded: boolean;
   login: (email: string, password: string) => Promise<void>;
   /** `extra` is optional because the in-exam sign-up prompt asks for the
    *  minimum to get someone typing. Whatever it leaves out is collected by the
@@ -156,19 +162,25 @@ async function applySession(
   get: () => AuthState
 ) {
   setSupabaseToken(session.access_token);
-  set({ user: userFromSession(session.user), isAuthenticated: true, isLoading: false });
+  set({
+    user: userFromSession(session.user),
+    isAuthenticated: true,
+    isLoading: false,
+    isProfileLoaded: false,
+  });
 
   const enriched = await withProfile(session.user);
   // A sign-out or a different user landing mid-flight must win over a stale
   // profile read resolving late.
   const current = get().user;
-  if (current?.id === enriched.id) set({ user: enriched });
+  if (current?.id === enriched.id) set({ user: enriched, isProfileLoaded: true });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  isProfileLoaded: false,
 
   login: async (email, password) => {
     const supabase = createClient();
@@ -217,7 +229,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     clearLessonProgress();
     clearTestResults();
     clearDashboardCache();
-    set({ user: null, isAuthenticated: false, isLoading: false });
+    set({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isProfileLoaded: false,
+    });
   },
 
   loadUser: async () => {
@@ -229,7 +246,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT' || !session) {
           setSupabaseToken(null);
-          set({ user: null, isAuthenticated: false, isLoading: false });
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            isProfileLoaded: false,
+          });
           return;
         }
         setSupabaseToken(session.access_token);
@@ -240,12 +262,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } = await supabase.auth.getSession();
 
       if (!session) {
-        set({ user: null, isAuthenticated: false, isLoading: false });
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isProfileLoaded: false,
+        });
         return;
       }
       await applySession(session, set, get);
     } catch {
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isProfileLoaded: false,
+      });
     }
   },
 

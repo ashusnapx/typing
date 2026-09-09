@@ -408,23 +408,9 @@ class ApiClient {
   }
 
   // Leaderboard
-  async getLeaderboard(state?: string, limit = 50): Promise<LeaderboardRow[]> {
-    if (ENABLE_TRPC) {
-      return trpcClient.leaderboard.top.query({ state, limit });
-    }
-    return this.request<LeaderboardRow[]>(
-      `/leaderboard?limit=${limit}${state ? `&state=${encodeURIComponent(state)}` : ''}`
-    );
-  }
-
   async getMyLeaderboardRank(): Promise<LeaderboardRow | null> {
     if (ENABLE_TRPC) return trpcClient.leaderboard.me.query();
     return this.request<LeaderboardRow | null>('/leaderboard/me');
-  }
-
-  async getLeaderboardStates() {
-    if (ENABLE_TRPC) return trpcClient.leaderboard.states.query();
-    return this.request<string[]>('/leaderboard/states');
   }
 
   // AI Coach

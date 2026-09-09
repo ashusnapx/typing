@@ -105,6 +105,34 @@ const toRow = (r: RawRow, rank: number): LeaderboardRow => ({
   level: Number(r.level ?? 1),
 });
 
+/**
+ * The board itself, callable from a server component as well as over tRPC.
+ *
+ * The page used to fetch this from the browser after hydration, which meant a
+ * visitor watched an empty card for two seconds on a warm function and
+ * thirteen on a cold one — the query itself takes under a millisecond, so all
+ * of that was the round trip. Rendering it on the server and caching it
+ * removes the wait rather than covering it with a spinner.
+ */
+export async function readTop(limit = 50, state?: string): Promise<LeaderboardRow[]> {
+  const scoped = state ? sql`${RANKING} AND u.state = ${state}` : RANKING;
+  const rows = await db.execute<RawRow>(sql`${scoped} ${ORDER} LIMIT ${limit}`);
+  const list = (rows as unknown as { rows?: RawRow[] }).rows ?? (rows as unknown as RawRow[]);
+  return list.map((r, i) => toRow(r, i + 1));
+}
+
+export async function readStates(): Promise<string[]> {
+  const rows = await db.execute<{ state: string } & Record<string, unknown>>(sql`
+    SELECT DISTINCT u.state
+    FROM users u
+    JOIN typing_tests t ON t.user_id = u.id AND t.mode <> 'lesson'
+    WHERE u.state IS NOT NULL AND u.state <> ''
+    ORDER BY u.state
+  `);
+  const list = (rows as unknown as { rows?: { state: string }[] }).rows ?? (rows as unknown as { state: string }[]);
+  return list.map((r) => r.state);
+}
+
 export const leaderboardRouter = router({
   /** The top of the board, optionally narrowed to one state. */
   top: publicProcedure
@@ -115,16 +143,7 @@ export const leaderboardRouter = router({
       }),
     )
     .output(z.array(RowSchema))
-    .query(async ({ input }) => {
-      const scoped = input.state
-        ? sql`${RANKING} AND u.state = ${input.state}`
-        : RANKING;
-      const rows = await db.execute<RawRow>(
-        sql`${scoped} ${ORDER} LIMIT ${input.limit}`,
-      );
-      const list = (rows as unknown as { rows?: RawRow[] }).rows ?? (rows as unknown as RawRow[]);
-      return list.map((r, i) => toRow(r, i + 1));
-    }),
+    .query(({ input }) => readTop(input.limit, input.state)),
 
   /** Where the signed-in candidate stands, even when that is far below the
    *  page they are looking at. A board you cannot find yourself on is not
@@ -150,15 +169,5 @@ export const leaderboardRouter = router({
    *  exists rather than every state in India. */
   states: publicProcedure
     .output(z.array(z.string()))
-    .query(async () => {
-      const rows = await db.execute<{ state: string } & Record<string, unknown>>(sql`
-        SELECT DISTINCT u.state
-        FROM users u
-        JOIN typing_tests t ON t.user_id = u.id AND t.mode <> 'lesson'
-        WHERE u.state IS NOT NULL AND u.state <> ''
-        ORDER BY u.state
-      `);
-      const list = (rows as unknown as { rows?: { state: string }[] }).rows ?? (rows as unknown as { state: string }[]);
-      return list.map((r) => r.state);
-    }),
+    .query(() => readStates()),
 });

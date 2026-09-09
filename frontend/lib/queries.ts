@@ -127,13 +127,10 @@ export function useTestReplay(testId: string) {
 // =============================================================================
 // Leaderboard
 // =============================================================================
-export function useLeaderboard(state?: string) {
-  return useQuery({
-    queryKey: ['leaderboard', state ?? 'all'],
-    queryFn: () => api.getLeaderboard(state),
-    staleTime: 60 * 1000,
-  });
-}
+/* The board itself is rendered on the server and cached, so there is no hook
+   for it — fetching fifty rows from the browser is what made the page take two
+   seconds to show anything. Only a candidate's own rank is still fetched,
+   because it is the one part that differs per reader. */
 
 /** Where the signed-in candidate stands, however far down that is. */
 export function useMyRank() {
@@ -143,14 +140,6 @@ export function useMyRank() {
     queryFn: () => api.getMyLeaderboardRank(),
     staleTime: 60 * 1000,
     enabled: isAuthenticated,
-  });
-}
-
-export function useLeaderboardStates() {
-  return useQuery({
-    queryKey: ['leaderboard', 'states'],
-    queryFn: () => api.getLeaderboardStates(),
-    staleTime: 10 * 60 * 1000,
   });
 }
 

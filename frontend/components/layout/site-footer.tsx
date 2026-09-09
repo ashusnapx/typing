@@ -42,7 +42,7 @@ export function SiteFooter() {
     /* A slab like every other section, so it carries the same rounded seam.
        Butted against the section above as a plain rectangle it read as cut
        off. */
-    <footer className="slab bg-accent text-vast !pb-10 !pt-14">
+    <footer className="slab bg-accent text-vast !pb-5 !pt-12">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         {/* Three link groups, and the mark in the space to their right. */}
         <div className="grid gap-8 sm:grid-cols-3 lg:grid-cols-[repeat(3,auto)_1fr]">
@@ -73,7 +73,7 @@ export function SiteFooter() {
           </Link>
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-2 border-vast/20 pt-5">
+        <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-2 border-vast/20 pt-4">
           <p className="text-sm">{FOOTER.legal.copyright}</p>
           <div className="ml-auto flex items-center gap-3">
             {FOOTER.socialLinks.map((link) => {
@@ -95,7 +95,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-vast/60">
+        <p className="mt-2 text-xs leading-relaxed text-vast/60">
           {APP.name} is not affiliated with the Staff Selection Commission.
         </p>
       </div>

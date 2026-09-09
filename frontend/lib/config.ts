@@ -329,7 +329,7 @@ export const FOOTER = {
     },
   ],
   legal: {
-    copyright: '© 2026 Typing Mania by Maths Mania',
+    copyright: '© 2026 Typing Mania',
     disclaimer:
       'Not affiliated with, endorsed by or connected to the Staff Selection Commission, Eduquity Careers or TCS iON. Speed and error requirements are reproduced from published SSC notices; always confirm them against the notice for your own examination.',
   },

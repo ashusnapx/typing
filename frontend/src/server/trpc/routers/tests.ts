@@ -199,7 +199,6 @@ export const testsRouter = router({
               isBackspace: event.is_backspace,
               cursorPosition: event.cursor_position,
               expectedChar: event.expected_char || '',
-              createdAt,
             }));
             await tx.insert(keystrokeSummaries).values(keystrokeRecords);
           }

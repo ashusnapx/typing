@@ -34,7 +34,14 @@ export function Brand({
         priority
       />
       <span className="text-right leading-none">
-        <span className={`block font-semibold ${size === 'lg' ? 'text-4xl' : 'text-xl'}`}>
+        {/* Never wrapped. In the footer's two-column phone grid the lockup
+            sits in a ~160px cell, and at text-xl the name broke across two
+            lines mid-word. A shade smaller on small screens fits it whole. */}
+        <span
+          className={`block whitespace-nowrap font-semibold ${
+            size === 'lg' ? 'text-4xl' : 'text-lg sm:text-xl'
+          }`}
+        >
           {APP.name}
         </span>
         {tagline && (

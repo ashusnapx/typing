@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Youtube, Instagram, Send, Github, ExternalLink } from 'lucide-react';
 import { APP, FOOTER } from '@/lib/config';
@@ -42,7 +43,8 @@ export function SiteFooter() {
        off. */
     <footer className="slab bg-accent text-vast !pb-10 !pt-14">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-        <div className="grid gap-8 sm:grid-cols-3">
+        {/* Three link groups, and the mark in the space to their right. */}
+        <div className="grid gap-8 sm:grid-cols-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
           {groups.map((group) => (
             <div key={group.title}>
               <h2 className="eyebrow">{group.title}</h2>
@@ -60,6 +62,21 @@ export function SiteFooter() {
               </ul>
             </div>
           ))}
+
+          <Link
+            href="/"
+            aria-label={`${APP.name} — home`}
+            className="flex items-center gap-3 self-start sm:col-span-3 lg:col-span-1 lg:justify-self-end"
+          >
+            <Image
+              src={APP.logo}
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11"
+            />
+            <span className="text-2xl font-semibold leading-none">{APP.name}</span>
+          </Link>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-2 border-vast/20 pt-5">

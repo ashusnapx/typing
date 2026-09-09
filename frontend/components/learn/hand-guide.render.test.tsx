@@ -47,9 +47,19 @@ describe('the drawing is about the lesson, not about the home row', () => {
   it('marks the lesson keys and leaves the rest plain', () => {
     const { container } = render(<KeyboardHands keys={['e']} />);
     const lit = Array.from(container.querySelectorAll('rect')).filter(
-      (r) => r.getAttribute('fill') === '#ffd11a',
+      (r) => r.getAttribute('fill') === 'url(#keycapLit)',
     );
     expect(lit).toHaveLength(1);
+  });
+
+  it('lights every lesson key, not just the one a finger reaches for', () => {
+    // A finger can only reach one key at a time, but the lesson teaches all of
+    // them, so all of them are marked.
+    const { container } = render(<KeyboardHands keys={['y', 'b', 'v', 'k']} />);
+    const lit = Array.from(container.querySelectorAll('rect')).filter(
+      (r) => r.getAttribute('fill') === 'url(#keycapLit)',
+    );
+    expect(lit).toHaveLength(4);
   });
 });
 

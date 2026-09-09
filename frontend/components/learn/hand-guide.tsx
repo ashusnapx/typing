@@ -146,98 +146,230 @@ const KNUCKLE: Record<Exclude<FingerZone, 'thumb'>, { x: number; y: number; w: n
   rp: { x: 636, y: 344, w: 17 },
 };
 
+/**
+ * The shading model, in one place.
+ *
+ * A flat fill makes a finger read as a shape rather than a finger. Three
+ * layers give it form: a band of tone running across the finger, so it reads
+ * as a cylinder rather than a strip; a soft highlight along the lit side; and
+ * occlusion where one part sits under another. The light is fixed at the upper
+ * left, which is where a desk lamp or a window usually is, and every part of
+ * both hands is lit from the same place — inconsistent light is the thing that
+ * makes an illustration look wrong even when the drawing is right.
+ */
+const TONE = {
+  hi: '#fdf9f4',
+  light: '#f2e9de',
+  mid: '#e0d1bf',
+  shade: '#c3ac95',
+  deep: '#a08b76',
+  line: '#7d6c5c',
+} as const;
+
+/** Degrees of the axis from knuckle to tip, so the tone band can run across it. */
+const axisAngle = (kx: number, ky: number, tx: number, ty: number) =>
+  (Math.atan2(ty - ky, tx - kx) * 180) / Math.PI;
+
 /** One finger, reaching from its knuckle up to the key it must press. */
 function Finger({
   zone,
   tx,
   ty,
+  id,
 }: {
   zone: Exclude<FingerZone, 'thumb'>;
   tx: number;
   ty: number;
+  id: string;
 }) {
   const { x: kx, y: ky, w: wk } = KNUCKLE[zone];
   const wt = wk - 4;
-  // Control points pull the finger into a slight curve rather than a stick.
   const bend = (ky - ty) * 0.45;
+  // The tone band runs across the finger, so it is rotated a quarter turn off
+  // the finger's own axis.
+  const across = axisAngle(kx, ky, tx, ty) + 90;
+
+  const body = `M ${kx - wk} ${ky}
+      C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 14}
+      Q ${tx - wt} ${ty - 8} ${tx} ${ty - 8}
+      Q ${tx + wt} ${ty - 8} ${tx + wt} ${ty + 14}
+      C ${tx + wt} ${ty + bend} ${kx + wk + 2} ${ky - bend} ${kx + wk} ${ky} Z`;
+
   return (
     <g>
+      <defs>
+        <linearGradient
+          id={id}
+          gradientUnits="objectBoundingBox"
+          gradientTransform={`rotate(${across} 0.5 0.5)`}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="0"
+        >
+          <stop offset="0%" stopColor={TONE.shade} />
+          <stop offset="16%" stopColor={TONE.mid} />
+          <stop offset="42%" stopColor={TONE.hi} />
+          <stop offset="70%" stopColor={TONE.light} />
+          <stop offset="100%" stopColor={TONE.deep} />
+        </linearGradient>
+      </defs>
+
+      <path d={body} fill={`url(#${id})`} stroke={TONE.line} strokeWidth={1.5} strokeOpacity={0.75} />
+
+      {/* Specular ridge down the lit side of the cylinder. */}
       <path
-        d={`M ${kx - wk} ${ky}
-            C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 14}
-            Q ${tx - wt} ${ty - 8} ${tx} ${ty - 8}
-            Q ${tx + wt} ${ty - 8} ${tx + wt} ${ty + 14}
-            C ${tx + wt} ${ty + bend} ${kx + wk + 2} ${ky - bend} ${kx + wk} ${ky} Z`}
-        fill="url(#skin)"
-        stroke="#8f8378"
+        d={`M ${kx - wk * 0.34} ${ky - 8}
+            C ${kx - wk * 0.34} ${ky - bend} ${tx - wt * 0.34} ${ty + bend} ${tx - wt * 0.3} ${ty + 20}`}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={wt * 0.42}
+        strokeLinecap="round"
+        opacity={0.32}
+        filter="url(#soften)"
+      />
+
+      {/* Occlusion where the finger meets the back of the hand. */}
+      <path
+        d={`M ${kx - wk} ${ky} C ${kx - wk} ${ky - 16} ${kx + wk} ${ky - 16} ${kx + wk} ${ky}`}
+        fill="none"
+        stroke={TONE.deep}
+        strokeWidth={7}
+        opacity={0.3}
+        filter="url(#soften)"
+      />
+
+      {/* Two joint creases, so it reads as three segments. */}
+      <path
+        d={`M ${tx - wt + 2} ${ty + 34} Q ${tx} ${ty + 27} ${tx + wt - 2} ${ty + 34}`}
+        fill="none"
+        stroke={TONE.deep}
         strokeWidth={1.6}
-      />
-      {/* Two joint creases, so the finger reads as three segments. */}
-      <path
-        d={`M ${tx - wt + 2} ${ty + 34} Q ${tx} ${ty + 28} ${tx + wt - 2} ${ty + 34}`}
-        fill="none"
-        stroke="#8f8378"
-        strokeWidth={1.3}
-        opacity={0.5}
+        opacity={0.45}
       />
       <path
-        d={`M ${kx - wk + 3} ${ky - 46} Q ${(kx + tx) / 2} ${ky - 54} ${kx + wk - 3} ${ky - 46}`}
+        d={`M ${kx - wk + 3} ${ky - 46} Q ${(kx + tx) / 2} ${ky - 55} ${kx + wk - 3} ${ky - 46}`}
         fill="none"
-        stroke="#8f8378"
-        strokeWidth={1.3}
-        opacity={0.4}
+        stroke={TONE.deep}
+        strokeWidth={1.6}
+        opacity={0.35}
       />
-      {/* Nail. */}
+
+      {/* Nail: its own curve, and a highlight of its own. */}
       <ellipse
         cx={tx}
         cy={ty + 13}
         rx={wt * 0.6}
-        ry={wt * 0.8}
-        fill="#f7f2ec"
-        stroke="#8f8378"
-        strokeWidth={1.2}
-        opacity={0.9}
+        ry={wt * 0.82}
+        fill="url(#nail)"
+        stroke={TONE.line}
+        strokeWidth={1.1}
+        strokeOpacity={0.6}
+      />
+      <ellipse
+        cx={tx - wt * 0.18}
+        cy={ty + 9}
+        rx={wt * 0.24}
+        ry={wt * 0.34}
+        fill="#ffffff"
+        opacity={0.55}
+        filter="url(#soften)"
       />
     </g>
   );
 }
 
 /** Back of the hand and thumb. `dir` is +1 for the left hand, -1 for the right. */
-function Palm({ cx, dir }: { cx: number; dir: 1 | -1 }) {
+function Palm({ cx, dir, id }: { cx: number; dir: 1 | -1; id: string }) {
   const p = (x: number, y: number) => `${cx + dir * x} ${y}`;
+  const body = `M ${p(-92, 500)}
+      C ${p(-104, 440)} ${p(-108, 386)} ${p(-104, 348)}
+      C ${p(-78, 328)} ${p(-48, 324)} ${p(-22, 328)}
+      C ${p(16, 324)} ${p(62, 328)} ${p(102, 342)}
+      C ${p(112, 388)} ${p(106, 446)} ${p(88, 500)}
+      C ${p(40, 516)} ${p(-40, 516)} ${p(-92, 500)} Z`;
+
   return (
     <g>
-      <path
-        d={`M ${p(-92, 500)}
-            C ${p(-104, 440)} ${p(-108, 386)} ${p(-104, 348)}
-            C ${p(-78, 328)} ${p(-48, 324)} ${p(-22, 328)}
-            C ${p(16, 324)} ${p(62, 328)} ${p(102, 342)}
-            C ${p(112, 388)} ${p(106, 446)} ${p(88, 500)}
-            C ${p(40, 516)} ${p(-40, 516)} ${p(-92, 500)} Z`}
-        fill="url(#skin)"
-        stroke="#8f8378"
-        strokeWidth={1.9}
-      />
-      {/* Tendons running back from the knuckles. */}
+      <defs>
+        {/* Light from the upper left, falling off across the back of the hand. */}
+        <radialGradient id={id} cx={dir === 1 ? '0.34' : '0.66'} cy="0.3" r="0.95">
+          <stop offset="0%" stopColor={TONE.hi} />
+          <stop offset="38%" stopColor={TONE.light} />
+          <stop offset="72%" stopColor={TONE.mid} />
+          <stop offset="100%" stopColor={TONE.shade} />
+        </radialGradient>
+      </defs>
+
+      <path d={body} fill={`url(#${id})`} stroke={TONE.line} strokeWidth={1.7} strokeOpacity={0.75} />
+
+      {/* Knuckles: four soft bumps where the fingers begin. */}
       {[-76, -22, 32, 84].map((dx, i) => (
-        <path
-          key={i}
-          d={`M ${p(dx, 350)} C ${p(dx - dir * 4, 400)} ${p(dx - dir * 8, 440)} ${p(dx - dir * 10, 476)}`}
-          fill="none"
-          stroke="#8f8378"
-          strokeWidth={1.4}
+        <ellipse
+          key={`k${i}`}
+          cx={cx + dir * dx}
+          cy={348 + Math.abs(dx) * 0.05}
+          rx={16}
+          ry={11}
+          fill="#ffffff"
           opacity={0.3}
+          filter="url(#soften)"
         />
       ))}
+
+      {/* Tendons running back from the knuckles to the wrist. */}
+      {[-76, -22, 32, 84].map((dx, i) => (
+        <path
+          key={`t${i}`}
+          d={`M ${p(dx, 356)} C ${p(dx - dir * 4, 402)} ${p(dx - dir * 8, 442)} ${p(dx - dir * 10, 478)}`}
+          fill="none"
+          stroke={TONE.deep}
+          strokeWidth={3}
+          strokeLinecap="round"
+          opacity={0.12}
+        />
+      ))}
+
+      {/* The muscle at the base of the thumb, catching the light. */}
+      <ellipse
+        cx={cx + dir * 62}
+        cy={428}
+        rx={40}
+        ry={54}
+        transform={`rotate(${dir * 18} ${cx + dir * 62} 428)`}
+        fill="#ffffff"
+        opacity={0.2}
+        filter="url(#soften)"
+      />
+      {/* Occlusion along the outer edge, so the hand has a far side. */}
+      <path
+        d={`M ${p(-100, 356)} C ${p(-110, 420)} ${p(-100, 470)} ${p(-90, 498)}`}
+        fill="none"
+        stroke={TONE.deep}
+        strokeWidth={12}
+        opacity={0.22}
+        filter="url(#soften)"
+      />
+
       {/* Thumb, on its own axis, resting over the space bar. */}
       <path
         d={`M ${p(96, 356)}
             C ${p(140, 372)} ${p(168, 400)} ${p(160, 428)}
             Q ${p(150, 452)} ${p(126, 444)}
             C ${p(102, 434)} ${p(78, 414)} ${p(64, 392)} Z`}
-        fill="url(#skin)"
-        stroke="#8f8378"
-        strokeWidth={1.7}
+        fill={`url(#${id})`}
+        stroke={TONE.line}
+        strokeWidth={1.6}
+        strokeOpacity={0.75}
+      />
+      <path
+        d={`M ${p(104, 372)} C ${p(136, 388)} ${p(152, 406)} ${p(148, 424)}`}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={9}
+        strokeLinecap="round"
+        opacity={0.28}
+        filter="url(#soften)"
       />
       <ellipse
         cx={cx + dir * 146}
@@ -245,18 +377,19 @@ function Palm({ cx, dir }: { cx: number; dir: 1 | -1 }) {
         rx={11}
         ry={13}
         transform={`rotate(${dir * 34} ${cx + dir * 146} 430)`}
-        fill="#f7f2ec"
-        stroke="#8f8378"
-        strokeWidth={1.2}
-        opacity={0.9}
+        fill="url(#nail)"
+        stroke={TONE.line}
+        strokeWidth={1.1}
+        strokeOpacity={0.6}
       />
+
       {/* Wrist, running off the bottom of the frame. */}
       <path
-        d={`M ${p(-90, 502)} C ${p(-60, 540)} ${p(56, 540)} ${p(86, 502)}`}
+        d={`M ${p(-90, 502)} C ${p(-60, 542)} ${p(56, 542)} ${p(86, 502)}`}
         fill="none"
-        stroke="#8f8378"
-        strokeWidth={1.6}
-        opacity={0.45}
+        stroke={TONE.line}
+        strokeWidth={1.5}
+        opacity={0.4}
       />
     </g>
   );
@@ -317,14 +450,31 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
           }
         >
           <defs>
-            <linearGradient id="skin" x1="0" y1="1" x2="0.6" y2="0">
-              <stop offset="0%" stopColor="#f3ece4" />
-              <stop offset="55%" stopColor="#e6dbcf" />
-              <stop offset="100%" stopColor="#cfc1b2" />
+            {/* One blur, reused for every soft edge — highlights, occlusion and
+                the shadow the hands cast on the board. Eight separate filters
+                would cost eight passes on a phone. */}
+            <filter id="soften" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="5" />
+            </filter>
+            <filter id="drop" x="-30%" y="-30%" width="160%" height="180%">
+              <feDropShadow dx="4" dy="10" stdDeviation="9" floodColor="#3a2f22" floodOpacity="0.3" />
+            </filter>
+            <linearGradient id="nail" x1="0.2" y1="0" x2="0.8" y2="1">
+              <stop offset="0%" stopColor="#fffdfa" />
+              <stop offset="60%" stopColor="#f4ece2" />
+              <stop offset="100%" stopColor="#dbc9b6" />
             </linearGradient>
-            <linearGradient id="keycap" x1="0" y1="0" x2="0" y2="1">
+            {/* Keycaps get a top-lit bevel so the board reads as moulded
+                plastic rather than as flat rectangles. */}
+            <linearGradient id="keycap" x1="0" y1="0" x2="0.25" y2="1">
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="100%" stopColor="#eeeae4" />
+              <stop offset="55%" stopColor="#f7f5f1" />
+              <stop offset="100%" stopColor="#e4e0d8" />
+            </linearGradient>
+            <linearGradient id="keycapLit" x1="0" y1="0" x2="0.25" y2="1">
+              <stop offset="0%" stopColor="#ffe271" />
+              <stop offset="55%" stopColor="#ffd11a" />
+              <stop offset="100%" stopColor="#e8b800" />
             </linearGradient>
           </defs>
 
@@ -340,7 +490,7 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
                   width={KEY}
                   height={KEY}
                   rx={9}
-                  fill={isLit ? '#ffd11a' : 'url(#keycap)'}
+                  fill={isLit ? 'url(#keycapLit)' : 'url(#keycap)'}
                   stroke="#1a1a1a"
                   strokeWidth={isLit ? 3 : 2.2}
                 />
@@ -375,21 +525,21 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
             space — both thumbs
           </text>
 
-          {/* Contact shadow, so the hands sit on the board. */}
-          <ellipse cx={166} cy={400} rx={132} ry={96} fill="#1a1a1a" opacity={0.06} />
-          <ellipse cx={546} cy={400} rx={132} ry={96} fill="#1a1a1a" opacity={0.06} />
-
-          {/* Fingers first, then the palms over their bases. */}
-          {FINGERS_LEFT.map((z) => {
-            const t = target(z);
-            return <Finger key={z} zone={z} tx={t.x} ty={t.y + 26} />;
-          })}
-          {FINGERS_RIGHT.map((z) => {
-            const t = target(z);
-            return <Finger key={z} zone={z} tx={t.x} ty={t.y + 26} />;
-          })}
-          <Palm cx={166} dir={1} />
-          <Palm cx={546} dir={-1} />
+          {/* Both hands under one shadow, so they sit on the board rather than
+              float above it. */}
+          <g filter="url(#drop)">
+            {/* Fingers first, then the palms over their bases. */}
+            {FINGERS_LEFT.map((z) => {
+              const t = target(z);
+              return <Finger key={z} zone={z} id={`f-${z}`} tx={t.x} ty={t.y + 26} />;
+            })}
+            {FINGERS_RIGHT.map((z) => {
+              const t = target(z);
+              return <Finger key={z} zone={z} id={`f-${z}`} tx={t.x} ty={t.y + 26} />;
+            })}
+            <Palm cx={166} dir={1} id="palm-l" />
+            <Palm cx={546} dir={-1} id="palm-r" />
+          </g>
         </svg>
 
         <p className="mt-3 text-[15px] leading-relaxed text-vast/70">

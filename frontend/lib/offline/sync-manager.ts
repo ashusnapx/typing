@@ -31,6 +31,10 @@ class SyncManager {
 
   async syncPendingAttempts() {
     if (this.isSyncing || !navigator.onLine) return;
+    // Nothing queued can succeed without an account to attribute it to, and
+    // every attempt would 401. A signed-out visitor on the landing page has no
+    // business running this at all.
+    if (!api.getToken()) return;
     this.isSyncing = true;
     dispatchOfflineEvent(OFFLINE_EVENTS.SYNC_STARTED);
 
@@ -38,7 +42,12 @@ class SyncManager {
       const unsynced = await AttemptRepository.getUnsyncedAttempts();
       
       for (const attempt of unsynced) {
-        if (attempt.retryCount >= MAX_RETRIES) {
+        // Exhausted attempts are dropped rather than skipped. Left in the
+        // store they were re-read on every page load, and each pass announced
+        // the same permanent failure again — which is how a stale queue item
+        // ended up shouting at people opening the landing page.
+        if ((attempt.retryCount ?? 0) >= MAX_RETRIES) {
+          await AttemptRepository.deleteAttempt(attempt.id);
           continue;
         }
 
@@ -98,10 +107,10 @@ class SyncManager {
       const isValidationError = err.message?.includes('400') || err.message?.includes('Validation') || err.message?.includes('UNAUTHORIZED');
       
       if (isValidationError) {
-        attempt.retryCount = MAX_RETRIES;
-        await AttemptRepository.saveAttempt(attempt);
+        // Rejected on its content or its credentials — retrying cannot change
+        // either, so it goes rather than sitting in the queue forever.
+        await AttemptRepository.deleteAttempt(attempt.id);
         dispatchOfflineEvent(OFFLINE_EVENTS.SYNC_FAILED, { attempt, error: err.message });
-        toast.error(`Offline sync failed: ${err.message}`);
         return;
       }
 
@@ -109,7 +118,11 @@ class SyncManager {
       dispatchOfflineEvent(OFFLINE_EVENTS.SYNC_FAILED, { attempt, error: err.message });
 
       if (retryCount >= MAX_RETRIES) {
-        toast.error('Offline test sync failed permanently after 10 attempts.');
+        // Deliberately silent. A background retry budget is an internal
+        // detail; there is no action a candidate can take on being told it ran
+        // out, and it was firing on every refresh of the landing page.
+        console.warn('Offline attempt abandoned after retries:', attempt.id);
+        await AttemptRepository.deleteAttempt(attempt.id);
         return;
       }
 

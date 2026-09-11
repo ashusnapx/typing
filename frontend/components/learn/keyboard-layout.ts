@@ -21,16 +21,30 @@ export interface KeyDef {
  * which needs no legend at all. Yellow is not spent here: it is saved for the
  * keys the current lesson is teaching.
  */
+/* One hue per finger, mirrored across the hands.
+ *
+ * This was a single grey ramp running light on the left to dark on the right.
+ * It was restrained, and it taught nothing: a learner looking at a grey key
+ * cannot tell which finger owns it without counting along the row, which is
+ * the exact lookup the colour was supposed to remove.
+ *
+ * Each finger pair now shares a hue — both middles purple, both indexes rose —
+ * so the thing to remember is four colours, not eight, and the hand is
+ * symmetric the way the keyboard is. Left runs lighter than right within a
+ * pair, so a key still says which hand at a glance. The tones stay muted
+ * because yellow is still spent only on the keys a lesson is teaching, and a
+ * saturated board would drown it.
+ */
 export const FINGER_COLORS: Record<FingerZone, string> = {
-  lp: '#d8d8d4',  // Left pinky  — lightest
-  lr: '#c4c4bf',  // Left ring
-  lm: '#b0b0aa',  // Left middle
-  li: '#9c9c95',  // Left index
-  ri: '#6f6f69',  // Right index
-  rm: '#5b5b56',  // Right middle
-  rr: '#474743',  // Right ring
-  rp: '#333330',  // Right pinky — darkest
-  thumb: '#88888210', // Thumbs share the space bar
+  lp: '#a9c2dd',  // Little  — blue
+  rp: '#7d9ec2',
+  lr: '#a6cdb4',  // Ring    — green
+  rr: '#78ab8e',
+  lm: '#c9b0d8',  // Middle  — purple
+  rm: '#a488bb',
+  li: '#e5b3a6',  // Index   — rose
+  ri: '#cd8878',
+  thumb: '#d8d8d4', // Thumbs share the space bar
 };
 
 /** The keys the lesson is teaching right now. The only yellow on the board. */

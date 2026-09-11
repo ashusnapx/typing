@@ -1,4 +1,10 @@
-import { fingerMap, FINGER_NAMES, HAND, type FingerZone } from './keyboard-layout';
+import {
+  fingerMap,
+  FINGER_COLORS,
+  FINGER_NAMES,
+  HAND,
+  type FingerZone,
+} from './keyboard-layout';
 
 /**
  * Where the hands go for *this* lesson.
@@ -147,249 +153,128 @@ const KNUCKLE: Record<Exclude<FingerZone, 'thumb'>, { x: number; y: number; w: n
 };
 
 /**
- * The shading model, in one place.
+ * The palette, flat.
  *
- * A flat fill makes a finger read as a shape rather than a finger. Three
- * layers give it form: a band of tone running across the finger, so it reads
- * as a cylinder rather than a strip; a soft highlight along the lit side; and
- * occlusion where one part sits under another. The light is fixed at the upper
- * left, which is where a desk lamp or a window usually is, and every part of
- * both hands is lit from the same place — inconsistent light is the thing that
- * makes an illustration look wrong even when the drawing is right.
+ * The hands were modelled: a five-stop gradient across every finger, a
+ * specular ridge down each one, two joint creases, and a nail with its own
+ * highlight on every fingertip. All of it aimed at realism and landed in the
+ * uncanny valley — pale waxy fingers with visible nails, reading as something
+ * prosthetic rather than as a hand.
+ *
+ * Nothing else on this site is rendered. Keycaps are flat fills inside a
+ * two-pixel black outline, and the hands are now drawn the same way: one warm
+ * tone, one shade where a part sits under another, and the same ink line as
+ * the rest of the page. A drawing that is plainly a drawing cannot fall into
+ * the valley.
  */
 const TONE = {
-  hi: '#fdf9f4',
-  light: '#f2e9de',
-  mid: '#e0d1bf',
-  shade: '#c3ac95',
-  deep: '#a08b76',
-  line: '#7d6c5c',
+  skin: '#f6d9bd',
+  shade: '#e3b492',
+  line: '#1a1a1a',
 } as const;
-
-/** Degrees of the axis from knuckle to tip, so the tone band can run across it. */
-const axisAngle = (kx: number, ky: number, tx: number, ty: number) =>
-  (Math.atan2(ty - ky, tx - kx) * 180) / Math.PI;
 
 /** One finger, reaching from its knuckle up to the key it must press. */
 function Finger({
   zone,
   tx,
   ty,
-  id,
+  tint,
 }: {
   zone: Exclude<FingerZone, 'thumb'>;
   tx: number;
   ty: number;
-  id: string;
+  /** Filled in this finger's own colour when it is the one being used. */
+  tint?: string;
 }) {
   const { x: kx, y: ky, w: wk } = KNUCKLE[zone];
-  const wt = wk - 4;
+  const wt = wk - 3;
   const bend = (ky - ty) * 0.45;
-  // The tone band runs across the finger, so it is rotated a quarter turn off
-  // the finger's own axis.
-  const across = axisAngle(kx, ky, tx, ty) + 90;
 
+  /* Knuckle to tip, closed with a real semicircular cap. The old tip was two
+     quadratic curves meeting at a point, which is the one shape a fingertip
+     is not. */
   const body = `M ${kx - wk} ${ky}
-      C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 14}
-      Q ${tx - wt} ${ty - 8} ${tx} ${ty - 8}
-      Q ${tx + wt} ${ty - 8} ${tx + wt} ${ty + 14}
+      C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 16}
+      A ${wt} ${wt} 0 0 1 ${tx + wt} ${ty + 16}
       C ${tx + wt} ${ty + bend} ${kx + wk + 2} ${ky - bend} ${kx + wk} ${ky} Z`;
 
   return (
     <g>
-      <defs>
-        <linearGradient
-          id={id}
-          gradientUnits="objectBoundingBox"
-          gradientTransform={`rotate(${across} 0.5 0.5)`}
-          x1="0"
-          y1="0"
-          x2="1"
-          y2="0"
-        >
-          <stop offset="0%" stopColor={TONE.shade} />
-          <stop offset="16%" stopColor={TONE.mid} />
-          <stop offset="42%" stopColor={TONE.hi} />
-          <stop offset="70%" stopColor={TONE.light} />
-          <stop offset="100%" stopColor={TONE.deep} />
-        </linearGradient>
-      </defs>
-
-      <path d={body} fill={`url(#${id})`} stroke={TONE.line} strokeWidth={1.5} strokeOpacity={0.75} />
-
-      {/* Specular ridge down the lit side of the cylinder. */}
       <path
-        d={`M ${kx - wk * 0.34} ${ky - 8}
-            C ${kx - wk * 0.34} ${ky - bend} ${tx - wt * 0.34} ${ty + bend} ${tx - wt * 0.3} ${ty + 20}`}
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth={wt * 0.42}
-        strokeLinecap="round"
-        opacity={0.32}
-        filter="url(#soften)"
-      />
-
-      {/* Occlusion where the finger meets the back of the hand. */}
-      <path
-        d={`M ${kx - wk} ${ky} C ${kx - wk} ${ky - 16} ${kx + wk} ${ky - 16} ${kx + wk} ${ky}`}
-        fill="none"
-        stroke={TONE.deep}
-        strokeWidth={7}
-        opacity={0.3}
-        filter="url(#soften)"
-      />
-
-      {/* Two joint creases, so it reads as three segments. */}
-      <path
-        d={`M ${tx - wt + 2} ${ty + 34} Q ${tx} ${ty + 27} ${tx + wt - 2} ${ty + 34}`}
-        fill="none"
-        stroke={TONE.deep}
-        strokeWidth={1.6}
-        opacity={0.45}
-      />
-      <path
-        d={`M ${kx - wk + 3} ${ky - 46} Q ${(kx + tx) / 2} ${ky - 55} ${kx + wk - 3} ${ky - 46}`}
-        fill="none"
-        stroke={TONE.deep}
-        strokeWidth={1.6}
-        opacity={0.35}
-      />
-
-      {/* Nail: its own curve, and a highlight of its own. */}
-      <ellipse
-        cx={tx}
-        cy={ty + 13}
-        rx={wt * 0.6}
-        ry={wt * 0.82}
-        fill="url(#nail)"
+        d={body}
+        fill={tint ?? TONE.skin}
         stroke={TONE.line}
-        strokeWidth={1.1}
-        strokeOpacity={0.6}
+        strokeWidth={tint ? 3 : 2}
+        strokeLinejoin="round"
       />
-      <ellipse
-        cx={tx - wt * 0.18}
-        cy={ty + 9}
-        rx={wt * 0.24}
-        ry={wt * 0.34}
-        fill="#ffffff"
-        opacity={0.55}
-        filter="url(#soften)"
+      {/* One shade down the far edge — enough to separate two fingers that
+          touch, not enough to read as modelling. */}
+      <path
+        d={`M ${tx + wt - 3} ${ty + 22}
+            C ${tx + wt - 3} ${ty + bend} ${kx + wk - 3} ${ky - bend} ${kx + wk - 3} ${ky - 6}`}
+        fill="none"
+        stroke={TONE.shade}
+        strokeWidth={4}
+        strokeLinecap="round"
       />
     </g>
   );
 }
 
 /** Back of the hand and thumb. `dir` is +1 for the left hand, -1 for the right. */
-function Palm({ cx, dir, id }: { cx: number; dir: 1 | -1; id: string }) {
+function Palm({ cx, dir }: { cx: number; dir: 1 | -1 }) {
   const p = (x: number, y: number) => `${cx + dir * x} ${y}`;
-  const body = `M ${p(-92, 500)}
-      C ${p(-104, 440)} ${p(-108, 386)} ${p(-104, 348)}
-      C ${p(-78, 328)} ${p(-48, 324)} ${p(-22, 328)}
-      C ${p(16, 324)} ${p(62, 328)} ${p(102, 342)}
-      C ${p(112, 388)} ${p(106, 446)} ${p(88, 500)}
-      C ${p(40, 516)} ${p(-40, 516)} ${p(-92, 500)} Z`;
+
+  /* Widest at the knuckles, narrowing to the wrist.
+     The first flat version ran the same width top to bottom and closed square
+     across the base, which is a mitten. A hand is a wedge: the knuckle line is
+     the broadest part of it and everything below tapers toward the wrist. */
+  const body = `M ${p(-100, 344)}
+      C ${p(-112, 398)} ${p(-106, 458)} ${p(-86, 508)}
+      C ${p(-58, 528)} ${p(22, 528)} ${p(56, 506)}
+      C ${p(80, 466)} ${p(96, 408)} ${p(98, 348)}
+      C ${p(54, 328)} ${p(-52, 328)} ${p(-100, 344)} Z`;
+
+  /* Angled up and inward toward the space bar, which is where a thumb actually
+     sits. Drawn before the palm so the palm covers its base — a thumb coming
+     out from under the hand is attached to it; the earlier one was a closed
+     blob laid on top, and read as a separate object. */
+  const thumb = `M ${p(64, 452)}
+      C ${p(80, 416)} ${p(104, 380)} ${p(124, 354)}
+      C ${p(136, 340)} ${p(156, 352)} ${p(148, 370)}
+      C ${p(132, 400)} ${p(110, 434)} ${p(96, 466)} Z`;
 
   return (
     <g>
-      <defs>
-        {/* Light from the upper left, falling off across the back of the hand. */}
-        <radialGradient id={id} cx={dir === 1 ? '0.34' : '0.66'} cy="0.3" r="0.95">
-          <stop offset="0%" stopColor={TONE.hi} />
-          <stop offset="38%" stopColor={TONE.light} />
-          <stop offset="72%" stopColor={TONE.mid} />
-          <stop offset="100%" stopColor={TONE.shade} />
-        </radialGradient>
-      </defs>
-
-      <path d={body} fill={`url(#${id})`} stroke={TONE.line} strokeWidth={1.7} strokeOpacity={0.75} />
-
-      {/* Knuckles: four soft bumps where the fingers begin. */}
-      {[-76, -22, 32, 84].map((dx, i) => (
-        <ellipse
-          key={`k${i}`}
-          cx={cx + dir * dx}
-          cy={348 + Math.abs(dx) * 0.05}
-          rx={16}
-          ry={11}
-          fill="#ffffff"
-          opacity={0.3}
-          filter="url(#soften)"
-        />
-      ))}
-
-      {/* Tendons running back from the knuckles to the wrist. */}
-      {[-76, -22, 32, 84].map((dx, i) => (
-        <path
-          key={`t${i}`}
-          d={`M ${p(dx, 356)} C ${p(dx - dir * 4, 402)} ${p(dx - dir * 8, 442)} ${p(dx - dir * 10, 478)}`}
-          fill="none"
-          stroke={TONE.deep}
-          strokeWidth={3}
-          strokeLinecap="round"
-          opacity={0.12}
-        />
-      ))}
-
-      {/* The muscle at the base of the thumb, catching the light. */}
-      <ellipse
-        cx={cx + dir * 62}
-        cy={428}
-        rx={40}
-        ry={54}
-        transform={`rotate(${dir * 18} ${cx + dir * 62} 428)`}
-        fill="#ffffff"
-        opacity={0.2}
-        filter="url(#soften)"
-      />
-      {/* Occlusion along the outer edge, so the hand has a far side. */}
       <path
-        d={`M ${p(-100, 356)} C ${p(-110, 420)} ${p(-100, 470)} ${p(-90, 498)}`}
-        fill="none"
-        stroke={TONE.deep}
-        strokeWidth={12}
-        opacity={0.22}
-        filter="url(#soften)"
-      />
-
-      {/* Thumb, on its own axis, resting over the space bar. */}
-      <path
-        d={`M ${p(96, 356)}
-            C ${p(140, 372)} ${p(168, 400)} ${p(160, 428)}
-            Q ${p(150, 452)} ${p(126, 444)}
-            C ${p(102, 434)} ${p(78, 414)} ${p(64, 392)} Z`}
-        fill={`url(#${id})`}
+        d={thumb}
+        fill={TONE.skin}
         stroke={TONE.line}
-        strokeWidth={1.6}
-        strokeOpacity={0.75}
+        strokeWidth={2}
+        strokeLinejoin="round"
       />
       <path
-        d={`M ${p(104, 372)} C ${p(136, 388)} ${p(152, 406)} ${p(148, 424)}`}
+        d={body}
+        fill={TONE.skin}
+        stroke={TONE.line}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      {/* The web of the thumb, and the line the knuckles sit on. Two strokes is
+          all the interior a flat hand needs. */}
+      <path
+        d={`M ${p(92, 386)} C ${p(84, 412)} ${p(78, 438)} ${p(76, 464)}`}
         fill="none"
-        stroke="#ffffff"
-        strokeWidth={9}
+        stroke={TONE.shade}
+        strokeWidth={3}
         strokeLinecap="round"
-        opacity={0.28}
-        filter="url(#soften)"
       />
-      <ellipse
-        cx={cx + dir * 146}
-        cy={430}
-        rx={11}
-        ry={13}
-        transform={`rotate(${dir * 34} ${cx + dir * 146} 430)`}
-        fill="url(#nail)"
-        stroke={TONE.line}
-        strokeWidth={1.1}
-        strokeOpacity={0.6}
-      />
-
-      {/* Wrist, running off the bottom of the frame. */}
       <path
-        d={`M ${p(-90, 502)} C ${p(-60, 542)} ${p(56, 542)} ${p(86, 502)}`}
+        d={`M ${p(-86, 366)} C ${p(-34, 352)} ${p(40, 356)} ${p(90, 372)}`}
         fill="none"
-        stroke={TONE.line}
-        strokeWidth={1.5}
-        opacity={0.4}
+        stroke={TONE.shade}
+        strokeWidth={3}
+        strokeLinecap="round"
       />
     </g>
   );
@@ -403,9 +288,37 @@ function Palm({ cx, dir, id }: { cx: number; dir: 1 | -1; id: string }) {
  * `keys` are the keys the lesson teaches. Every finger with one of them
  * reaches for it; the rest stay on their home key.
  */
-export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
+export function KeyboardHands({
+  keys = [],
+  activeKey = null,
+  compact = false,
+  singleHand,
+}: {
+  keys?: string[];
+  /**
+   * The key wanted right now, while a drill is running.
+   *
+   * With this set the picture stops being a diagram of the lesson and becomes
+   * the hand at this instant: one finger leaves home, reaches the key, and
+   * wears its own colour so it is obvious which one is doing the work. A
+   * learner watching this a few hundred times stops needing to be told.
+   */
+  activeKey?: string | null;
+  /** Drops the frame and the caption, for use inside a running drill. */
+  compact?: boolean;
+  /**
+   * Draw one hand only, for a drill that asks the other to rest in the lap.
+   * The picture has to agree with the instruction, or the instruction loses.
+   */
+  singleHand?: 'left' | 'right';
+}) {
+  /* Live, only the key under the cursor counts — showing every key the lesson
+     teaches would light half the board and reach with half the fingers, which
+     is not what a hand does at any single moment. */
+  const source = activeKey ? [activeKey] : keys;
+
   const lit = new Map<string, Cap>();
-  for (const raw of keys) {
+  for (const raw of source) {
     const cap = capFor(raw);
     if (cap) lit.set(cap.label, cap);
   }
@@ -422,24 +335,33 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
   for (const cap of lit.values()) rowsShown.add(cap.row);
   const visible = BOARD.filter((c) => rowsShown.has(c.row));
 
-  const reaching = [...FINGERS_LEFT, ...FINGERS_RIGHT].filter(
-    (z) => target(z).row !== 'home',
-  );
+  const shownFingers =
+    singleHand === 'left'
+      ? FINGERS_LEFT
+      : singleHand === 'right'
+        ? FINGERS_RIGHT
+        : [...FINGERS_LEFT, ...FINGERS_RIGHT];
+
+  const reaching = shownFingers.filter((z) => target(z).row !== 'home');
 
   const top = Math.min(...visible.map((c) => c.y)) - 26;
 
-  return (
-    <figure className="card overflow-hidden">
-      <figcaption className="border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
-        <span className="eyebrow">
-          {reaching.length > 0 ? 'Which finger reaches which key' : 'Where your fingers rest'}
-        </span>
-      </figcaption>
+  const Frame = compact ? 'div' : 'figure';
 
-      <div className="px-4 py-5">
+  return (
+    <Frame className={compact ? 'h-full' : 'card overflow-hidden'}>
+      {!compact && (
+        <figcaption className="border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
+          <span className="eyebrow">
+            {reaching.length > 0 ? 'Which finger reaches which key' : 'Where your fingers rest'}
+          </span>
+        </figcaption>
+      )}
+
+      <div className={compact ? 'flex h-full items-center justify-center' : 'px-4 py-5'}>
         <svg
           viewBox={`0 ${top} 740 ${560 - top}`}
-          className="w-full"
+          className={compact ? 'max-h-full w-auto' : 'w-full'}
           role="img"
           aria-label={
             reaching.length > 0
@@ -476,6 +398,13 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
               <stop offset="55%" stopColor="#ffd11a" />
               <stop offset="100%" stopColor="#e8b800" />
             </linearGradient>
+            {/* Transparent, so one bevel serves every finger colour instead of
+                a gradient per hue. */}
+            <linearGradient id="gloss" x1="0" y1="0" x2="0.25" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
+              <stop offset="55%" stopColor="#ffffff" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.12" />
+            </linearGradient>
           </defs>
 
           {/* Keys. */}
@@ -484,16 +413,32 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
             const isAnchor = cap.label === 'f' || cap.label === 'j';
             return (
               <g key={`${cap.row}-${cap.label}`}>
+                {/* A key is painted by the finger that owns it. The board
+                    then teaches the assignment on its own, and the lesson's
+                    own keys still come through yellow on top of it. */}
                 <rect
                   x={cap.x - KEY / 2}
                   y={cap.y}
                   width={KEY}
                   height={KEY}
                   rx={9}
-                  fill={isLit ? 'url(#keycapLit)' : 'url(#keycap)'}
+                  fill={isLit ? 'url(#keycapLit)' : FINGER_COLORS[cap.zone]}
                   stroke="#1a1a1a"
                   strokeWidth={isLit ? 3 : 2.2}
                 />
+                {/* The bevel rides over the colour instead of replacing it.
+                    Lit keys skip it — their gradient is already bevelled. */}
+                {!isLit && (
+                  <rect
+                    x={cap.x - KEY / 2}
+                    y={cap.y}
+                    width={KEY}
+                    height={KEY}
+                    rx={9}
+                    fill="url(#gloss)"
+                    pointerEvents="none"
+                  />
+                )}
                 <text
                   x={cap.x}
                   y={cap.y + 35}
@@ -517,7 +462,7 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
             width={SPACE.w}
             height={SPACE.h}
             rx={9}
-            fill="url(#keycap)"
+            fill={FINGER_COLORS.thumb}
             stroke="#1a1a1a"
             strokeWidth={2.2}
           />
@@ -527,22 +472,33 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
 
           {/* Both hands under one shadow, so they sit on the board rather than
               float above it. */}
-          <g filter="url(#drop)">
+          {/* The colour coding is the lesson, so the hands are translucent
+              enough to read it through them. Opaque, they covered eight of the
+              ten keys they were drawn to explain. */}
+          <g filter="url(#drop)" opacity={0.92}>
             {/* Fingers first, then the palms over their bases. */}
-            {FINGERS_LEFT.map((z) => {
+            {shownFingers.map((z) => {
               const t = target(z);
-              return <Finger key={z} zone={z} id={`f-${z}`} tx={t.x} ty={t.y + 26} />;
+              /* Only tint while a drill is running. On the lesson's own
+                 diagram several fingers are shown reaching at once, and
+                 colouring them all would say they move together. */
+              const working = activeKey != null && lit.has(t.label);
+              return (
+                <Finger
+                  key={z}
+                  zone={z}
+                  tx={t.x}
+                  ty={t.y + 26}
+                  tint={working ? FINGER_COLORS[z] : undefined}
+                />
+              );
             })}
-            {FINGERS_RIGHT.map((z) => {
-              const t = target(z);
-              return <Finger key={z} zone={z} id={`f-${z}`} tx={t.x} ty={t.y + 26} />;
-            })}
-            <Palm cx={166} dir={1} id="palm-l" />
-            <Palm cx={546} dir={-1} id="palm-r" />
+            {singleHand !== 'right' && <Palm cx={166} dir={1} />}
+            {singleHand !== 'left' && <Palm cx={546} dir={-1} />}
           </g>
         </svg>
 
-        <p className="mt-3 text-[15px] leading-relaxed text-vast/70">
+        <p className={`mt-3 text-[15px] leading-relaxed text-vast/70 ${compact ? 'hidden' : ''}`}>
           {reaching.length > 0 ? (
             <>
               Reach from the home row and come straight back. <strong>F</strong> and{' '}
@@ -557,7 +513,7 @@ export function KeyboardHands({ keys = [] }: { keys?: string[] }) {
           )}
         </p>
       </div>
-    </figure>
+    </Frame>
   );
 }
 

@@ -18,6 +18,8 @@ import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
 import { KeyboardHands, PostureSideView, LessonKeys, lessonKeysFor } from '@/components/learn/hand-guide';
+import { LiveCoach } from '@/components/learn/live-coach';
+import { LessonVideo } from '@/components/learn/lesson-video';
 
 import {
   Check, CheckCircle2, XCircle, RotateCcw,
@@ -256,10 +258,10 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
     const showsHands = !isMouseLesson && !isHindi;
     const lessonKeyList = lessonKeysFor(lesson);
     const showsLessonKeys = showsHands && lessonKeyList.length > 0;
-    const hasFigures = showsPosture || showsHands || showsLessonKeys;
+    const hasFigures = showsPosture || showsHands || showsLessonKeys || !!lesson.videos?.length;
     const facts = [
       ...(isMouseLesson ? [] : [
-        { label: 'Target speed', value: lesson.targetWpm ? `${lesson.targetWpm} WPM` : 'No target' },
+        { label: 'Target speed', value: lesson.targetWpm ? `${lesson.targetWpm} WPM` : '—' },
         { label: 'Min accuracy', value: `${lesson.minAccuracy}%` },
       ]),
       { label: 'Duration', value: `${Math.round(lesson.durationSec / 60)} min` },
@@ -282,7 +284,14 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         <div className={hasFigures ? 'grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start' : ''}>
         <div className="min-w-0">
         <p className="eyebrow">{levelName}</p>
-        <h1 className="mt-3 text-4xl sm:text-5xl">{lesson.title}</h1>
+        {/* The dash keeps the word before it.
+            Most lesson titles are "<something> — <the keys>", and left alone
+            the line broke in the gap, stranding the dash at the start of the
+            second line where it read as a bullet. A non-breaking space ties it
+            back, so the break falls after it instead. */}
+        <h1 className="mt-3 text-balance text-4xl sm:text-5xl">
+          {lesson.title.replace(/ — /g, '\u00a0— ')}
+        </h1>
 
         {(lesson.noBackspace || lesson.hidePositionHighlight) && (
           <div className="mt-5 flex flex-wrap gap-2">
@@ -291,7 +300,20 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
         )}
 
-        <p className="mt-6 max-w-prose text-lg leading-relaxed text-vast/70">
+        {/* The button sits above what explains it.
+            It was the last thing in the column, under the instruction, the
+            rule and the four fact tiles — so a learner who already knew the
+            lesson still had to read past all of it to reach the only control
+            on the page. The explanation has not gone anywhere; it just no
+            longer stands between them and starting. */}
+        <button onClick={startLesson} className="btn btn-primary btn-lg mt-7 w-full">
+          {isMouseLesson ? 'Start mouse practice' : 'Start lesson'}
+        </button>
+        <p className="mt-3 text-center text-base text-vast/50">
+          {lesson.psychTip}
+        </p>
+
+        <p className="mt-8 max-w-prose text-lg leading-relaxed text-vast/70">
           {lesson.instruction}
         </p>
 
@@ -314,7 +336,7 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           </div>
         )}
 
-        <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className={`mt-8 grid grid-cols-2 gap-3 ${hasFigures ? '' : 'sm:grid-cols-4'}`}>
           {facts.map(f => (
             <div key={f.label} className="card-flat px-4 py-3.5">
               <dt className="eyebrow">{f.label}</dt>
@@ -323,40 +345,34 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           ))}
         </dl>
 
-        {!isMouseLesson && (
-          <div className="card mt-4 overflow-hidden">
-            <div className="border-b-2 border-vast bg-lumen px-4 py-2.5">
-              <span className="eyebrow">What you will type</span>
-            </div>
-            <p className="select-none px-5 py-5 text-lg leading-[1.85] text-vast/60">
-              {sampleText.substring(0, 220)}{sampleText.length > 220 ? '…' : ''}
-            </p>
-          </div>
-        )}
-
-        {!isMouseLesson && (
-          <div className="mt-4">
-            <CapsLockNotice text={sampleText} />
-          </div>
-        )}
-
         {isHindi && <div className="mt-4"><HindiKeyboardGuide /></div>}
-
-        <button onClick={startLesson} className="btn btn-primary btn-lg mt-8 w-full">
-          {isMouseLesson ? 'Start mouse practice' : 'Start lesson'}
-        </button>
-        <p className="mt-4 text-center text-base text-vast/50">
-          {lesson.psychTip}
-        </p>
         </div>
 
         {/* Where the hands go, drawn — the column a learner looks at while
             they read the column beside it. */}
         {hasFigures && (
           <div className="min-w-0 space-y-4 lg:sticky lg:top-6">
+            {lesson.videos && <LessonVideo videos={lesson.videos} />}
             {showsPosture && <PostureSideView />}
-            {showsHands && <KeyboardHands keys={lessonKeyList} />}
+            {showsHands && (
+              <KeyboardHands keys={lessonKeyList} singleHand={lesson.singleHand} />
+            )}
             {showsLessonKeys && <LessonKeys keys={lessonKeyList} />}
+
+            {/* What they are about to type, beside the hands that will type it
+                rather than above the button that starts it. */}
+            {!isMouseLesson && (
+              <div className="card overflow-hidden">
+                <div className="border-b-2 border-vast bg-lumen px-4 py-2.5">
+                  <span className="eyebrow">What you will type</span>
+                </div>
+                <p className="select-none px-5 py-4 text-lg leading-[1.85] text-vast/60">
+                  {sampleText.substring(0, 220)}{sampleText.length > 220 ? '…' : ''}
+                </p>
+              </div>
+            )}
+
+            {!isMouseLesson && <CapsLockNotice text={sampleText} />}
           </div>
         )}
         </div>
@@ -573,6 +589,18 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const currentAccuracy = totalChars > 0 ? calculateAccuracy(correctChars, totalChars) : 100;
   const remainingTime = Math.max(0, lesson.durationSec - elapsedSeconds);
   const nextChar = originalContent[typedContent.length] || null;
+  /* The last keystroke, when it was wrong.
+     Not derived from `typedContent`: the engine runs strict, so a wrong key is
+     refused and never reaches the content at all — reading it back there would
+     mean the coach could never once see a mistake. The keystroke log keeps the
+     refused press, which is the only place the character survives. Only the
+     most recent event counts, so the correction clears the moment they get
+     it right. */
+  const lastStroke = keystrokeEvents[keystrokeEvents.length - 1];
+  const wrongChar =
+    lastStroke && lastStroke.is_error && !lastStroke.is_backspace && lastStroke.key.length === 1
+      ? lastStroke.key
+      : null;
   const keysPreview = typedContent.split('').slice(-50);
   const isHindi = false;
   const progressPct = originalContent.length
@@ -699,8 +727,17 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
           <CapsLockNotice text={sampleText} compact />
         </div>
         {showKeyboard ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <div className="h-full w-full max-w-4xl">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+            {/* Said in words, with the hand doing it alongside. */}
+            <div className="flex w-full max-w-4xl shrink-0 items-stretch gap-3">
+              <div className="min-w-0 flex-1">
+                <LiveCoach expectedChar={nextChar} wrongChar={wrongChar} />
+              </div>
+              <div className="hidden h-32 w-56 shrink-0 lg:block">
+                <KeyboardHands activeKey={nextChar} compact />
+              </div>
+            </div>
+            <div className="min-h-0 w-full max-w-4xl flex-1">
               <KeyboardSVG
                 expectedChar={nextChar}
                 typedHistory={keysPreview}

@@ -3,6 +3,19 @@ const API_ORIGINS = API_URL ? ` ${new URL(API_URL).origin}` : '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ORIGINS = SUPABASE_URL ? ` ${new URL(SUPABASE_URL).origin}` : '';
 
+/* frame-src carries the lesson videos.
+ *
+ * They are embedded from YouTube's own player and never re-hosted; without
+ * this directive they fall back to default-src 'self' and the iframe is
+ * blocked with only "This content is blocked" to show for it.
+ * youtube-nocookie is the privacy-enhanced host, and youtube.com stays
+ * because the player redirects there for some videos.
+ *
+ * Note for anyone editing below: this is a template string, not code. A
+ * `/* *\/` block inside it is literal header text, and a semicolon in that
+ * text ends the directive it lands in and starts a junk one — which is
+ * exactly how this directive got silently dropped the first time.
+ */
 const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' 'unsafe-eval';
@@ -11,6 +24,7 @@ const cspHeader = `
   font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;
   connect-src 'self'${API_ORIGINS}${SUPABASE_ORIGINS};
   object-src 'none';
+  frame-src https://www.youtube-nocookie.com https://www.youtube.com;
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';

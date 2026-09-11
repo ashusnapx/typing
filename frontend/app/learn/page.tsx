@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {
   Play,
   Check,
-  ChevronRight,
   Flame,
   Target,
   Gauge,
@@ -28,6 +27,8 @@ import {
 } from '@/lib/lesson-storage';
 import { ROUTES } from '@/lib/config';
 import { PostSelector, useSelectedPost } from '@/components/learn/post-selector';
+import { KeyboardZones } from '@/components/learn/keyboard-zones';
+import { LessonVideo } from '@/components/learn/lesson-video';
 
 /* -------------------------------------------------------------------------- */
 /*  Derived progress                                                          */
@@ -89,74 +90,90 @@ function StatTile({
   );
 }
 
-function LessonRow({
+/**
+ * One lesson, as a tile.
+ *
+ * These were full-width rows stacked down a chapter: on a wide screen a
+ * three-word title sat alone on a 1,200px line, so ten lessons became ten
+ * screens of mostly empty rule. A grid puts the whole chapter in view at once,
+ * which is the thing a learner actually wants to see — how much there is, and
+ * where they are in it.
+ *
+ * The tile states are the three a learner cares about: done, the one to do
+ * next, and the rest. Only "next" takes the accent, so exactly one tile on the
+ * page is yellow.
+ */
+function LessonCard({
   lesson,
+  number,
   done,
   best,
   isNext,
   onStart,
 }: {
   lesson: Lesson;
+  /** Position within its chapter, which is how a learner refers to them. */
+  number: number;
   done: boolean;
   best?: LessonProgress;
   isNext: boolean;
   onStart: () => void;
 }) {
   return (
-    <li className="border-b-2 border-vast/10 last:border-0">
+    <li>
       <button
         onClick={onStart}
-        className={`group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors sm:px-5 ${
-          isNext && !done ? 'bg-dawn/40' : 'hover:bg-dawn/25'
+        className={`card group flex h-full w-full flex-col items-start gap-3 p-4 text-left transition-transform hover:-translate-y-0.5 ${
+          isNext && !done ? 'bg-dawn' : ''
         }`}
       >
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
-            done
-              ? 'border-ok bg-ok-bg text-ok'
-              : isNext
-                ? 'border-vast bg-dawn'
-                : 'border-vast/20 bg-lumen'
-          }`}
-        >
-          {done ? (
-            <Check className="h-4 w-4" strokeWidth={2.5} />
-          ) : isNext ? (
-            <Play className="h-3 w-3" strokeWidth={2.5} fill="currentColor" />
-          ) : (
-            <span className="h-1.5 w-1.5 rounded-full bg-vast/40" />
-          )}
+        <span className="flex w-full items-center gap-3">
+          <span
+            className={`tnum flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+              done
+                ? 'border-ok bg-ok-bg text-ok'
+                : isNext
+                  ? 'border-vast bg-lumen'
+                  : 'border-vast/20 bg-lumen text-vast/50'
+            }`}
+          >
+            {done ? (
+              <Check className="h-4 w-4" strokeWidth={2.5} />
+            ) : isNext ? (
+              <Play className="h-3 w-3" strokeWidth={2.5} fill="currentColor" />
+            ) : (
+              number
+            )}
+          </span>
+
+          <span className="tnum ml-auto shrink-0 text-sm text-vast/50">
+            {best?.bestWpm
+              ? `${Math.round(best.bestWpm)} WPM`
+              : `${Math.round(lesson.durationSec / 60)} min`}
+          </span>
         </span>
 
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-base font-medium">{lesson.title}</span>
-            {/* The two exam constraints are what make a lesson harder than its
-                title suggests, so they are flagged on the row itself. */}
-            {lesson.noBackspace && (
-              <span className="chip chip-flare">No backspace</span>
-            )}
+        <span className="block text-base font-medium leading-snug">
+          {lesson.title}
+        </span>
+
+        {/* Clamped, not truncated: two lines of a rule say what the drill is,
+            where one line usually stops mid-clause. */}
+        <span className="line-clamp-2 block text-sm leading-snug text-vast/60">
+          {lesson.rule ?? lesson.instruction}
+        </span>
+
+        {/* The two exam constraints are what make a lesson harder than its
+            title suggests, so they stay on the tile. */}
+        {(lesson.noBackspace || lesson.hidePositionHighlight || (isNext && !done)) && (
+          <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+            {isNext && !done && <span className="chip chip-lilac">Next up</span>}
+            {lesson.noBackspace && <span className="chip chip-flare">No backspace</span>}
             {lesson.hidePositionHighlight && (
               <span className="chip chip-glow">No highlight</span>
             )}
-            {isNext && !done && <span className="chip chip-lilac">Next up</span>}
           </span>
-          <span className="mt-1 block truncate text-sm text-vast/60">
-            {lesson.rule ?? lesson.instruction}
-          </span>
-        </span>
-
-        <span className="hidden shrink-0 items-center gap-4 text-sm text-vast/50 sm:flex">
-          {best?.bestWpm ? (
-            <span className="tnum">{Math.round(best.bestWpm)} WPM</span>
-          ) : (
-            <span className="tnum">{Math.round(lesson.durationSec / 60)} min</span>
-          )}
-          <ChevronRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={2}
-          />
-        </span>
+        )}
       </button>
     </li>
   );
@@ -238,18 +255,43 @@ function StageSection({
         />
       </div>
 
-      <div className="mt-6 space-y-4">
-        {levels.map((level) => (
-          <div key={level.id} className="card overflow-hidden">
-            <div className="border-b-2 border-vast bg-lumen px-4 py-3 sm:px-5">
+      {/* The chapter is a heading over its own grid now, rather than a box
+          with rows inside it. One less border between a learner and the
+          lessons, and the tiles can use the width the rows were wasting. */}
+      <div className="mt-8 space-y-10">
+        {levels.map((level) => {
+          /* What this chapter actually puts under the fingers. `newKeys` is
+             what it introduces and `keys` what it drills; a chapter that only
+             revises has the second and not the first, so both count. */
+          const chapterKeys = Array.from(
+            new Set(level.lessons.flatMap((l) => [...(l.newKeys ?? []), ...(l.keys ?? [])])),
+          );
+
+          return (
+          <div key={level.id}>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h4 className="text-xl">{level.name}</h4>
-              <p className="mt-1 text-sm text-vast/60">{level.subtitle}</p>
+              <span className={`text-sm ${subtle}`}>{level.subtitle}</span>
             </div>
-            <ul>
-              {level.lessons.map((l) => (
-                <LessonRow
+
+            {/* Before the lessons: which keys and whose fingers, and — where
+                there is one — somebody demonstrating it. Side by side, because
+                they answer the same question in two registers. */}
+            {(chapterKeys.length > 0 || level.videos) && (
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                {chapterKeys.length > 0 && (
+                  <KeyboardZones keys={chapterKeys} caption={level.description} />
+                )}
+                {level.videos && <LessonVideo videos={level.videos} />}
+              </div>
+            )}
+
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {level.lessons.map((l, i) => (
+                <LessonCard
                   key={l.id}
                   lesson={l}
+                  number={i + 1}
                   done={!!progress[l.id]?.qualified}
                   best={progress[l.id]}
                   isNext={l.id === nextLessonId}
@@ -258,7 +300,8 @@ function StageSection({
               ))}
             </ul>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -45,6 +45,35 @@ export type MistakeFocus =
   | 'spelling'
   | 'omission';
 
+/**
+ * A third-party demonstration video.
+ *
+ * `creator` and `channelUrl` are required rather than optional on purpose:
+ * an entry cannot be added without saying whose work it is. Only fill this in
+ * for a video whose creator has left embedding enabled — if they have turned
+ * it off, YouTube refuses to play it in the frame, which is the check working
+ * rather than something to route around.
+ */
+export interface LessonVideo {
+  /**
+   * Which language it is taught in — not what it teaches.
+   *
+   * A Hindi entry means a Hindi-speaking learner can follow the explanation;
+   * most of them are still teaching the English keyboard. The one exception is
+   * the Hindi track on the last chapter, which teaches Devanagari itself
+   * because CHSL offers a Hindi medium at 30 WPM.
+   */
+  lang: 'en' | 'hi';
+  /** The id from the watch URL, e.g. the part after `v=`. */
+  youtubeId: string;
+  /** The video's own title, shown under the player. */
+  title: string;
+  /** Who made it. */
+  creator: string;
+  /** Their channel, linked from the credit. */
+  channelUrl: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -80,6 +109,19 @@ export interface Lesson {
   noBackspace?: boolean;
   /** Hide the word highlight, as the real TCS-iON interface does. */
   hidePositionHighlight?: boolean;
+  /**
+   * Set when the drill is deliberately one-handed.
+   *
+   * Stated rather than guessed. Most early lessons use keys from one hand
+   * only — E and T are both left — but the other hand still rests on the home
+   * row throughout, so inferring this from the key list would rub out a hand
+   * that should be shown resting. These two lessons are different: they tell
+   * the learner to put the idle hand in their lap, and the picture has to
+   * agree with the instruction.
+   */
+  singleHand?: 'left' | 'right';
+  /** Demonstration videos for this lesson, one per language, credited. */
+  videos?: LessonVideo[];
 }
 
 export interface Level {
@@ -90,6 +132,17 @@ export interface Level {
   icon: string;
   /** Which of the six stages this level belongs to. */
   stage: 0 | 1 | 2 | 3 | 4 | 5;
+  /**
+   * A demonstration video for the chapter as a whole.
+   *
+   * Every id below was checked against YouTube's oEmbed endpoint before being
+   * written here, and the title, creator and channel are that response's own
+   * values rather than anything typed from memory. Re-check before adding
+   * more: a wrong id is a dead frame, and a guessed credit is worse than none.
+   * One of the candidates failed that check, which is the whole argument for
+   * running it.
+   */
+  videos?: LessonVideo[];
   lessons: Lesson[];
 }
 
@@ -172,6 +225,24 @@ export const LEVELS: Level[] = [
     description:
       'Baithne ka tareeka, haath ki position, aur home row. Yeh teen cheezein theek ho gayin to speed apne aap aayegi.',
     icon: 'Monitor',
+    videos: [
+      {
+        lang: 'en',
+        youtubeId: 'gfFHkqJZ7so',
+        title:
+          'Touch Typing: Home Row Essentials (Lesson 1)',
+        creator: 'Anson Alexander',
+        channelUrl: 'https://www.youtube.com/@AnsonAlexander',
+      },
+      {
+        lang: 'hi',
+        youtubeId: 'C7r0Mpzkp_U',
+        title:
+          'DAY 1:- Home Row Key Typing Tutorial | Learn English Typing (Hindi)',
+        creator: 'Break Time Tech',
+        channelUrl: 'https://www.youtube.com/@breaktimetech',
+      },
+    ],
     lessons: [
       lesson({
         id: 's0-posture',
@@ -211,6 +282,46 @@ export const LEVELS: Level[] = [
           'Ungli key par rakhein, dabayein nahi. Halka sa touch — muscle memory isi se banti hai.',
       }),
       lesson({
+        id: 's0-home-left',
+        title: 'Baayan haath — A S D F',
+        instruction:
+          'Chhoti ungli A par, ring S par, middle D par, index F par. Sirf baayan haath chalega. Daayan haath god mein rakhein.',
+        rule:
+          'Ek haath pehle. Dono ek saath seekhne mein dugna waqt lagta hai aur dono aadhe-adhoore rehte hain.',
+        keys: ['A', 'S', 'D', 'F'],
+        sampleText: 'aa ss dd ff as df sa fd asdf fdsa ad sf da fs sad fad add',
+        warmupText: 'asdf asdf',
+        durationSec: 90,
+        minAccuracy: 80,
+        xpReward: 10,
+        drillType: 'letters',
+        fingerZones: ['lp', 'lr', 'lm', 'li'],
+        newKeys: [],
+        singleHand: 'left',
+        psychTip:
+          'Dekhein nahi. Galti ho to rukiye, ungli sahi jagah rakhiye, phir aage badhiye.',
+      }),
+      lesson({
+        id: 's0-home-right',
+        title: 'Daayan haath — J K L ;',
+        instruction:
+          'Index J par, middle K par, ring L par, chhoti ungli semicolon par. Ab sirf daayan haath.',
+        rule:
+          'Semicolon ko chhoti ungli hi maarti hai. Yeh aage jaakar comma aur full stop mein kaam aayega.',
+        keys: ['J', 'K', 'L', ';'],
+        sampleText: 'jj kk ll ;; jk l; kj ;l jkl; ;lkj jl k; lj kl jkl jkl;',
+        warmupText: 'jkl; jkl;',
+        durationSec: 90,
+        minAccuracy: 80,
+        xpReward: 10,
+        drillType: 'letters',
+        fingerZones: ['ri', 'rm', 'rr', 'rp'],
+        newKeys: [],
+        singleHand: 'right',
+        psychTip:
+          'Chhoti ungli sabse kamzor hoti hai. Usse chhodiye mat — warna wahi aage jaakar sabse zyada galti karegi.',
+      }),
+      lesson({
         id: 's0-home',
         title: 'Home row — aath ungliyaan',
         instruction:
@@ -225,9 +336,67 @@ export const LEVELS: Level[] = [
         xpReward: 15,
         drillType: 'letters',
         fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
-        newKeys: ['g', 'h'],
+        newKeys: [],
+        /* Title, creator and channel taken verbatim from YouTube's oEmbed
+           response for this id, not typed from memory. */
+        videos: [
+          {
+            lang: 'en',
+            youtubeId: 'gfFHkqJZ7so',
+            title: 'Touch Typing: Home Row Essentials (Lesson 1)',
+            creator: 'Anson Alexander',
+            channelUrl: 'https://www.youtube.com/@AnsonAlexander',
+          },
+          {
+            lang: 'hi',
+            youtubeId: 'C7r0Mpzkp_U',
+            title: 'DAY 1:- Home Row Key Typing Tutorial | Learn English Typing (Hindi)',
+            creator: 'Break Time Tech',
+            channelUrl: 'https://www.youtube.com/@breaktimetech',
+          },
+        ],
         psychTip:
           'Speed abhi bilkul mat sochein. Sirf sahi ungli, sahi key. Speed baad mein free mein milegi.',
+      }),
+      lesson({
+        id: 's0-gh',
+        title: 'G aur H — andar ki taraf',
+        instruction:
+          'G ko baayein index se, H ko daayein index se. Ungli home row par hi rehti hai, bas andar ki taraf khisakti hai.',
+        rule:
+          'Home row ke yeh do akshar seedhe neeche nahi, bagal mein hain. Index ungli khisakti hai, poora haath nahi.',
+        keys: ['G', 'H'],
+        newKeys: ['g', 'h'],
+        sampleText: 'gg hh gh hg gag hah gas has hag lag flash glad half shall',
+        warmupText: 'gg hh gh hg',
+        durationSec: 90,
+        minAccuracy: 82,
+        xpReward: 12,
+        drillType: 'letters',
+        fingerZones: ['li', 'ri'],
+        psychTip:
+          'Haath mat hilaayein. Sirf index ungli lambi karke wapas — F aur J chhootne nahi chahiye.',
+      }),
+      lesson({
+        id: 's0-home-words',
+        title: 'Pehle asli shabd',
+        instruction:
+          'Sirf home row se bane asli shabd. Ab tak aap akshar type kar rahe the — ab shabd.',
+        rule:
+          'Poora shabd ek saath sochiye, ek-ek akshar nahi. Yahin se rawaani shuru hoti hai.',
+        keys: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';'],
+        sampleText:
+          'gas had has lad sad ask all fall hall glad flash flask glass shall salad haggard',
+        warmupText: 'gas had has lad',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 12,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        newKeys: [],
+        psychTip:
+          'Dus akshar se itne shabd ban gaye. Baaki keyboard ke baad kya hoga, sochiye.',
       }),
     ],
   },
@@ -241,6 +410,24 @@ export const LEVELS: Level[] = [
     description:
       'Row ke hisaab se nahi, istemal ke hisaab se. In chhe akshar ke baad aap asli shabd type kar payenge.',
     icon: 'Zap',
+    videos: [
+      {
+        lang: 'en',
+        youtubeId: 'riM5NeijHqY',
+        title:
+          'English Typing Practice for Beginners | Home Row Keys Practice Words',
+        creator: 'Tech Chacha',
+        channelUrl: 'https://www.youtube.com/@TechChacha',
+      },
+      {
+        lang: 'hi',
+        youtubeId: 'aiOnA53Sdtk',
+        title:
+          'Computer English Typing Kaise Kare || English Typing Sikhen',
+        creator: 'Education with Arvind',
+        channelUrl: 'https://www.youtube.com/@educationwitharvind',
+      },
+    ],
     lessons: [
       lesson({
         id: 's1-e-t',
@@ -261,6 +448,27 @@ export const LEVELS: Level[] = [
           'Ungli upar jaakar wapas home row par aani chahiye. Wahan tik mat jaayein.',
       }),
       lesson({
+        id: 's1-et-words',
+        title: 'E aur T — asli shabd mein',
+        instruction:
+          'Ab E aur T ko home row ke saath milaayein. Naye akshar tabhi pakke hote hain jab purane ke saath aayein.',
+        rule:
+          'Naya akshar alag se seekhna aasan hai. Asli imtihaan tab hota hai jab woh purane akshar ke beech aata hai.',
+        keys: ['e', 't', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+        newKeys: [],
+        sampleText:
+          'the she let set get tea eat ate late gate east least shelf staff settle',
+        warmupText: 'the she let set',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['lm', 'li', 'lp', 'lr', 'ri', 'rm', 'rr'],
+        psychTip:
+          'Rukna mat. Agar ungli sochne lagti hai, matlab woh akshar abhi pakka nahi hua.',
+      }),
+      lesson({
         id: 's1-a-o-i-n',
         title: 'O, I aur N',
         instruction:
@@ -277,6 +485,69 @@ export const LEVELS: Level[] = [
         fingerZones: ['rr', 'rm', 'ri'],
         psychTip:
           'Ab aap asli shabd type kar rahe hain. Yeh 12 lesson baad nahi, abhi ho raha hai.',
+      }),
+      lesson({
+        id: 's1-a-o',
+        title: 'A aur O',
+        instruction:
+          'A pehle se home row par hai. O naya hai — daayein haath ki ring ungli upar jaati hai.',
+        rule:
+          'O sabse zyada istemal hone wale swaron mein se hai. Iske bina koi paragraph nahi banta.',
+        keys: ['a', 'o'],
+        newKeys: ['o'],
+        sampleText:
+          'oo aa oa ao too oat load goat float alone total above notes coast',
+        warmupText: 'oo aa oa ao',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['lp', 'rr'],
+        psychTip:
+          'Ring ungli sabse ziddi hoti hai. Dheere chaliye, par sahi chaliye.',
+      }),
+      lesson({
+        id: 's1-i-n',
+        title: 'I aur N',
+        instruction:
+          'I daayein haath ki middle ungli upar, N daayein index neeche. Dono naye.',
+        rule:
+          'I aur N ke baad "ing", "ion", "in" jaise hisse khul jaate hain — English ke sabse aam ant.',
+        keys: ['i', 'n'],
+        newKeys: ['i', 'n'],
+        sampleText:
+          'ii nn in ni nine into thin line join nation intent inside ninth',
+        warmupText: 'ii nn in ni',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['rm', 'ri'],
+        psychTip:
+          'N ke liye index neeche jaati hai, J chhodkar. Turant wapas J par.',
+      }),
+      lesson({
+        id: 's1-aoin-words',
+        title: 'A O I N — jodkar',
+        instruction:
+          'Chhe akshar ho gaye: E T A O I N. Yeh aadhi English hain. Ab inse bane shabd.',
+        rule:
+          'In chhe akshar se hi English ke lagbhag aadhe akshar bante hain. Yeh ittefaq nahi hai — isliye inhein pehle rakha gaya.',
+        keys: ['e', 't', 'a', 'o', 'i', 'n'],
+        newKeys: [],
+        sampleText:
+          'one note nine into tone lion nation intent attention notation elation',
+        warmupText: 'one note nine into',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['lm', 'li', 'lp', 'rr', 'rm', 'ri'],
+        psychTip:
+          'Ab aap asli shabd type kar rahe hain, sirf akshar nahi. Yahi asli shuruaat hai.',
       }),
       lesson({
         id: 's1-r-s-h',
@@ -297,6 +568,48 @@ export const LEVELS: Level[] = [
           '"the", "this", "that", "there" — SSC passage mein yeh shabd sabse zyada aate hain.',
       }),
       lesson({
+        id: 's1-r-h',
+        title: 'R aur H',
+        instruction:
+          'R baayein index upar, H daayein index bagal mein. S aur L pehle se aate hain.',
+        rule:
+          'R aur S milkar "ers", "ers", "ers" jaise ant banate hain jo har sarkari passage mein aate hain.',
+        keys: ['r', 'h', 's', 'l'],
+        newKeys: ['r'],
+        sampleText:
+          'rr hh rh hr her here hear hard harsh share earth other rather short',
+        warmupText: 'rr hh rh hr',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['li', 'ri', 'lr', 'rr'],
+        psychTip:
+          'R ke liye F wali ungli upar-andar jaati hai. Ek hi ungli, do kaam.',
+      }),
+      lesson({
+        id: 's1-rh-words',
+        title: 'R S H — rawaani',
+        instruction:
+          'Ab tak ke sab akshar ek saath. Shabd lambe ho rahe hain — ungli ruke nahi.',
+        rule:
+          'Lamba shabd chhote shabdon se mushkil nahi hota. Bas usmein rukne ke zyada mauke hote hain.',
+        keys: ['e', 't', 'a', 'o', 'i', 'n', 'r', 's', 'h'],
+        newKeys: [],
+        sampleText:
+          'this there their those earth share store shorter another interest honest',
+        warmupText: 'this there their',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['lm', 'li', 'lp', 'rr', 'rm', 'ri', 'lr'],
+        psychTip:
+          'Shabd ke beech mein mat rukiye. Poora shabd ek saans mein.',
+      }),
+      lesson({
         id: 's1-l-d-c-u',
         title: 'L, D, C aur U',
         instruction:
@@ -313,6 +626,48 @@ export const LEVELS: Level[] = [
         fingerZones: ['lm', 'ri', 'rr'],
         psychTip:
           'C ke liye ungli andar aur neeche mudti hai. Poora haath mat hilayein.',
+      }),
+      lesson({
+        id: 's1-c-u',
+        title: 'C aur U',
+        instruction:
+          'C baayein middle neeche, U daayein index upar. D aur L pehle se aate hain.',
+        rule:
+          'C aur U ke baad "count", "court", "public" jaise sarkari passage ke aam shabd type ho jaate hain.',
+        keys: ['c', 'u', 'd', 'l'],
+        newKeys: ['c', 'u'],
+        sampleText:
+          'cc uu cu uc cut cud cure court count could client conduct include',
+        warmupText: 'cc uu cu uc',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['lm', 'ri', 'rr'],
+        psychTip:
+          'C ke liye middle ungli neeche jaati hai — D chhodkar, turant wapas D par.',
+      }),
+      lesson({
+        id: 's1-cu-words',
+        title: 'C D L U — jodkar',
+        instruction:
+          'Naye chaar akshar purane chhe ke saath. Shabd ab poore sarkari lag rahe hain.',
+        rule:
+          'Har naye akshar ke baad ek jodne wala drill. Bina iske naya akshar alag-thalag pada rehta hai.',
+        keys: ['c', 'd', 'l', 'u', 'e', 't', 'a', 'o', 'i', 'n', 'r', 's', 'h'],
+        newKeys: [],
+        sampleText:
+          'could result include conduct located discount national industrial',
+        warmupText: 'could result include',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['lm', 'li', 'ri', 'rr', 'lp', 'rm'],
+        psychTip:
+          'Lambe shabd dar ke liye nahi hote. Woh chhote tukdon se bante hain jo aap jaante hain.',
       }),
       lesson({
         id: 's1-m-p-g-w',
@@ -333,6 +688,69 @@ export const LEVELS: Level[] = [
           'Pinky se P dabate waqt poora haath mat ghumayein. Sirf ungli badhayein.',
       }),
       lesson({
+        id: 's1-m-p',
+        title: 'M aur P',
+        instruction:
+          'M daayein index neeche, P daayein chhoti ungli upar. P sabse door ki key hai.',
+        rule:
+          'P ke liye chhoti ungli poori lambi hoti hai. Yahi woh key hai jahan naye typist haath hila dete hain.',
+        keys: ['m', 'p'],
+        newKeys: ['m', 'p'],
+        sampleText:
+          'mm pp mp pm map imp lamp ramp pump simple prompt import compare',
+        warmupText: 'mm pp mp pm',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['ri', 'rp'],
+        psychTip:
+          'Haath mat khiskaaiye. Sirf chhoti ungli upar — J apni jagah rahe.',
+      }),
+      lesson({
+        id: 's1-g-w',
+        title: 'G aur W',
+        instruction:
+          'G pehle se aata hai. W baayein ring ungli upar — S ke theek upar.',
+        rule:
+          'W aur G milkar "growing", "working", "wages" banate hain — naukri ke passage ke aam shabd.',
+        keys: ['g', 'w'],
+        newKeys: ['w'],
+        sampleText:
+          'ww gg wg gw wag wig grow glow wrong growth working wages weight',
+        warmupText: 'ww gg wg gw',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['lr', 'li'],
+        psychTip:
+          'W ke liye ring ungli seedhi upar. Tirchi gayi to Q lag jaayega.',
+      }),
+      lesson({
+        id: 's1-mpgw-words',
+        title: 'M P G W — jodkar',
+        instruction:
+          'Ab bees se zyada akshar aate hain. Poore vaakya paas hain.',
+        rule:
+          'Yahan se shabd chunna band, likhna shuru. Jo dikh raha hai woh type kariye, bina sochey.',
+        keys: ['m', 'p', 'g', 'w', 'c', 'u', 'e', 't', 'a', 'o', 'i', 'n', 'r', 's', 'h', 'd', 'l'],
+        newKeys: [],
+        sampleText:
+          'group import wages growing prompt company campaign management employment',
+        warmupText: 'group import wages',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['ri', 'rp', 'lr', 'li', 'lm'],
+        psychTip:
+          'Aankh aage padhe, ungli peechhe chale. Dono ek jagah honge to speed nahi aayegi.',
+      }),
+      lesson({
         id: 's1-y-b-v-k',
         title: 'Y, B, V aur K',
         instruction:
@@ -351,6 +769,69 @@ export const LEVELS: Level[] = [
           'B ke liye baayan index andar aur neeche jaata hai. Daayein haath se B mat dabayein.',
       }),
       lesson({
+        id: 's1-y-b',
+        title: 'Y aur B',
+        instruction:
+          'Y daayein index upar, B baayein index neeche. Dono lambi reach hain.',
+        rule:
+          'B aur Y dono index ungli ki sabse lambi reach hain. Yahin galti sabse zyada hoti hai.',
+        keys: ['y', 'b'],
+        newKeys: ['y', 'b'],
+        sampleText:
+          'yy bb yb by bay boy buy body busy yearly nearby probably beyond',
+        warmupText: 'yy bb yb by',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['ri', 'li'],
+        psychTip:
+          'B ke liye baayein index andar-neeche. Yeh awkward lagti hai — practice se seedhi ho jaayegi.',
+      }),
+      lesson({
+        id: 's1-v-k',
+        title: 'V aur K',
+        instruction:
+          'V baayein index neeche, K pehle se home row par hai.',
+        rule:
+          'V kam aata hai par jahan aata hai — "service", "value", "development" — wahan roz aata hai.',
+        keys: ['v', 'k'],
+        newKeys: ['v'],
+        sampleText:
+          'vv kk vk kv van vat kev seven value serve given service develop',
+        warmupText: 'vv kk vk kv',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'letters',
+        fingerZones: ['li', 'rm'],
+        psychTip:
+          'V aur B dono baayein index se. Inhein alag-alag mehsoos karna seekhiye.',
+      }),
+      lesson({
+        id: 's1-ybvk-words',
+        title: 'Y B V K — jodkar',
+        instruction:
+          'Chaar aur akshar. Ab sirf paanch bache hain.',
+        rule:
+          'Kam istemal hone wale akshar bhi utne hi zaroori hain. Ek galti bhi poori galti hai.',
+        keys: ['y', 'b', 'v', 'k', 'm', 'p', 'g', 'w', 'c', 'u', 'e', 't', 'a', 'o', 'i', 'n', 'r', 's', 'h', 'd', 'l'],
+        newKeys: [],
+        sampleText:
+          'above given verify nearby probably yearly knowledge development observation',
+        warmupText: 'above given verify',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 14,
+        xpReward: 15,
+        drillType: 'words',
+        fingerZones: ['ri', 'li', 'rm', 'rp'],
+        psychTip:
+          'Ab keyboard ka bada hissa aapka hai. Baaki paanch akshar sabse kam aate hain.',
+      }),
+      lesson({
         id: 's1-f-j-x-q-z',
         title: 'X, Q, J aur Z — akhri paanch',
         instruction:
@@ -367,6 +848,69 @@ export const LEVELS: Level[] = [
         fingerZones: ['lr', 'lp', 'ri', 'lp'],
         psychTip:
           'Q aur Z pinky se. Pinky kamzor hoti hai — isliye inhe alag se practise karna padta hai.',
+      }),
+      lesson({
+        id: 's1-x-q',
+        title: 'X aur Q',
+        instruction:
+          'X baayein ring neeche, Q baayein chhoti ungli upar. Dono sabse kam aate hain.',
+        rule:
+          'Q hamesha U ke saath aata hai — "qualify", "quarter", "question". Inhein ek jodi ki tarah seekhiye.',
+        keys: ['x', 'q'],
+        newKeys: ['x', 'q'],
+        sampleText:
+          'xx qq xq qx six fix tax quit quiz quota quarter qualify question exact',
+        warmupText: 'xx qq xq qx',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 16,
+        xpReward: 18,
+        drillType: 'letters',
+        fingerZones: ['lr', 'lp'],
+        psychTip:
+          'Q ke liye chhoti ungli upar. Yeh sabse kamzor ungli ki sabse lambi reach hai.',
+      }),
+      lesson({
+        id: 's1-z-j',
+        title: 'Z aur J',
+        instruction:
+          'Z baayein chhoti ungli neeche. J pehle se home row par hai — aapka anchor.',
+        rule:
+          'Z English ka sabse kam istemal hone wala akshar hai, par "size", "zone", "organization" mein roz milta hai.',
+        keys: ['z', 'j'],
+        newKeys: ['z'],
+        sampleText:
+          'zz jj zj jz zip zone size jazz major adjust seized organization',
+        warmupText: 'zz jj zj jz',
+        durationSec: 120,
+        minAccuracy: 85,
+        targetWpm: 16,
+        xpReward: 18,
+        drillType: 'letters',
+        fingerZones: ['lp', 'ri'],
+        psychTip:
+          'Z ke liye chhoti ungli neeche. Aakhri akshar — iske baad poora keyboard aapka.',
+      }),
+      lesson({
+        id: 's1-alphabet-review',
+        title: 'Poora alphabet — ek saath',
+        instruction:
+          'Chhabbis akshar, ek drill. Har akshar kam se kam ek baar aayega.',
+        rule:
+          'Yeh pangram drill hai: har akshar aata hai. Jo ungli atakti hai, wahi akshar abhi kaccha hai.',
+        keys: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'],
+        newKeys: [],
+        sampleText:
+          'the quick brown fox jumps over the lazy dog pack my box with five dozen liquor jugs',
+        warmupText: 'the quick brown fox',
+        durationSec: 150,
+        minAccuracy: 88,
+        targetWpm: 18,
+        xpReward: 25,
+        drillType: 'sentences',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Jahan ungli ruki, wahi akshar dobara practice karein. Baaki sab chhod dijiye.',
       }),
       lesson({
         id: 's1-shift',
@@ -389,6 +933,27 @@ export const LEVELS: Level[] = [
           'Ek hi haath se Shift aur akshar dono dabana speed todta hai. Ulta haath istemal karein.',
       }),
       lesson({
+        id: 's1-shift-names',
+        title: 'Shift — naam aur shuruaat',
+        instruction:
+          'Har vaakya bada akshar se shuru hota hai, har naam bhi. Ulta haath Shift dabata hai.',
+        rule:
+          'Agar left hand ka akshar hai to right Shift, aur ulta. Same haath ka Shift dabaane se haath home row chhod deta hai.',
+        keys: ['Left Shift', 'Right Shift'],
+        newKeys: [],
+        sampleText:
+          'Delhi Mumbai Kolkata Bharat Sarkar Rajya Sabha Lok Sabha Anil Priya Sunita Kumar',
+        warmupText: 'Delhi Mumbai',
+        durationSec: 150,
+        minAccuracy: 88,
+        targetWpm: 18,
+        xpReward: 20,
+        drillType: 'words',
+        fingerZones: ['lp', 'rp'],
+        psychTip:
+          'Ulta Shift. Yeh ek aadat hai jo ek baar pad jaaye to zindagi bhar chalti hai.',
+      }),
+      lesson({
         id: 's1-numbers',
         title: 'Number row — 0 se 9',
         instruction:
@@ -407,6 +972,27 @@ export const LEVELS: Level[] = [
         fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
         psychTip:
           'Number type karte waqt log neeche dekh lete hain. Wahin se place kho jaati hai.',
+      }),
+      lesson({
+        id: 's1-numbers-figures',
+        title: 'Ank — asli aankde',
+        instruction:
+          'Number row par ungli dekhe bina jaati hai. Yeh CGL ke liye sabse zaroori drill hai.',
+        rule:
+          'CGL DEST 8,000 key depressions per hour par chalta hai aur uske passage aankdon se bhare hote hain. Ek ank galat = poori galti.',
+        keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+        newKeys: [],
+        sampleText:
+          '2024 2025 1947 15000 8000 35 wpm 10500 kdph 1,25,000 crore 7.5 percent 12.8 lakh',
+        warmupText: '2024 2025 1947',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 16,
+        xpReward: 22,
+        drillType: 'words',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Ank ke liye aankh neeche mat kijiye. Ek baar dekha, to har baar dekhenge.',
       }),
       lesson({
         id: 's1-punctuation-keys',
@@ -440,6 +1026,24 @@ export const LEVELS: Level[] = [
     description:
       'Ab akshar nahi, poore shabd ek jhatke mein. SSC passage ke 60% shabd inhi 200 mein se hote hain.',
     icon: 'Waves',
+    videos: [
+      {
+        lang: 'en',
+        youtubeId: 'tU_AXrvQjpo',
+        title:
+          'Full Course - How to Type 3x Faster',
+        creator: 'Ali Abdaal',
+        channelUrl: 'https://www.youtube.com/@aliabdaal',
+      },
+      {
+        lang: 'hi',
+        youtubeId: '_-Dpgpqgmo4',
+        title:
+          'Typing Speed कैसे बढ़ाएं? | How To Increase Typing Speed?',
+        creator: 'Guru Chakachak',
+        channelUrl: 'https://www.youtube.com/@GuruChakachak',
+      },
+    ],
     lessons: [
       lesson({
         id: 's2-top100',
@@ -471,6 +1075,48 @@ export const LEVELS: Level[] = [
         drillType: 'bigrams',
         psychTip:
           'Jodi ko ek unit maanein, do alag key nahi. Yahi se 30+ WPM aati hai.',
+      }),
+      lesson({
+        id: 's2-digraphs',
+        title: 'Do akshar ki jodi',
+        instruction:
+          'TH, HE, IN, ER, AN — English mein sabse zyada aane wali do-akshar jodiyaan. Inhein ek movement banaayein.',
+        rule:
+          'Tez typist akshar nahi, jodiyaan type karte hain. "TH" ek hi jhatke mein aata hai, do alag press nahi.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'th he in er an re on at en nd ti es or te of ed is it al ar st to nt ng',
+        warmupText: 'th he in er an',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 24,
+        xpReward: 22,
+        drillType: 'bigrams',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Har jodi ko ek awaaz samajhiye. Do press nahi, ek.',
+      }),
+      lesson({
+        id: 's2-trigraphs',
+        title: 'Teen akshar ke tukde',
+        instruction:
+          'THE, AND, ING, ION, ENT — yeh tukde poore shabd ke hisse hain jo baar-baar aate hain.',
+        rule:
+          'Angrezi ke lagbhag har lambe shabd mein inmein se koi ek tukda hota hai. Ek baar haath mein aa gaye to lamba shabd chhota lagta hai.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'the and ing ion ent for tio her ter est ati hat ers his res ill',
+        warmupText: 'the and ing ion',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 26,
+        xpReward: 22,
+        drillType: 'trigrams',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Tukda pehchaan lijiye, phir ungli apne aap chalti hai.',
       }),
       lesson({
         id: 's2-govt-vocab',
@@ -505,6 +1151,48 @@ export const LEVELS: Level[] = [
           'Yeh shabd spelling mistake ke liye khatarnak hain — aur spelling POORI mistake hai.',
       }),
       lesson({
+        id: 's2-suffixes',
+        title: 'Shabd ke ant — tion, ment, ness',
+        instruction:
+          'Sarkari passage lambe shabdon se bhare hote hain, aur unke ant ginti ke hote hain.',
+        rule:
+          '-tion, -ment, -ness, -able, -ance: paanch ant, aur sarkari bhasha ke aadhe lambe shabd inhi par khatam hote hain.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'nation section relation position payment document agreement statement kindness business acceptable performance assistance',
+        warmupText: 'nation section',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 26,
+        xpReward: 22,
+        drillType: 'words',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Ant pehchaan gaye to poora shabd ek tukde mein chala jaata hai.',
+      }),
+      lesson({
+        id: 's2-double-letters',
+        title: 'Dohre akshar',
+        instruction:
+          'LL, SS, EE, OO, TT, FF — ek hi ungli do baar. Yahi sabse aam spelling galti hai.',
+        rule:
+          'Ek hi ungli se do baar dabana mushkil hai, isliye "committee" aur "necessary" mein sabse zyada galti hoti hai.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'all well still fall shall class pass less across process need seen agreed office staff committee necessary address success',
+        warmupText: 'all well still',
+        durationSec: 150,
+        minAccuracy: 90,
+        targetWpm: 24,
+        xpReward: 22,
+        drillType: 'words',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Do baar dabaiye, poori tarah. Aadha press aadha akshar nahi, galti hai.',
+      }),
+      lesson({
         id: 's2-sentences',
         title: 'Poore vaakya',
         instruction:
@@ -532,6 +1220,24 @@ export const LEVELS: Level[] = [
     description:
       'Speed theek hone ke baad bhi log fail hote hain — half mistakes ki wajah se. Yeh stage sirf yahan hai. Kisi aur platform par nahi milega.',
     icon: 'Target',
+    videos: [
+      {
+        lang: 'en',
+        youtubeId: 'B-3XSj_ZHEQ',
+        title:
+          'Master the Home Row for Fast & Accurate Typing!',
+        creator: 'Foriero',
+        channelUrl: 'https://www.youtube.com/@foriero',
+      },
+      {
+        lang: 'hi',
+        youtubeId: '7oUHiADWnDg',
+        title:
+          'Typing Tips | Typing Kaise Kare || English Typing Sikhen',
+        creator: 'Education with Arvind',
+        channelUrl: 'https://www.youtube.com/@educationwitharvind',
+      },
+    ],
     lessons: [
       lesson({
         id: 's3-capitals',
@@ -792,6 +1498,48 @@ export const LEVELS: Level[] = [
           'Saatvein minute mein dimaag bhatakta hai. Us waqt saans lein aur raftaar pakde rakhein.',
       }),
       lesson({
+        id: 's4-endurance-15',
+        title: 'Pandrah minute — poora CGL',
+        instruction:
+          'CGL DEST poore pandrah minute chalta hai. Yeh drill utni hi lambi hai.',
+        rule:
+          'Pandrah minute mein haath thakta hai aur dhyan tootta hai. Dono ka abhyaas sirf pandrah minute baith kar hi hota hai.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'The Government of India has approved a new scheme for the welfare of workers in the unorganised sector. The scheme will cover nearly twelve crore workers and will be implemented in a phased manner from the next financial year. Beneficiaries will receive a monthly pension after the age of sixty years, subject to regular contribution during the working period.',
+        warmupText: 'The Government of India',
+        durationSec: 900,
+        minAccuracy: 92,
+        targetWpm: 30,
+        xpReward: 60,
+        drillType: 'passage',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Aakhri teen minute hi asli imtihaan hain. Wahin log girte hain.',
+      }),
+      lesson({
+        id: 's4-accuracy-lock',
+        title: 'Sirf shuddhta — speed bhool jaayein',
+        instruction:
+          'Is drill mein speed ka koi target nahi. Sirf ek shart: 98% se kam accuracy chali to fail.',
+        rule:
+          'SSC speed nahi, galti ginta hai. Ek candidate 40 WPM par fail ho sakta hai aur 32 WPM par paas — farq sirf galtiyon ka hai.',
+        keys: [],
+        newKeys: [],
+        sampleText:
+          'Applications are invited from eligible candidates for the post of Lower Division Clerk in various departments under the Government of India. Candidates must possess a valid certificate and should apply through the official portal before the last date.',
+        warmupText: 'Applications are invited',
+        durationSec: 300,
+        minAccuracy: 98,
+        targetWpm: 0,
+        xpReward: 40,
+        drillType: 'passage',
+        fingerZones: ['lp', 'lr', 'lm', 'li', 'ri', 'rm', 'rr', 'rp'],
+        psychTip:
+          'Dheere chaliye. Yahan dheere chalna hi jeetna hai.',
+      }),
+      lesson({
         id: 's4-recovery',
         title: 'Galti ke baad sambhalna',
         instruction:
@@ -823,6 +1571,24 @@ export const LEVELS: Level[] = [
     description:
       'Har post ka alag speed aur alag error cap hai. Yahan aapki hi post ke hisaab se jaanch hoti hai.',
     icon: 'Award',
+    videos: [
+      {
+        lang: 'en',
+        youtubeId: '9eegVWG5_z0',
+        title:
+          'SSC CGL Typing Test - Everything you need to know',
+        creator: 'Mr True Tales',
+        channelUrl: 'https://www.youtube.com/@MrTrueTales',
+      },
+      {
+        lang: 'hi',
+        youtubeId: 'lc8mZnlYHis',
+        title:
+          'Learn Hindi Typing in 5 days | हिन्दी टायपिंग सीखें',
+        creator: 'Learn with Vaya',
+        channelUrl: 'https://www.youtube.com/@LearnTallyinHindi',
+      },
+    ],
     lessons: [
       lesson({
         id: 's5-mock-ldc',

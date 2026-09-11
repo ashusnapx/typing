@@ -313,6 +313,21 @@
     padding: 0.2rem 0.6rem;
   }
 
+  /* The key and the fingertip pulse together.
+     One animation, one duration, and both elements are keyed on the character
+     so they mount in the same frame — which is what keeps the blink on the
+     board and the blink on the nail in step. Two separate timings would drift
+     apart within seconds and read as two unrelated things flashing. */
+  @keyframes tm-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .tm-blink { animation: tm-blink 0.85s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tm-blink { animation: none; }
+  }
+
   .btn-ink { background-color: rgb(var(--vast)); color: rgb(var(--lumen)); }
   .btn-ink:hover:not(:disabled) { background-color: rgb(var(--ink-90)); }
 
@@ -357,6 +372,23 @@
   }
   .segment-item[aria-selected='true'],
   .segment-item[data-active='true'] { background-color: rgb(var(--white)); }
+
+  /* The loud variant, for a choice that changes what you get.
+     A white block on a grey pill is enough to show which of two views you are
+     reading; it is not enough for the language switch on a video, which sits
+     on a grey header where white barely registers and decides whether the
+     next ten minutes are in a language you follow. That one takes the accent
+     and a hard rule around it, the same pairing every button on the site
+     uses for "this is the live one". */
+  .segment-accent { background-color: rgb(var(--white)); }
+  .segment-accent .segment-item[aria-selected='true'],
+  .segment-accent .segment-item[data-active='true'] {
+    background-color: rgb(var(--accent));
+    /* A ring rather than a border, so turning it on does not resize the pill
+       and shove its neighbour sideways. */
+    box-shadow: 0 0 0 2px rgb(var(--vast));
+  }
+  .segment-accent .segment-item { font-size: 0.875rem; padding: 6px 14px; }
 
   /* A hairline between neighbours, so two words on one grey pill read as two
      choices rather than one label. It vanishes beside the selected item, where

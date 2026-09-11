@@ -332,7 +332,11 @@ export default function FAQPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        /* Same reason as the site-wide structured data: an unescaped `<`
+           inside a JSON string can close this script block early. */
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqSchema).replace(/</g, '\\u003c'),
+        }}
       />
 
       {/* ═══════════════════════════════════════════════════ hero — cream */}

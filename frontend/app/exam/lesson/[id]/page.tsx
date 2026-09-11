@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { useMemo } from 'react';
 import LEVELS from '@/lib/typing-curriculum';
 import { LessonExam } from '@/components/exam/lesson-exam';
@@ -8,7 +8,6 @@ import { FullPageLoader } from '@/components/ui/loading-logo';
 
 export default function LessonExamPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params?.id as string;
 
   const { lesson, levelName } = useMemo(() => {
@@ -20,18 +19,13 @@ export default function LessonExamPage() {
     return { lesson: null, levelName: '' };
   }, [id]);
 
+  /* A real 404, not a page that looks like one.
+     This rendered its own 404 panel and still answered 200, so every mistyped
+     or retired lesson id was a live page as far as a crawler was concerned —
+     indexable, and counted as real content. `notFound()` hands it to the app's
+     own not-found boundary with the status to match. */
   if (!lesson) {
-    return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl font-bold text-pencil/30 font-marker mb-4">404</div>
-          <p className="text-lg text-pencil/60 font-hand mb-4">Lesson not found</p>
-          <button onClick={() => router.push('/learn')} className="btn btn-primary btn-md">
-            Back to Lessons
-          </button>
-        </div>
-      </div>
-    );
+    notFound();
   }
 
   return <LessonExam lesson={lesson} levelName={levelName} />;

@@ -19,7 +19,13 @@ function Json({ id, data }: { id: string; data: unknown }) {
       type="application/ld+json"
       id={id}
       // Static, and built from our own config — no user input reaches it.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      /* `</script>` inside a JSON string ends the block early, and everything
+         after it is parsed as markup. Nothing here is user-authored today, but
+         it is all built from curriculum and config that people edit, and one
+         stray angle bracket should not be able to turn a data island into an
+         injection point. Escaping the opening bracket is invisible to a JSON
+         parser and disarms the whole class. */
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
     />
   );
 }

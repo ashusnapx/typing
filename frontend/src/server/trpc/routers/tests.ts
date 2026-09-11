@@ -122,15 +122,62 @@ export const testsRouter = router({
       const testId = crypto.randomUUID();
       const createdAt = new Date();
 
-      const report = input.originalContent && input.typedContent
-        ? errorEngine.evaluate(
-            input.originalContent,
-            input.typedContent,
-            input.durationSeconds,
-            input.mode,
-            input.timeTakenSeconds,
-          )
-        : null;
+      /* The keystroke log has to corroborate the typed text.
+       *
+       * `originalContent`, `typedContent` and `timeTakenSeconds` all arrive
+       * from the client, and the server scored them as-is — so a POST with the
+       * passage as both fields, a one-second time and an empty keystroke array
+       * came back 176 WPM, 100%, qualified, worth XP, on the public
+       * leaderboard, without a key ever being pressed. Recomputing the numbers
+       * server-side is not enough when the inputs to that computation are the
+       * forger's to choose.
+       *
+       * The keystroke log is the one input a forger cannot cheaply fake to
+       * match: a real attempt logs a character keystroke for very nearly every
+       * character it produces (auto-inserted spaces are the only slack, so the
+       * count runs at or above the typed length, never far below it). If the
+       * strokes do not back the text, the attempt is treated as unmarkable —
+       * stored, but scored zero and not qualified, exactly as a submission
+       * with no content already is. */
+      const charStrokes = input.keystrokeEvents.filter(
+        (e) => !e.is_backspace && e.key.length === 1,
+      ).length;
+      const typedLen = input.typedContent?.length ?? 0;
+      const corroborated = typedLen < 10 || charStrokes >= typedLen * 0.5;
+
+      /* Elapsed time from the keystrokes themselves, not the client's claim of
+       * how long it took. A forger who sets timeTakenSeconds to 1 to inflate
+       * the speed is overruled by the span its own log actually covers. */
+      const strokeSpanSeconds =
+        input.keystrokeEvents.length >= 2
+          ? (input.keystrokeEvents[input.keystrokeEvents.length - 1].timestamp_ms -
+              input.keystrokeEvents[0].timestamp_ms) /
+            1000
+          : null;
+      const trueTime =
+        strokeSpanSeconds && strokeSpanSeconds > 0
+          ? Math.max(strokeSpanSeconds, input.timeTakenSeconds ?? 0)
+          : input.timeTakenSeconds;
+
+      let report =
+        corroborated && input.originalContent && input.typedContent
+          ? errorEngine.evaluate(
+              input.originalContent,
+              input.typedContent,
+              input.durationSeconds,
+              input.mode,
+              trueTime,
+            )
+          : null;
+
+      /* A physical ceiling, as a backstop for any forgery that gets past the
+       * corroboration check with fabricated keystrokes. Sustained typing tops
+       * out near 120 WPM and the human record sits around 216; 200 is well
+       * clear of any real SSC candidate and squarely below what a fabricated
+       * one-second attempt reports. Over it, the attempt is unmarkable. */
+      if (report && report.sscNetWpm != null && report.sscNetWpm > 200) {
+        report = null;
+      }
 
       // What the speed was actually divided by, and therefore what belongs in
       // the row — not the allotted window, which is what used to be stored.

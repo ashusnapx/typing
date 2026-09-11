@@ -82,7 +82,7 @@ export function LessonVideo({ videos }: { videos: LessonVideoData[] }) {
       <figcaption className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
         <span className="eyebrow">Watch it done</span>
         {available.length > 1 && (
-          <div role="radiogroup" aria-label="Video language" className="segment">
+          <div role="radiogroup" aria-label="Video language" className="segment segment-accent">
             {available.map((v) => (
               <button
                 key={v.lang}

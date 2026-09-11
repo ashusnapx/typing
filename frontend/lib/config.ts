@@ -246,7 +246,12 @@ export const LEGAL = {
    *  brand link on the about page, which together are what tell a crawler that
    *  the house someone searched for and this site are one entity. Confirmed
    *  against the CORS allow-list and the k8s ingress host. */
-  operatorUrl: 'https://mathsmania.com',
+  /*  Taken from the operator, not inferred. It was set to mathsmania.com,
+   *  read off the CORS allow-list and the k8s ingress host — a domain that
+   *  does not resolve at all, so the parent organisation in our structured
+   *  data pointed at nothing. A crawler that follows a dead `url` on an
+   *  entity does not merge it, it discounts it. */
+  operatorUrl: 'https://www.mathsmaniassc.com',
   /** Registered legal name, e.g. "Maths Mania Edutech Private Limited". */
   legalEntityName: '' as string,
   /** Full registered office address, one line per element. */
@@ -260,7 +265,7 @@ export const LEGAL = {
   /** Point these at dedicated mailboxes when they exist. */
   privacyEmail: 'support@mathsmania.com',
   grievanceEmail: 'support@mathsmania.com',
-  telegram: 'https://t.me/mathsmania',
+  telegram: 'https://t.me/quizbymathsmania',
 
   /** Named grievance officer under IT Rules 2021 r. 3(2)(a) and DPDP s. 13. */
   grievanceOfficer: '' as string,
@@ -324,20 +329,28 @@ export const FOOTER = {
     { label: 'Privacy', href: '/privacy' },
     { label: 'Terms', href: '/terms' },
   ],
+  /* The operator's own accounts, taken from the links on mathsmaniassc.com.
+   *
+   *  These were @mathsmania across the board, which is a different party:
+   *  instagram.com/mathsmania belongs to "MathsMan". The footer was sending
+   *  candidates to a stranger, and the same list feeds `sameAs` in our
+   *  structured data — so we were also telling search engines that somebody
+   *  else's profile was this brand's identity, which is the one claim in the
+   *  whole graph that has to be true for any of it to work. */
   socialLinks: [
     {
       label: 'YouTube',
-      href: 'https://youtube.com/@mathsmania',
+      href: 'https://youtube.com/@mathsmaniassc',
       icon: 'Youtube',
     },
     {
       label: 'Instagram',
-      href: 'https://instagram.com/mathsmania',
+      href: 'https://www.instagram.com/mathsmaniassc',
       icon: 'Instagram',
     },
     {
       label: 'Telegram',
-      href: 'https://t.me/mathsmania',
+      href: 'https://t.me/quizbymathsmania',
       icon: 'Send',
     },
     // github.com/mathsmania returns 404 — the account does not exist, so the

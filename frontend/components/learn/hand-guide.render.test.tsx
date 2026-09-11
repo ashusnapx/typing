@@ -26,13 +26,18 @@ describe('the drawing is about the lesson, not about the home row', () => {
     expect(label()).not.toContain('Right');
   });
 
-  it('draws the row the lesson reaches into, and not the ones it does not', () => {
+  it('draws the whole board and lights only the keys in play', () => {
     const { container } = render(<KeyboardHands keys={['e']} />);
     const keys = Array.from(container.querySelectorAll('text')).map((t) => t.textContent);
-    expect(keys).toContain('E'); // the top row is drawn
-    expect(keys).toContain('A'); // the home row always is
-    expect(keys).not.toContain('Z'); // the bottom row is not
-    expect(keys).not.toContain('1'); // nor the number row
+    // The whole board is drawn now, every row of it: a keyboard that changes
+    // shape between lessons is not the keyboard the learner is sitting at.
+    expect(keys).toContain('E');
+    expect(keys).toContain('A');
+    expect(keys).toContain('Z');
+    expect(keys).toContain('1');
+    // What tells the lesson apart is which keys are lit, not which are drawn.
+    const lit = Array.from(container.querySelectorAll('rect[data-lit="true"]'));
+    expect(lit).toHaveLength(1);
   });
 
   it('sends each digit to the right hand', () => {
@@ -46,9 +51,7 @@ describe('the drawing is about the lesson, not about the home row', () => {
 
   it('marks the lesson keys and leaves the rest plain', () => {
     const { container } = render(<KeyboardHands keys={['e']} />);
-    const lit = Array.from(container.querySelectorAll('rect')).filter(
-      (r) => r.getAttribute('fill') === 'url(#keycapLit)',
-    );
+    const lit = container.querySelectorAll('rect[data-lit="true"]');
     expect(lit).toHaveLength(1);
   });
 
@@ -56,9 +59,7 @@ describe('the drawing is about the lesson, not about the home row', () => {
     // A finger can only reach one key at a time, but the lesson teaches all of
     // them, so all of them are marked.
     const { container } = render(<KeyboardHands keys={['y', 'b', 'v', 'k']} />);
-    const lit = Array.from(container.querySelectorAll('rect')).filter(
-      (r) => r.getAttribute('fill') === 'url(#keycapLit)',
-    );
+    const lit = container.querySelectorAll('rect[data-lit="true"]');
     expect(lit).toHaveLength(4);
   });
 });

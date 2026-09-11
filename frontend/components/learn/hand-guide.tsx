@@ -1,4 +1,5 @@
 import {
+  ACTIVE_KEY_COLOR,
   fingerMap,
   FINGER_COLORS,
   FINGER_NAMES,
@@ -71,6 +72,28 @@ const HOME_KEY: Record<Exclude<FingerZone, 'thumb'>, string> = {
 };
 
 const SPACE = { x: 220, y: 300, w: 300, h: 40 };
+
+/** What a key that is not wanted right now looks like. */
+const QUIET_KEY = '#eceae4';
+
+/**
+ * Rounded before it reaches an attribute.
+ *
+ * `Math.atan2`, `Math.hypot` and friends are *implementation-approximated* in
+ * the ECMAScript spec — engines are not required to round them correctly, only
+ * closely. Node and Chrome are both V8 and still disagreed in the last unit of
+ * the last place, which put `rotate(-27.613027823084465 …)` in the server's
+ * HTML and `rotate(-27.613027823084494 …)` in the client's, and React threw a
+ * hydration mismatch over a difference of 3e-14 degrees.
+ *
+ * Two decimals is far below anything a hand can show at this size, and it is
+ * the same number on every engine. It also cuts a few kilobytes of seventeen-
+ * digit floats out of the markup.
+ */
+const r = (n: number) => Math.round(n * 100) / 100;
+
+/** A point, formatted for a path. */
+const pt = (p: { x: number; y: number }) => `${r(p.x)} ${r(p.y)}`;
 
 /* -------------------------------------------------------------------------- */
 /* Key lookup                                                                  */
@@ -170,8 +193,20 @@ const KNUCKLE: Record<Exclude<FingerZone, 'thumb'>, { x: number; y: number; w: n
 const TONE = {
   skin: '#f6d9bd',
   shade: '#e3b492',
+  nail: '#fceadb',
   line: '#1a1a1a',
 } as const;
+
+/**
+ * Where the joints fall along a finger, measured knuckle to tip.
+ *
+ * A finger is three bones. The crease at 0.44 is where the proximal phalanx
+ * meets the middle one, the crease at 0.74 is the joint below the nail, and
+ * the nail sits on the back of the distal phalanx. Real proportions, because
+ * evenly spaced creases are the thing that reads as a drawn-on decoration
+ * rather than a hand.
+ */
+const JOINTS = { pip: 0.44, dip: 0.74, nail: 0.9 } as const;
 
 /** One finger, reaching from its knuckle up to the key it must press. */
 function Finger({
@@ -179,24 +214,82 @@ function Finger({
   tx,
   ty,
   tint,
+  blink = false,
 }: {
   zone: Exclude<FingerZone, 'thumb'>;
   tx: number;
   ty: number;
   /** Filled in this finger's own colour when it is the one being used. */
   tint?: string;
+  /** Pulse the nail, in step with the key on the board. */
+  blink?: boolean;
 }) {
   const { x: kx, y: ky, w: wk } = KNUCKLE[zone];
   const wt = wk - 3;
-  const bend = (ky - ty) * 0.45;
 
-  /* Knuckle to tip, closed with a real semicircular cap. The old tip was two
-     quadratic curves meeting at a point, which is the one shape a fingertip
-     is not. */
-  const body = `M ${kx - wk} ${ky}
-      C ${kx - wk - 2} ${ky - bend} ${tx - wt} ${ty + bend} ${tx - wt} ${ty + 16}
-      A ${wt} ${wt} 0 0 1 ${tx + wt} ${ty + 16}
-      C ${tx + wt} ${ty + bend} ${kx + wk + 2} ${ky - bend} ${kx + wk} ${ky} Z`;
+  /* The finger is built along its own axis.
+   *
+   * It used to be drawn from fixed control points — the edges bowed straight
+   * down the page and the joint creases ran flat across it, whatever direction
+   * the finger was actually pointing. That is fine for a finger resting
+   * straight ahead and wrong for every other one: a reach across to G or H came
+   * out as a lopsided S with a bulge on the outside edge, and the creases sat
+   * at an angle no knuckle bends at.
+   *
+   * Everything below is placed in terms of `u`, the direction from knuckle to
+   * tip, and `n`, the perpendicular. The shape then holds for any reach: it
+   * tapers evenly, the tip cap stays round, and the creases always cross the
+   * finger square.
+   */
+  const tipX = tx;
+  const tipY = ty + 16;
+  const dx = tipX - kx;
+  const dy = tipY - ky;
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+
+  /** A point on the centre line, and the half-width there. */
+  const along = (t: number) => ({
+    x: kx + dx * t,
+    y: ky + dy * t,
+    w: wk + (wt - wk) * t,
+  });
+
+  /** A point offset from the centre line, across the finger. */
+  const across = (t: number, side: 1 | -1, scale = 1) => {
+    const a = along(t);
+    return { x: a.x + nx * a.w * side * scale, y: a.y + ny * a.w * side * scale };
+  };
+
+  const k1 = across(0, 1);
+  const k2 = across(0, -1);
+  const t1 = across(1, 1);
+  const t2 = across(1, -1);
+
+  /* A real finger is not a straight tube — it swells a little through the
+     middle joint. One control point per edge, nudged outward. */
+  const bow = 1.12;
+  const c1 = across(0.5, 1, bow);
+  const c2 = across(0.5, -1, bow);
+
+  /* The tip cap, as a cubic that bulges past the tip along the axis. Two
+     control points at four-thirds of the radius approximate a semicircle
+     closely enough, and unlike an arc they need no sweep flag to be worked
+     out per direction. */
+  const cap = wt * 1.33;
+  const cap1 = { x: t1.x + ux * cap, y: t1.y + uy * cap };
+  const cap2 = { x: t2.x + ux * cap, y: t2.y + uy * cap };
+
+  const body = `M ${pt(k1)}
+      Q ${pt(c1)} ${pt(t1)}
+      C ${pt(cap1)} ${pt(cap2)} ${pt(t2)}
+      Q ${pt(c2)} ${pt(k2)} Z`;
+
+  /** Degrees the finger points in, for rotating the nail with it. */
+  const angle = r((Math.atan2(dy, dx) * 180) / Math.PI + 90);
 
   return (
     <g>
@@ -207,16 +300,77 @@ function Finger({
         strokeWidth={tint ? 3 : 2}
         strokeLinejoin="round"
       />
-      {/* One shade down the far edge — enough to separate two fingers that
-          touch, not enough to read as modelling. */}
+
+      {/* One shade down the shaded edge, following the same axis as the body. */}
       <path
-        d={`M ${tx + wt - 3} ${ty + 22}
-            C ${tx + wt - 3} ${ty + bend} ${kx + wk - 3} ${ky - bend} ${kx + wk - 3} ${ky - 6}`}
+        d={`M ${pt(across(0.88, -1, 0.72))}
+            Q ${pt(across(0.5, -1, 0.78))} ${pt(across(0.08, -1, 0.72))}`}
         fill="none"
         stroke={TONE.shade}
-        strokeWidth={4}
+        strokeWidth={3.4}
         strokeLinecap="round"
       />
+
+      {/* The anatomy, as line work.
+          These were here once as modelled features — creases with soft shadow,
+          a nail with its own gradient and highlight — and that version read as
+          something prosthetic. Drawn flat, at real proportions, in the same ink
+          as the outline, the same features read as an anatomical diagram. What
+          made it creepy was the rendering, not the anatomy. */}
+      {[JOINTS.pip, JOINTS.dip].map((t) => {
+        const a = across(t, 1, 0.76);
+        const b = across(t, -1, 0.76);
+        const mid = along(t);
+        /* Bowed slightly toward the tip, the way a crease sits on a bent
+           joint. */
+        return (
+          <path
+            key={t}
+            d={`M ${pt(a)} Q ${pt({ x: mid.x + ux * 4, y: mid.y + uy * 4 })} ${pt(b)}`}
+            fill="none"
+            stroke={TONE.line}
+            strokeWidth={1.3}
+            strokeOpacity={0.38}
+            strokeLinecap="round"
+          />
+        );
+      })}
+
+      {/* The knuckle, where the finger leaves the hand. */}
+      {(() => {
+        const a = across(0.04, 1, 0.8);
+        const b = across(0.04, -1, 0.8);
+        const m = along(0.04);
+        return (
+          <path
+            d={`M ${pt(a)} Q ${pt({ x: m.x - ux * 8, y: m.y - uy * 8 })} ${pt(b)}`}
+            fill="none"
+            stroke={TONE.line}
+            strokeWidth={1.4}
+            strokeOpacity={0.3}
+            strokeLinecap="round"
+          />
+        );
+      })()}
+
+      {/* The nail, lying on the back of the last phalanx and turning with it. */}
+      {(() => {
+        const nl = along(JOINTS.nail);
+        return (
+          <ellipse
+            className={blink ? 'tm-blink' : undefined}
+            cx={r(nl.x)}
+            cy={r(nl.y)}
+            rx={r(nl.w * 0.62)}
+            ry={r(nl.w * 0.9)}
+            transform={`rotate(${angle} ${r(nl.x)} ${r(nl.y)})`}
+            fill={blink ? ACTIVE_KEY_COLOR : TONE.nail}
+            stroke={TONE.line}
+            strokeWidth={blink ? 1.8 : 1.2}
+            strokeOpacity={blink ? 0.9 : 0.45}
+          />
+        );
+      })()}
     </g>
   );
 }
@@ -276,6 +430,52 @@ function Palm({ cx, dir }: { cx: number; dir: 1 | -1 }) {
         strokeWidth={3}
         strokeLinecap="round"
       />
+
+      {/* The four knuckles of the hand itself, sitting on that line.
+          They rise toward the middle finger and fall away to the little one,
+          which is the arch that makes a back of a hand look like one. */}
+      {[
+        { x: -66, y: 366 },
+        { x: -20, y: 358 },
+        { x: 26, y: 360 },
+        { x: 70, y: 370 },
+      ].map((k) => (
+        <path
+          key={k.x}
+          d={`M ${p(k.x - 15, k.y + 5)} Q ${p(k.x, k.y - 7)} ${p(k.x + 15, k.y + 5)}`}
+          fill="none"
+          stroke={TONE.line}
+          strokeWidth={1.4}
+          strokeOpacity={0.3}
+          strokeLinecap="round"
+        />
+      ))}
+
+      {/* The thumb has one joint and a nail of its own. */}
+      <path
+        d={`M ${p(96, 392)} Q ${p(108, 398)} ${p(116, 408)}`}
+        fill="none"
+        stroke={TONE.line}
+        strokeWidth={1.3}
+        strokeOpacity={0.35}
+        strokeLinecap="round"
+      />
+      {/* Sat on the thumb's tip, mirrored by `dir` alone.
+          Hand-picking an offset per side put the right hand's nail out beyond
+          the edge of the hand, floating in space — the thumb tip is already
+          mirrored, so deriving from it is both shorter and correct on both
+          sides. */}
+      <ellipse
+        cx={cx + dir * 130}
+        cy={360}
+        rx={9}
+        ry={12}
+        transform={`rotate(${dir * 40} ${cx + dir * 130} 360)`}
+        fill={TONE.nail}
+        stroke={TONE.line}
+        strokeWidth={1.2}
+        strokeOpacity={0.45}
+      />
     </g>
   );
 }
@@ -293,6 +493,7 @@ export function KeyboardHands({
   activeKey = null,
   compact = false,
   singleHand,
+  show = 'both',
 }: {
   keys?: string[];
   /**
@@ -306,6 +507,15 @@ export function KeyboardHands({
   activeKey?: string | null;
   /** Drops the frame and the caption, for use inside a running drill. */
   compact?: boolean;
+  /**
+   * Which half to draw.
+   *
+   * Side by side, the board and the hands each get the whole width instead of
+   * sharing one cramped picture, and the blinking key and the blinking nail
+   * are far enough apart to be read as two separate answers to the same
+   * question — which key, and which finger.
+   */
+  show?: 'both' | 'board' | 'hands';
   /**
    * Draw one hand only, for a drill that asks the other to rest in the lap.
    * The picture has to agree with the instruction, or the instruction loses.
@@ -329,11 +539,12 @@ export function KeyboardHands({
     return capFor(HOME_KEY[zone])!;
   };
 
-  /* Only the rows in play: the home row is always drawn because that is where
-     the hands rest, and any row the lesson reaches into is drawn with it. */
-  const rowsShown = new Set<RowName>(['home']);
-  for (const cap of lit.values()) rowsShown.add(cap.row);
-  const visible = BOARD.filter((c) => rowsShown.has(c.row));
+  /* The whole board, every time.
+     It used to draw only the rows in play, so the keyboard changed shape from
+     one lesson to the next and a learner never saw the thing they are actually
+     sitting at. The full board is the constant; what changes is which keys are
+     lit on it. */
+  const visible = BOARD;
 
   const shownFingers =
     singleHand === 'left'
@@ -346,10 +557,25 @@ export function KeyboardHands({
 
   const top = Math.min(...visible.map((c) => c.y)) - 26;
 
+  /* Each half is cropped to what it actually draws, so neither is padded out
+     with the other one's empty space.
+
+     The hands crop follows the fingers rather than sitting at a fixed line: a
+     fixed one has to be low enough for a hand at rest, which then slices the
+     tips off the moment a finger reaches up a row. */
+  const handTop = Math.min(...shownFingers.map((z) => target(z).y + 26)) - 46;
+  const viewBox =
+    show === 'hands'
+      ? `20 ${handTop} 700 ${580 - handTop}`
+      : show === 'board'
+        ? `0 ${top} 740 ${360 - top}`
+        : `0 ${top} 740 ${472 - top}`;
+
   const Frame = compact ? 'div' : 'figure';
+  /* Compact fills whatever box it is given; the viewBox letterboxes inside it. */
 
   return (
-    <Frame className={compact ? 'h-full' : 'card overflow-hidden'}>
+    <Frame className={compact ? 'h-full w-full' : 'card overflow-hidden'}>
       {!compact && (
         <figcaption className="border-b-2 border-vast bg-lumen-dark px-4 py-2.5">
           <span className="eyebrow">
@@ -358,10 +584,14 @@ export function KeyboardHands({
         </figcaption>
       )}
 
-      <div className={compact ? 'flex h-full items-center justify-center' : 'px-4 py-5'}>
+      <div className={compact ? 'flex h-full w-full items-center justify-center' : 'px-4 py-5'}>
         <svg
-          viewBox={`0 ${top} 740 ${560 - top}`}
-          className={compact ? 'max-h-full w-auto' : 'w-full'}
+          viewBox={viewBox}
+          className={compact ? 'h-full w-full' : 'w-full'}
+          /* Top-aligned inside the panel. Letterboxed drawings centre by
+             default, which left a band of nothing under the coach while both
+             pictures floated in the middle of their cells. */
+          preserveAspectRatio={compact ? 'xMidYMin meet' : undefined}
           role="img"
           aria-label={
             reaching.length > 0
@@ -408,7 +638,7 @@ export function KeyboardHands({
           </defs>
 
           {/* Keys. */}
-          {visible.map((cap) => {
+          {show !== 'hands' && visible.map((cap) => {
             const isLit = lit.has(cap.label);
             const isAnchor = cap.label === 'f' || cap.label === 'j';
             return (
@@ -416,15 +646,28 @@ export function KeyboardHands({
                 {/* A key is painted by the finger that owns it. The board
                     then teaches the assignment on its own, and the lesson's
                     own keys still come through yellow on top of it. */}
+                {/* Grey unless it is wanted.
+                    Every key carried its finger's colour before, which put
+                    forty coloured tiles on screen and left the one key that
+                    mattered to compete with all of them. Silent keys step
+                    back; the wanted key takes its finger's colour, the same
+                    colour the coach's chip and the reaching finger are
+                    wearing, so the three read as one instruction. */}
                 <rect
+                  /* Keyed on the character so the key and the nail mount in
+                     the same frame and blink in step. */
+                  key={`cap-${activeKey ?? ''}`}
+                  className={isLit && activeKey ? 'tm-blink' : undefined}
                   x={cap.x - KEY / 2}
                   y={cap.y}
                   width={KEY}
                   height={KEY}
                   rx={9}
-                  fill={isLit ? 'url(#keycapLit)' : FINGER_COLORS[cap.zone]}
+                  data-lit={isLit ? 'true' : undefined}
+                  fill={isLit ? FINGER_COLORS[cap.zone] : QUIET_KEY}
                   stroke="#1a1a1a"
-                  strokeWidth={isLit ? 3 : 2.2}
+                  strokeWidth={isLit ? 3.4 : 1.6}
+                  strokeOpacity={isLit ? 1 : 0.35}
                 />
                 {/* The bevel rides over the colour instead of replacing it.
                     Lit keys skip it — their gradient is already bevelled. */}
@@ -444,38 +687,55 @@ export function KeyboardHands({
                   y={cap.y + 35}
                   textAnchor="middle"
                   fontSize={20}
-                  fontWeight={700}
+                  fontWeight={isLit ? 700 : 500}
                   fill="#1a1a1a"
+                  fillOpacity={isLit ? 1 : 0.42}
                 >
                   {cap.label.toUpperCase()}
                 </text>
+                {/* The bumps on F and J stay findable even when the key is
+                    quiet — they are how a learner locates the row at all. */}
                 {isAnchor && (
-                  <rect x={cap.x - 11} y={cap.y + 44} width={22} height={4} rx={2} fill="#1a1a1a" />
+                  <rect
+                    x={cap.x - 11}
+                    y={cap.y + 44}
+                    width={22}
+                    height={4}
+                    rx={2}
+                    fill="#1a1a1a"
+                    fillOpacity={isLit ? 1 : 0.5}
+                  />
                 )}
               </g>
             );
           })}
 
+          {show !== 'hands' && (
           <rect
             x={SPACE.x}
             y={SPACE.y}
             width={SPACE.w}
             height={SPACE.h}
             rx={9}
-            fill={FINGER_COLORS.thumb}
+            fill={lit.has(' ') ? FINGER_COLORS.thumb : QUIET_KEY}
             stroke="#1a1a1a"
-            strokeWidth={2.2}
+            strokeWidth={lit.has(' ') ? 3.4 : 1.6}
+            strokeOpacity={lit.has(' ') ? 1 : 0.35}
           />
+          )}
+          {show !== 'hands' && (
           <text x={SPACE.x + SPACE.w / 2} y={SPACE.y + 26} textAnchor="middle" fontSize={13} fill="#1a1a1a" opacity={0.55}>
             space — both thumbs
           </text>
+          )}
 
           {/* Both hands under one shadow, so they sit on the board rather than
               float above it. */}
           {/* The colour coding is the lesson, so the hands are translucent
               enough to read it through them. Opaque, they covered eight of the
               ten keys they were drawn to explain. */}
-          <g filter="url(#drop)" opacity={0.92}>
+          {show !== 'board' && (
+          <g filter="url(#drop)" opacity={show === 'hands' ? 1 : 0.74}>
             {/* Fingers first, then the palms over their bases. */}
             {shownFingers.map((z) => {
               const t = target(z);
@@ -485,17 +745,19 @@ export function KeyboardHands({
               const working = activeKey != null && lit.has(t.label);
               return (
                 <Finger
-                  key={z}
+                  key={`${z}-${activeKey ?? ''}`}
                   zone={z}
                   tx={t.x}
                   ty={t.y + 26}
                   tint={working ? FINGER_COLORS[z] : undefined}
+                  blink={working}
                 />
               );
             })}
             {singleHand !== 'right' && <Palm cx={166} dir={1} />}
             {singleHand !== 'left' && <Palm cx={546} dir={-1} />}
           </g>
+          )}
         </svg>
 
         <p className={`mt-3 text-[15px] leading-relaxed text-vast/70 ${compact ? 'hidden' : ''}`}>

@@ -12,14 +12,15 @@ import { blastConfetti } from '@/lib/confetti';
 import { ROUTES } from '@/lib/config';
 import { TypingDisplay } from './typing-display';
 import { Lesson, getNextLessonId } from '@/lib/typing-curriculum';
-import KeyboardSVG from '@/components/learn/keyboard-svg';
 
 import MouseSVG from '@/components/learn/mouse-svg';
 import HindiKeyboardGuide from '@/components/learn/hindi-keyboard-guide';
 import { CapsLockNotice } from '@/components/learn/caps-lock-notice';
 import { KeyboardHands, PostureSideView, LessonKeys, lessonKeysFor } from '@/components/learn/hand-guide';
 import { LiveCoach } from '@/components/learn/live-coach';
+import { useCoach } from '@/hooks/use-coach';
 import { LessonVideo } from '@/components/learn/lesson-video';
+
 
 import {
   Check, CheckCircle2, XCircle, RotateCcw,
@@ -47,6 +48,12 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const [backspaceBlocked, setBackspaceBlocked] = useState(false);
   const { typedContent, originalContent, elapsedSeconds, keystrokeEvents, isComplete } = useTypingEngine('english', true, lesson.drillType === 'letters');
   const [phase, setPhase] = useState<'ready' | 'countdown' | 'typing' | 'result'>('ready');
+  const nextExpected = originalContent[typedContent.length] || null;
+  const coach = useCoach({
+    expectedChar: nextExpected,
+    keystrokeEvents,
+    active: phase === 'typing',
+  });
   const [countdown, setCountdown] = useState(3);
   const [result, setResult] = useState<any>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
@@ -56,6 +63,18 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   useEffect(() => {
     store.setNavHidden(phase === 'typing' || phase === 'countdown');
   }, [phase]);
+
+  /* Put the navbar back on the way out.
+     The effect above hides it for the duration of a drill, but leaving mid-
+     drill unmounts this component while `navHidden` is still true and nothing
+     ever sets it back — so every page the learner visited afterwards had no
+     navigation at all. Unhiding on unmount is the only moment that covers
+     Exit, the browser back button and a crash alike. */
+  useEffect(() => {
+    return () => {
+      useTypingStore.getState().setNavHidden(false);
+    };
+  }, []);
 
   const isMouseLesson = lesson.targetWpm === 0 && lesson.keys.some(k => k.includes('click') || k.includes('scroll'));
   // Curriculum text is authored with deliberate casing — the capitalisation
@@ -458,10 +477,16 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             <div className="card-flat px-4 py-4">
               <dt className="eyebrow">WPM</dt>
               <dd className="mt-1.5">
-                <span className={`tnum font-display text-3xl leading-none ${result.net_wpm >= result.goal_wpm ? 'text-ok' : 'text-err'}`}>
+                <span
+                  className={`tnum font-display text-3xl leading-none ${
+                    !result.goal_wpm || result.net_wpm >= result.goal_wpm ? 'text-ok' : 'text-err'
+                  }`}
+                >
                   {result.net_wpm.toFixed(1)}
                 </span>
-                <span className="mt-1.5 block text-sm text-vast/50">goal {result.goal_wpm}</span>
+                <span className="mt-1.5 block text-sm text-vast/50">
+                  {result.goal_wpm ? `goal ${result.goal_wpm}` : 'no speed goal yet'}
+                </span>
               </dd>
             </div>
           )}
@@ -589,18 +614,6 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
   const currentAccuracy = totalChars > 0 ? calculateAccuracy(correctChars, totalChars) : 100;
   const remainingTime = Math.max(0, lesson.durationSec - elapsedSeconds);
   const nextChar = originalContent[typedContent.length] || null;
-  /* The last keystroke, when it was wrong.
-     Not derived from `typedContent`: the engine runs strict, so a wrong key is
-     refused and never reaches the content at all — reading it back there would
-     mean the coach could never once see a mistake. The keystroke log keeps the
-     refused press, which is the only place the character survives. Only the
-     most recent event counts, so the correction clears the moment they get
-     it right. */
-  const lastStroke = keystrokeEvents[keystrokeEvents.length - 1];
-  const wrongChar =
-    lastStroke && lastStroke.is_error && !lastStroke.is_backspace && lastStroke.key.length === 1
-      ? lastStroke.key
-      : null;
   const keysPreview = typedContent.split('').slice(-50);
   const isHindi = false;
   const progressPct = originalContent.length
@@ -679,7 +692,9 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
             <span className="text-xs text-vast/50">left</span>
           </span>
           <span className="tnum hidden text-xs text-vast/50 sm:inline">
-            goal {lesson.targetWpm} wpm · {lesson.minAccuracy}%
+            {lesson.targetWpm
+              ? `goal ${lesson.targetWpm} wpm · ${lesson.minAccuracy}%`
+              : `accuracy ${lesson.minAccuracy}%`}
           </span>
         </div>
       </div>
@@ -695,14 +710,22 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         </div>
       )}
 
-      {/* ---- the drill ---- */}
-      <div className="mx-auto flex w-full max-w-5xl flex-[2] flex-col overflow-hidden px-5 pb-1 pt-4">
+      {/* ---- the drill ----
+          The passage is bounded, not stretched. It used to take two fifths of
+          the screen whatever it contained, so a drill of forty characters got
+          four lines of text and a hand's height of blank card under it, while
+          the board and the hands — the part a beginner is actually reading —
+          were squeezed into what was left. It now takes the height a few lines
+          need and scrolls past that. */}
+      <div className="mx-auto flex w-full max-w-5xl shrink-0 flex-col px-5 pb-1 pt-4">
         {isHindi && <HindiKeyboardGuide />}
-        <TypingDisplay
-          originalContent={originalContent}
-          typedContent={typedContent}
-          isActive={phase === 'typing'}
-        />
+        <div className="flex h-[clamp(6rem,16vh,11rem)] flex-col">
+          <TypingDisplay
+            originalContent={originalContent}
+            typedContent={typedContent}
+            isActive={phase === 'typing'}
+          />
+        </div>
         <div className="mt-2 flex shrink-0 items-center gap-4">
           <p className="tnum text-xs text-vast/40">
             {typedContent.length} / {originalContent.length} characters
@@ -722,28 +745,37 @@ export function LessonExam({ lesson, levelName }: LessonExamProps) {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-5xl flex-[3] flex-col overflow-hidden px-5 pb-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col overflow-hidden px-5 pb-4">
         <div className="mb-1 shrink-0">
           <CapsLockNotice text={sampleText} compact />
         </div>
         {showKeyboard ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-            {/* Said in words, with the hand doing it alongside. */}
-            <div className="flex w-full max-w-4xl shrink-0 items-stretch gap-3">
-              <div className="min-w-0 flex-1">
-                <LiveCoach expectedChar={nextChar} wrongChar={wrongChar} />
-              </div>
-              <div className="hidden h-32 w-56 shrink-0 lg:block">
-                <KeyboardHands activeKey={nextChar} compact />
-              </div>
-            </div>
-            <div className="min-h-0 w-full max-w-4xl flex-1">
-              <KeyboardSVG
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {/* Said in words, above the hand doing it. */}
+            <div className="mx-auto w-full max-w-3xl shrink-0">
+              <LiveCoach
                 expectedChar={nextChar}
-                typedHistory={keysPreview}
-                keystrokeEvents={keystrokeEvents}
-                showLegend={false}
+                line={coach.line}
+                lang={coach.lang}
               />
+            </div>
+
+            {/* The hands take the whole panel now.
+                A full keyboard diagram sat under them showing the same key
+                lit a second time, in a second style, at a size that squeezed
+                the hands into a thumbnail. A learner mid-drill is looking for
+                one thing — which finger moves next — and two boards competing
+                to answer it is one board too many. */}
+            {/* One picture, from where the learner is sitting.
+                Keyboard and hands were split into two panels side by side, and
+                that reads as a diagram of a keyboard next to a diagram of some
+                hands — two things to look at. Nobody types like that. Every
+                tutor that teaches this well draws the single view you actually
+                have: the board in front of you, your own hands over it, wrists
+                running off the near edge, fingers reaching up onto the keys.
+                One glance answers both questions at once. */}
+            <div className="mx-auto flex min-h-[15rem] w-full max-w-3xl flex-1 justify-center">
+              <KeyboardHands activeKey={nextChar} compact />
             </div>
           </div>
         ) : (

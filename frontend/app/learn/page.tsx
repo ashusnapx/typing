@@ -446,9 +446,13 @@ export default function LearnPage() {
               <a
                 key={stage.id}
                 href={`#stage-${stage.id}`}
-                className={`chip shrink-0 transition-colors hover:bg-dawn ${
-                  stage.id === FEATURED_STAGE ? 'chip-glow' : ''
-                }`}
+                /* No permanent highlight.
+                   Stage 3 wore the accent because it is the course's selling
+                   point, but in a row of jump links an accented one reads as
+                   the one currently selected — so the nav looked like a filter
+                   stuck on "Mistake Mechanics". These all do the same thing,
+                   so they all look the same. */
+                className="chip shrink-0 transition-colors hover:bg-dawn"
               >
                 <span className="tnum">{stage.id}</span>
                 {stage.name}

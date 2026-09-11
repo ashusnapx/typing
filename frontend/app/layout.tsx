@@ -97,7 +97,7 @@ export default function RootLayout({
       className={`${figtree.variable} ${devanagari.variable}`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-screen flex-col bg-bg text-ink antialiased">
+      <body className="flex min-h-screen flex-col bg-bg text-ink antialiased grainy">
         <SiteStructuredData />
         <Reveal />
         <a
